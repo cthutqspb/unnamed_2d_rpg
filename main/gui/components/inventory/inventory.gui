@@ -1,0 +1,196 @@
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+textures {
+  name: "items_project_utumno"
+  texture: "/assets/items/items_project_utumno.tilesource"
+}
+nodes {
+  size {
+    x: 264.0
+    y: 220.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  alpha: 0.0
+}
+nodes {
+  position {
+    z: -1.0
+  }
+  size {
+    x: 264.0
+    y: 220.0
+  }
+  type: TYPE_BOX
+  id: "body"
+  parent: "root"
+}
+nodes {
+  position {
+    y: 98.0
+  }
+  size {
+    x: 264.0
+    y: 24.0
+  }
+  color {
+    x: 0.3019608
+    y: 0.3019608
+    z: 0.3019608
+  }
+  type: TYPE_BOX
+  id: "header"
+  parent: "root"
+}
+nodes {
+  position {
+    x: 119.0
+  }
+  size {
+    x: 26.0
+    y: 24.0
+  }
+  color {
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "close_button"
+  parent: "header"
+}
+nodes {
+  size {
+    x: 20.0
+    y: 20.0
+  }
+  type: TYPE_TEXT
+  text: "X"
+  font: "gui_title"
+  id: "icon"
+  parent: "close_button"
+}
+nodes {
+  position {
+    x: -130.0
+  }
+  size {
+    x: 236.0
+    y: 24.0
+  }
+  color {
+    x: 0.7019608
+    y: 0.7019608
+    z: 0.101960786
+  }
+  type: TYPE_TEXT
+  text: "Inventory"
+  font: "gui_title"
+  id: "title"
+  pivot: PIVOT_W
+  parent: "header"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: -132.0
+    y: 86.0
+  }
+  size {
+    x: 264.0
+    y: 178.0
+  }
+  color {
+    x: 0.6
+    y: 0.3019608
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "container"
+  pivot: PIVOT_NW
+  parent: "root"
+}
+nodes {
+  position {
+    y: -101.0
+  }
+  size {
+    x: 264.0
+    y: 18.0
+  }
+  color {
+    x: 0.4
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_BOX
+  id: "footer"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "slot_prefab"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+  enabled: false
+}
+nodes {
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "slot_prefab/root"
+  parent: "slot_prefab"
+  overridden_fields: 4
+  overridden_fields: 5
+  overridden_fields: 7
+  overridden_fields: 14
+  overridden_fields: 20
+  overridden_fields: 21
+  overridden_fields: 28
+  overridden_fields: 29
+  overridden_fields: 46
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 36.0
+    y: 36.0
+  }
+  type: TYPE_BOX
+  id: "slot_prefab/icon"
+  parent: "slot_prefab/root"
+  overridden_fields: 4
+  overridden_fields: 20
+  overridden_fields: 21
+  overridden_fields: 30
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_prefab/count"
+  parent: "slot_prefab/root"
+  overridden_fields: 20
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  type: TYPE_BOX
+  id: "drag_icon"
+  enabled: false
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

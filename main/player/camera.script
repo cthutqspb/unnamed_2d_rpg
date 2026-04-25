@@ -1,0 +1,11 @@
+function init(self)
+    -- Активируем камеру
+    msg.post("#camera1", "acquire_camera_focus")
+    print("Camera activated")
+end
+
+function update(self, dt)
+    -- Следуем за игроком (если нужно)
+    local player_pos = go.get_position()
+    go.set_position(player_pos)
+end

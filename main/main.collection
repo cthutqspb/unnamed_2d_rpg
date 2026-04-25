@@ -1,0 +1,47 @@
+name: "main"
+instances {
+  id: "player"
+  prototype: "/main/player/player.go"
+  position {
+    x: 640.0
+    y: 360.0
+  }
+}
+instances {
+  id: "pine_tree"
+  prototype: "/main/objects/pine_tree.go"
+  children: "pine_tree1"
+  position {
+    x: 605.0
+    y: 923.0
+  }
+}
+instances {
+  id: "pine_tree1"
+  prototype: "/main/objects/pine_tree.go"
+  position {
+    x: 192.0
+    y: 121.0
+    z: 1.0
+  }
+}
+scale_along_z: 0
+embedded_instances {
+  id: "world"
+  data: "components {\n"
+  "  id: \"world\"\n"
+  "  component: \"/main/world.tilemap\"\n"
+  "}\n"
+  ""
+  position {
+    z: 0.5
+  }
+}
+embedded_instances {
+  id: "gui_manager"
+  data: "components {\n"
+  "  id: \"hud\"\n"
+  "  component: \"/main/gui/hud.gui\"\n"
+  "}\n"
+  ""
+}

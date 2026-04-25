@@ -1,0 +1,183 @@
+script: "/main/gui/hud.gui_script"
+nodes {
+  position {
+    x: 200.0
+    y: 1000.0
+  }
+  type: TYPE_TEMPLATE
+  id: "health_bar"
+  inherit_alpha: true
+  template: "/main/gui/components/health_bar/health_bar.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "health_bar/background"
+  parent: "health_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "health_bar/fill"
+  parent: "health_bar"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 200.0
+    y: 970.0
+  }
+  type: TYPE_TEMPLATE
+  id: "mana_bar"
+  inherit_alpha: true
+  template: "/main/gui/components/mana_bar/mana_bar.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "mana_bar/fill"
+  parent: "mana_bar"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 1720.0
+    y: 20.0
+  }
+  type: TYPE_TEMPLATE
+  id: "action_bar"
+  inherit_alpha: true
+  template: "/main/gui/action_bar/action_bar.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/root"
+  parent: "action_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/container"
+  parent: "action_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "action_bar/button_inventory"
+  parent: "action_bar/container"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/button_inventory/root"
+  parent: "action_bar/button_inventory"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "action_bar/button_character"
+  parent: "action_bar/container"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/button_character/root"
+  parent: "action_bar/button_character"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 961.0
+    y: 593.0
+  }
+  type: TYPE_TEMPLATE
+  id: "inventory"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/inventory.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/root"
+  parent: "inventory"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/body"
+  parent: "inventory/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/header"
+  parent: "inventory/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/close_button"
+  parent: "inventory/header"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "inventory/icon"
+  parent: "inventory/close_button"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "inventory/title"
+  parent: "inventory/header"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/container"
+  parent: "inventory/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/footer"
+  parent: "inventory/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory/slot_prefab"
+  parent: "inventory"
+  inherit_alpha: true
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/slot_prefab/root"
+  parent: "inventory/slot_prefab"
+  inherit_alpha: true
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/slot_prefab/icon"
+  parent: "inventory/slot_prefab/root"
+  inherit_alpha: true
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "inventory/slot_prefab/count"
+  parent: "inventory/slot_prefab/root"
+  inherit_alpha: true
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory/drag_icon"
+  parent: "inventory"
+  template_node_child: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

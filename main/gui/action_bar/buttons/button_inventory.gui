@@ -1,0 +1,16 @@
+nodes {
+  size {
+    x: 16.0
+    y: 20.0
+  }
+  color {
+    y: 0.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  pivot: PIVOT_SE
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

@@ -1,0 +1,34 @@
+nodes {
+  size {
+    x: 240.0
+    y: 16.0
+  }
+  color {
+    x: 0.6
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_BOX
+  id: "background"
+  pivot: PIVOT_W
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 240.0
+    y: 16.0
+  }
+  color {
+    x: 0.0
+    y: 0.5019608
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "fill"
+  pivot: PIVOT_W
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

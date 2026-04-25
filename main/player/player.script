@@ -1,0 +1,99 @@
+-- Это как ваш компонент с хуками
+-- init() = useEffect(() => {}, [])
+-- update(dt) = requestAnimationFrame
+-- on_input() = обработчик событий
+
+function init(self)
+    print("Player initialized at position:", go.get_position())
+    -- Центр Full HD экрана
+    go.set_position(vmath.vector3(960, 540, 1.0))
+    -- Запрашиваем фокус ввода (как focus() в DOM)
+    msg.post(".", "acquire_input_focus")
+    
+    -- Состояние игрока (как useState)
+    self.speed = 300  -- пикселей в секунду
+    self.move_input = vmath.vector3(0, 0, 0)  -- запоминаем зажатые клавиши
+    self.max_health = 100
+    self.health = 100
+    self.max_mana = 50
+    self.mana = 50
+    
+    -- Позиция игрока (будем хранить отдельно для плавности)
+    self.position = vmath.vector3(0, 0, 0)
+
+    self.correction = vmath.vector3()  -- ← ДОБАВИТЬ ЭТУ СТРОКУ
+
+    self.world_bounds = {
+        left = 32,
+        right = 1888,    -- 1920 - 32
+        bottom = 32,
+        top = 1048       -- 1080 - 32
+    }
+end
+
+function take_damage(self, damage)
+    print("g pressed")  
+    self.health = math.max(0, self.health - damage)
+    local percentage = self.health / self.max_health
+    
+    -- Отправляем сообщение в HUD
+    msg.post("/gui_manager", "update_health", { percentage = percentage })
+    
+    print("Health:", self.health, "Percentage:", percentage)
+end
+
+function heal(self, amount)
+    print("h pressed")  
+    self.health = math.min(self.max_health, self.health + amount)
+    local percentage = self.health / self.max_health
+    
+    -- Отправляем сообщение в HUD
+    msg.post("/gui_manager", "update_health", { percentage = percentage })
+    
+    print("Health:", self.health, "Percentage:", percentage)
+end
+
+function update(self, dt)
+    -- Применяем движение плавно каждый кадр
+    if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
+        local pos = go.get_position()
+        local move = vmath.normalize(self.move_input)
+        pos = pos + move * self.speed * dt  -- dt делает движение плавным
+        go.set_position(pos)
+        self.correction = vmath.vector3()
+    end
+end
+
+function on_input(self, action_id, action)
+    -- Только запоминаем, какие клавиши зажаты
+    if action_id == hash("up") then
+        self.move_input.y = action.value
+    elseif action_id == hash("down") then
+        self.move_input.y = -action.value
+    elseif action_id == hash("left") then
+        self.move_input.x = -action.value
+    elseif action_id == hash("right") then
+        self.move_input.x = action.value
+    elseif action_id == hash("take_damage") and action.pressed then
+        take_damage(self, 10)
+    elseif action_id == hash('heal') and action.pressed then
+        heal(self, 10)
+    
+
+    elseif action_id == hash("toggle_inventory") and action.pressed then
+        msg.post("/gui_manager", "toggle_inventory")
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("contact_point_response") then
+        if message.distance > 0 then
+            local proj = vmath.project(self.correction, message.normal * message.distance)
+            if proj < 1 then
+                local comp = (message.distance - message.distance * proj) * message.normal
+                go.set_position(go.get_position() + comp)
+                self.correction = self.correction + comp
+            end
+        end
+    end
+end
