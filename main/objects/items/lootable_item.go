@@ -5,13 +5,16 @@ components {
 embedded_components {
   id: "sprite"
   type: "sprite"
-  data: "default_animation: \"anim\"\n"
+  data: "default_animation: \"crystal_sword\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "textures {\n"
   "  sampler: \"texture_sampler\"\n"
   "  texture: \"/assets/items/items_project_utumno.tilesource\"\n"
   "}\n"
   ""
+  position {
+    z: 1.0
+  }
 }
 embedded_components {
   id: "collisionobject"
@@ -37,4 +40,35 @@ embedded_components {
   "  data: 10.0\n"
   "}\n"
   ""
+}
+embedded_components {
+  id: "item_name"
+  type: "label"
+  data: "size {\n"
+  "  x: 96.0\n"
+  "  y: 24.0\n"
+  "}\n"
+  "font: \"/assets/fonts/gui_title.font\"\n"
+  "material: \"/builtins/fonts/label-df.material\"\n"
+  ""
+  position {
+    y: 24.0
+    z: 1.0
+  }
+}
+embedded_components {
+  id: "amount"
+  type: "label"
+  data: "size {\n"
+  "  x: 12.0\n"
+  "  y: 12.0\n"
+  "}\n"
+  "font: \"/assets/fonts/gui_title.font\"\n"
+  "material: \"/builtins/fonts/label-df.material\"\n"
+  ""
+  position {
+    x: 12.0
+    y: -12.0
+    z: 1.0
+  }
 }

@@ -17,4 +17,9 @@ animations {
   start_tile: 2976
   end_tile: 2976
 }
+animations {
+  id: "lesser_mana_potion"
+  start_tile: 2683
+  end_tile: 2683
+}
 extrude_borders: 2

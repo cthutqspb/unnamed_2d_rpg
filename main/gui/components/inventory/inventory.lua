@@ -67,8 +67,9 @@ function Inventory:init(template_id)
         gui.set_enabled(self.drag_template, false)
     end    
 
-    DragModule.set_item(self, 1, "iron_sword", 1)
-    DragModule.set_item(self, 2, "crystal_sword", 1)
+    self:add_item("iron_sword", 1)
+    self:add_item("crystal_sword", 1)
+    self:add_item("lesser_mana_potion", 5)
     self:set_visible(false)
     DragModule.init(self, d)
 end
@@ -83,19 +84,48 @@ function Inventory:on_input(action_id, action)
 end
 
 function Inventory:add_item(item_id, amount)
-    print('ADD ITEM')
-    -- Ищем пустой слот
-    for i = 1, #self.slots do
-        local slot_data = self.items_data[i]
-        if not slot_data.item_id then
-            DragModule.set_item(self, i, item_id, amount or 1)
-            print("Item added to slot:", i, item_id)
-            return true
+    local data = items_db.get_item(item_id)
+    if not data then
+        print("Unknown item:", item_id)
+        return false
+    end
+    
+    local max_stack = data.max_stack or 1
+    local remaining = amount
+    
+    -- 1. Если предмет стакается, ищем существующие стэки
+    if data.stackable then
+        for i = 1, #self.slots do
+            local slot = self.items_data[i]
+            local item_hash = type(item_id) == "string" and hash(item_id) or item_id
+            print('STACKABLE', slot.item_id, item_id, slot.amount, max_stack)
+            if slot.item_id == item_hash and slot.amount < max_stack then
+                local can_add = max_stack - slot.amount
+                local to_add = math.min(remaining, can_add)
+                slot.amount = slot.amount + to_add
+                DragModule.set_item(self, i, item_id, slot.amount)
+                remaining = remaining - to_add
+                if remaining <= 0 then
+                    return true
+                end
+            end
         end
     end
     
-    print("Inventory full!")
-    -- TODO: выбросить предмет обратно в мир или показать сообщение
+    -- 2. Ищем пустые слоты для новых стэков
+    for i = 1, #self.slots do
+        local slot = self.items_data[i]
+        if not slot.item_id then
+            local to_add = math.min(remaining, max_stack)
+            DragModule.set_item(self, i, item_id, to_add)
+            remaining = remaining - to_add
+            if remaining <= 0 then
+                return true
+            end
+        end
+    end
+    
+    print("Inventory full! Could not add:", amount - remaining, "of", amount)
     return false
 end
 

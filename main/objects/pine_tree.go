@@ -1,3 +1,7 @@
+components {
+  id: "pine_tree"
+  component: "/main/objects/pine_tree.script"
+}
 embedded_components {
   id: "sprite"
   type: "sprite"

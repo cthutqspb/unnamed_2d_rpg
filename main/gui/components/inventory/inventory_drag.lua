@@ -78,11 +78,12 @@ end
 
 function M.set_item(self, slot_index, item_id, amount)
     local slot = self.slots[slot_index]
+    local item_hash = type(item_id) == "string" and hash(item_id) or item_id
     if not slot then return end
 
     local data = items_db.get_item(item_id)
     if data then
-        self.items_data[slot_index] = {item_id = item_id, amount = amount or 1}
+        self.items_data[slot_index] = {item_id = item_hash, amount = amount or 1}
         
         gui.set_enabled(slot.icon, true)
         gui.set_color(slot.icon, data.color)
@@ -227,7 +228,9 @@ function M.drop_item(self, slot_index)
     -- Отправляем сообщение в мир
     msg.post("world", "spawn_dropped_item", {
         item_id = item_data.item_id,
-        amount = item_data.amount
+        amount = item_data.amount,
+        mouse_x = self.mouse_x,  -- координаты мыши в момент дропа
+        mouse_y = self.mouse_y
     })
     
     -- Удаляем из инвентаря

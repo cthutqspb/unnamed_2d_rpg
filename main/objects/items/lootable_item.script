@@ -1,12 +1,73 @@
+go.property("item_id",  hash("unknown"))
+go.property("amount", 1)
+
+local items_db = require "main.modules.items_db"
+local broadcast = require("main.modules.broadcast")
+
+
+-- Вспомогательные функции для HUD
+local function show_highlight(self, go_id)
+    go.set_scale(vmath.vector3(1.2, 1.2, 1), go_id)
+    -- Показываем текст
+    msg.post(msg.url(nil, go_id, "item_name"), "enable")
+end
+
+local function hide_highlight(self, go_id)
+    go.set_scale(vmath.vector3(1, 1, 1), go_id)
+    -- Скрываем текст
+    msg.post(msg.url(nil, go_id, "item_name"), "disable")
+end
+
+local function apply_item_visual(self)
+    local data = items_db.get_item(self.item_id)
+    if data then
+        local sprite_url = msg.url(nil, go.get_id(), "sprite")
+        sprite.play_flipbook(sprite_url, hash(data.animation))
+        label.set_text("#item_name", data.name)
+        if self.amount > 1 then
+            label.set_text("#amount", self.amount)
+        end
+    end
+end
+
 function init(self)
     msg.post(".", "acquire_input_focus")
-    self.item_id = "unknown"  -- обычная переменная
+
+    -- СОХРАНЯЕМ ID этого конкретного предмета в self
+    self.go_id = go.get_id() 
+    -- self.amount = 1
+    self.is_interactable = true
+    
+    if self.item_id ~= hash("unknown") then
+        apply_item_visual(self)
+    end
+    
+    -- Скрываем имя по умолчанию
+    msg.post("#item_name", "disable")
+
+    -- Передаем этот ID внутрь замыкания
+    self.broadcast_handler = function(message_id, message)
+        if message_id == hash("toggle_interactable_highlight") then
+            if message.show then
+                show_highlight(self, self.go_id) -- передаем сохраненный ID
+            else
+                hide_highlight(self, self.go_id)
+            end
+        end
+    end
+    
+    broadcast.subscribe(self.broadcast_handler)
+
+    print("Lootable item type:", self.type)
+    self.highlight_node = nil
+    self.normal_color = vmath.vector4(1,1,1,1)
 end
 
 function final(self)
 	-- Add finalization code here
 	-- Learn more: https://defold.com/manuals/script/
 	-- Remove this function if not needed
+    broadcast.unsubscribe(self.broadcast_handler)
 end
 
 function update(self, dt)
@@ -31,14 +92,38 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	  if message_id == hash("set_item_id") then
+    if message_id == hash("set_item_id") then
         self.item_id = message.item_id
-        print("Item ID set to:", self.item_id)
+        print('AMOUTN', message.amount)
+        self.amount = message.amount or 1
+        
+        -- Получаем данные (уже с переводом внутри!)
+        local data = items_db.get_item(self.item_id)
+        if data then
+            -- Устанавливаем текст в Label
+            label.set_text("#item_name", data.name)
+            if self.amount > 1 then
+                label.set_text("#amount", self.amount)
+            end
+        end
     end
-    
-    if message_id == hash("pickup") then
-        print("Pickup message received for:", self.item_id)
-        msg.post("world", "pickup_item", { item_id = self.item_id })
+    if message_id == hash("click") then
+        print("Lootable item got click, item_id:", self.item_id)
+        
+        -- Проверка дистанции до игрока
+        local player_pos = go.get_position("player")
+        local my_pos = go.get_position()
+        local dist = vmath.length(player_pos - my_pos)
+
+        if dist < 50 then
+            print("Picking up:", self.item_id)
+            msg.post("world", "pickup_item", {
+                item_id = self.item_id,
+                amount = self.amount
+            })
+        else
+            print("Too far:", dist)
+        end
     end
 end
 

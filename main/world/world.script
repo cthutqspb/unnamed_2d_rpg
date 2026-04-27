@@ -1,3 +1,4 @@
+local broadcast = require("main.modules.broadcast")
 local items_db = require("main.modules.items_db")
 local GRID_SIZE = 32
 local DROP_OFFSETS = {
@@ -45,28 +46,44 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	-- Add message-handling code here
-	-- Learn more: https://defold.com/manuals/message-passing/
-	-- Remove this function if not needed
+	  if message_id == hash("toggle_interactable_highlight") then
+        print("Broadcasting via Module...")
+        broadcast.send(message_id, message)
+    end  
+
     if message_id == hash("player_direction") then
         self.player_direction = message.direction
-        
+    
     elseif message_id == hash("spawn_dropped_item") then
         local player_pos = go.get_position("player")
-        local direction = self.player_direction  -- используем сохраненное направление
         
-        local offset = DROP_OFFSETS[direction] or DROP_OFFSETS[1]
+        -- Получаем экранные координаты мыши
+        local mouse_x = message.mouse_x
+        local mouse_y = message.mouse_y
         
-        local drop_pos = vmath.vector3(
-            player_pos.x + offset[1],
-            player_pos.y + offset[2],
-            player_pos.z
-        )
+        -- Преобразуем экранные координаты в мировые
+        local w = sys.get_config("display.width")
+        local h = sys.get_config("display.height")
         
+        local world_mouse_x = player_pos.x + (mouse_x - w / 2)
+        local world_mouse_y = player_pos.y + (mouse_y - h / 2)
+        
+        -- Вектор от игрока к курсору
+        local dir = vmath.vector3(world_mouse_x - player_pos.x, world_mouse_y - player_pos.y, 1)
+        local dir_norm = vmath.normalize(dir)
+        
+        -- Расстояние выпадения (40 пикселей от игрока)
+        local drop_distance = 40
+        local drop_pos = player_pos + dir_norm * drop_distance
+        
+        -- Создаём предмет
         local data = items_db.get_item(message.item_id)
         if data then
             local item_go = factory.create("#pickup_factory", drop_pos)
-            msg.post(item_go, "set_item_id", { item_id = message.item_id })
+            msg.post(item_go, "set_item_id", { 
+                item_id = message.item_id,
+                amount = message.amount
+            })
             local sprite_url = msg.url(nil, item_go, "sprite")
             sprite.play_flipbook(sprite_url, hash(data.animation or data.icon))
             
@@ -75,34 +92,53 @@ function on_message(self, message_id, message, sender)
             end
         end
     end
+
+    -- elseif message_id == hash("spawn_dropped_item") then
+    --     local player_pos = go.get_position("player")
+    --     local direction = self.player_direction  -- используем сохраненное направление
+    --     
+    --     local offset = DROP_OFFSETS[direction] or DROP_OFFSETS[1]
+    --     
+    --     local drop_pos = vmath.vector3(
+    --         player_pos.x + offset[1],
+    --         player_pos.y + offset[2],
+    --         player_pos.z
+    --     )
+    --     
+    --     local data = items_db.get_item(message.item_id)
+    --     if data then
+    --         local item_go = factory.create("#pickup_factory", drop_pos)
+    --         msg.post(item_go, "set_item_id", { item_id = message.item_id })
+    --         local sprite_url = msg.url(nil, item_go, "sprite")
+    --         sprite.play_flipbook(sprite_url, hash(data.animation or data.icon))
+    --         
+    --         if data.scale then
+    --             go.set_scale(vmath.vector3(data.scale, data.scale, 1), item_go)
+    --         end
+    --     end
+    -- end
     
     if message_id == hash("pickup_item") then
-        print("pickup_item received in world for:", message.item_id)
-        local player_pos = go.get_position("player")
-        local item_pos = go.get_position(sender)
+        print("World received pickup_item:", message.item_id)
         
-        -- Расстояние между игроком и предметом
-        local distance = vmath.length(player_pos - item_pos)
+        -- Удаляем предмет, который отправил сообщение
+        go.delete(sender)
         
-        print("Distance to item:", distance)
+        -- Добавляем в инвентарь
+        msg.post("/gui_manager", "add_item_to_inventory", {
+            item_id = message.item_id,
+            amount = message.amount
+        })
+    end
+
+    -- world.script
+    if message_id == hash("toggle_interactable_highlight") then        
+        if message_id == hash("toggle_interactable_highlight") then
+        print("World broadcasting via MODULE: " .. tostring(message.show))
         
-        if distance < 50 then
-            print("Item picked up!")
-            
-            -- Сохраняем ID предмета
-            local item_id = message.item_id
-            
-            -- Удаляем предмет из мира
-            go.delete(sender)
-            
-            -- Отправляем сообщение в GUI менеджер для добавления в инвентарь
-            msg.post("/gui_manager", "add_item_to_inventory", {
-                item_id = item_id,
-                amount = 1
-            })
-        else
-            print("Too far!")
-        end
+        -- ВМЕСТО msg.post вызываем функцию модуля
+        broadcast.send(hash("toggle_interactable_highlight"), { show = message.show })
+    end
     end
 end
 

@@ -1,3 +1,5 @@
+local settings = require("main.modules.settings")
+
 function init(self)
 	  msg.post(".", "acquire_input_focus")
     self.pressed = false
@@ -16,19 +18,14 @@ end
 function update(self, dt)
     -- Обновляем позицию курсора каждый кадр
     --local camera = go.get_id("camera")
-    local camera_pos = go.get_position("player")
-    local w = sys.get_config("display.width")
-    local h = sys.get_config("display.height")
-    local width, height = window.get_size()
-
-    print("Action X:",  width, height)
-
-    local world_x = camera_pos.x + (self.mouse_x - w / 2)
-    local world_y = camera_pos.y - (h / 2 - self.mouse_y)
-    local width, height = window.get_size()
-
-    print("Action X:",  width, height)
-    go.set_position(vmath.vector3(world_x, world_y, 0))
+    local player_pos = go.get_position("player")
+    local w = settings.resolution.width
+    local h = settings.resolution.height
+    
+    local world_x = player_pos.x + (self.mouse_x - w / 2)
+    local world_y = player_pos.y + (self.mouse_y - h / 2)
+    
+    go.set_position(vmath.vector3(world_x, world_y, 0))      
 end
 
 function fixed_update(self, dt)
@@ -41,10 +38,22 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	  if message_id == hash("collision_response") and self.pressed then
+    if message_id == hash("collision_response") and self.pressed then
         print("Clicked on:", message.other_id)
-        msg.post(message.other_id, "click")
-    end
+        
+        -- Проверяем дистанцию до предмета
+        local player_pos = go.get_position("player")
+        local item_pos = go.get_position(message.other_id)
+        local dist = vmath.length(player_pos - item_pos)
+        
+        if dist < 50 then
+            -- Близко — сразу подбираем
+            msg.post(message.other_id, "click")
+        else
+            -- Далеко — отправляем игрока к предмету
+            msg.post("player", "move_to_item", { item_id = message.other_id })
+        end
+    end	  
 end
 
 function on_input(self, action_id, action)

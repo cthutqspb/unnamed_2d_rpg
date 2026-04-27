@@ -1,7 +1,10 @@
+local settings = require("main.modules.settings")
+
 function init(self)
     print("Player initialized at position:", go.get_position())
     -- Центр Full HD экрана
-    go.set_position(vmath.vector3(960, 540, 1.0))
+    local center_x, center_y = settings.get_center()
+    go.set_position(vmath.vector3(center_x, center_y, 1.0))
     -- Запрашиваем фокус ввода (как focus() в DOM)
     msg.post(".", "acquire_input_focus")
     
@@ -19,13 +22,9 @@ function init(self)
 
     self.correction = vmath.vector3()
     self.move_target = nil  -- цель для движения мышью
-
-    self.world_bounds = {
-        left = 32,
-        right = 1888,    -- 1920 - 32
-        bottom = 32,
-        top = 1048       -- 1080 - 32
-    }
+  
+    self.show_interactable = false
+    self.world_bounds = settings.world_bounds
 end
 
 function take_damage(self, damage)
@@ -76,38 +75,16 @@ function update(self, dt)
         pos = pos + move * self.speed * dt
         go.set_position(pos)
     end
-    -- msg.post("world", "player_direction", { direction = self.direction })
-    -- -- Применяем движение плавно каждый кадр
-    -- if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
-    --     local pos = go.get_position()
-    --     local move = vmath.normalize(self.move_input)
-    --     pos = pos + move * self.speed * dt  -- dt делает движение плавным
-    --     go.set_position(pos)
-    --     self.correction = vmath.vector3()
-    -- end
-    --
-    -- if self.move_target then
-    --     -- Движение к цели
-    --     local pos = go.get_position()
-    --     local dir = self.move_target - pos
-    --     local distance = vmath.length(dir)
-    --     
-    --     if distance < 5 then
-    --         -- Дошёл до цели
-    --         self.move_target = nil
-    --     else
-    --         local move = vmath.normalize(dir)
-    --         pos = pos + move * self.speed * dt
-    --         go.set_position(pos)
-    --     end
-    -- elseif self.move_input.x ~= 0 or self.move_input.y ~= 0 then
-    --     -- Обычное движение с клавиатуры (существующий код)
-    --     local pos = go.get_position()
-    --     local move = vmath.normalize(self.move_input)
-    --     pos = pos + move * self.speed * dt
-    --     go.set_position(pos)
-    --     self.correction = vmath.vector3()
-    -- end
+
+    if self.move_target and self.pending_item then
+        local dist = vmath.length(self.move_target - go.get_position())
+        if dist < 15 then
+            -- Подбираем предмет
+            msg.post(self.pending_item, "click")
+            self.move_target = nil
+            self.pending_item = nil
+        end
+    end
 end
 
 function on_input(self, action_id, action)
@@ -145,17 +122,36 @@ function on_input(self, action_id, action)
     elseif action_id == hash("toggle_inventory") and action.pressed then
         msg.post("/gui_manager", "toggle_inventory")
     end   
+
+    if action_id == hash("key_alt") then
+        -- Отправляем ТОЛЬКО когда состояние меняется (pressed или released)
+        if action.pressed then
+            self.show_interactable = true
+            print('ALT PRESSED')
+            msg.post("world", "toggle_interactable_highlight", { show = true })
+        elseif action.released then
+            self.show_interactable = false
+            print('ALT RELEASED')
+            msg.post("world", "toggle_interactable_highlight", { show = false })
+        end
+    end    
 end
 
 function on_message(self, message_id, message, sender)
-    if message_id == hash("contact_point_response") then
-        if message.distance > 0 then
-            local proj = vmath.project(self.correction, message.normal * message.distance)
-            if proj < 1 then
-                local comp = (message.distance - message.distance * proj) * message.normal
-                go.set_position(go.get_position() + comp)
-                self.correction = self.correction + comp
-            end
-        end
+    -- if message_id == hash("contact_point_response") then
+    --     if message.distance > 0 then
+    --         local proj = vmath.project(self.correction, message.normal * message.distance)
+    --         if proj < 1 then
+    --             local comp = (message.distance - message.distance * proj) * message.normal
+    --             go.set_position(go.get_position() + comp)
+    --             self.correction = self.correction + comp
+    --         end
+    --     end
+    -- end
+
+    if message_id == hash("move_to_item") then
+        self.move_target = go.get_position(message.item_id)
+        self.pending_item = message.item_id  -- запоминаем, что после подхода нужно подобрать
+        self.move_input = vmath.vector3(0, 0, 0)
     end
 end
