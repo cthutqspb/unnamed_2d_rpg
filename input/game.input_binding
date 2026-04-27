@@ -43,6 +43,10 @@ key_trigger {
   action: "toggle_inventory"
 }
 mouse_trigger {
-  input: MOUSE_BUTTON_1
+  input: MOUSE_BUTTON_LEFT
   action: "touch"
+}
+mouse_trigger {
+  input: MOUSE_BUTTON_RIGHT
+  action: "mouse_right"
 }
