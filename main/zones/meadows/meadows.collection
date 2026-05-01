@@ -1,0 +1,10 @@
+name: "meadows"
+scale_along_z: 0
+embedded_instances {
+  id: "root"
+  data: "components {\n"
+  "  id: \"chunk_meadows\"\n"
+  "  component: \"/main/tilemaps/meadow.tilemap\"\n"
+  "}\n"
+  ""
+}

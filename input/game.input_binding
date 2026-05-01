@@ -46,6 +46,14 @@ key_trigger {
   input: KEY_LALT
   action: "key_alt"
 }
+key_trigger {
+  input: KEY_N
+  action: "toggle_character_window"
+}
+key_trigger {
+  input: KEY_ESC
+  action: "key_esc"
+}
 mouse_trigger {
   input: MOUSE_BUTTON_LEFT
   action: "touch"

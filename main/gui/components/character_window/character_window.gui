@@ -1,0 +1,580 @@
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+nodes {
+  size {
+    x: 1024.0
+    y: 640.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 300.0
+  }
+  size {
+    x: 1024.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "header"
+  adjust_mode: ADJUST_MODE_STRETCH
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 900.0
+    y: 24.0
+  }
+  color {
+    x: 0.7019608
+    y: 0.7019608
+    z: 0.101960786
+  }
+  type: TYPE_TEXT
+  font: "gui_title"
+  id: "window_title"
+  parent: "header"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: 500.0
+  }
+  size {
+    x: 26.0
+    y: 24.0
+  }
+  color {
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "btn_close"
+  parent: "header"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "X"
+  font: "gui_title"
+  id: "icon"
+  parent: "btn_close"
+}
+nodes {
+  position {
+    y: 12.0
+    z: -1.0
+  }
+  size {
+    x: 1024.0
+    y: 550.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "body"
+  parent: "root"
+  alpha: 0.72
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: -290.0
+  }
+  size {
+    x: 480.0
+    y: 48.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "nav_bar"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -205.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  color {
+    x: 0.6
+    y: 0.8
+    z: 0.8
+  }
+  type: TYPE_BOX
+  id: "btn_character"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -155.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  color {
+    x: 0.2
+    y: 0.3019608
+    z: 0.7019608
+  }
+  type: TYPE_BOX
+  id: "btn_journal"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -105.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  type: TYPE_BOX
+  id: "btn_talents"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 12.0
+  }
+  size {
+    x: 1024.0
+    y: 500.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "pages_container"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 1024.0
+    y: 500.0
+  }
+  color {
+    x: 0.5019608
+    y: 0.7019608
+    z: 0.7019608
+  }
+  type: TYPE_BOX
+  id: "page_character"
+  parent: "pages_container"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -336.0
+  }
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "stats_anchor"
+  parent: "page_character"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "character_stats"
+  parent: "stats_anchor"
+  inherit_alpha: true
+  template: "/main/gui/components/character_window/character_stats.gui"
+}
+nodes {
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/root"
+  parent: "character_stats"
+  inherit_alpha: true
+  overridden_fields: 4
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 220.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_name"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  id: "character_stats/player_name_text"
+  parent: "character_stats/player_name"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 180.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_race"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  id: "character_stats/player_race_text"
+  parent: "character_stats/player_race"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 140.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_class"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  id: "character_stats/player_class_text"
+  parent: "character_stats/player_class"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 100.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_level"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  id: "character_stats/player_level_text"
+  parent: "character_stats/player_level"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "paperdoll _anchor"
+  parent: "page_character"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "character_paperdoll"
+  parent: "paperdoll _anchor"
+  template: "/main/gui/components/character_window/character_paperdoll.gui"
+}
+nodes {
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  color {
+    y: 0.7019608
+    z: 0.6
+  }
+  type: TYPE_BOX
+  id: "character_paperdoll/root"
+  parent: "character_paperdoll"
+  overridden_fields: 4
+  overridden_fields: 5
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 336.0
+  }
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  color {
+    x: 0.4
+    y: 0.4
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "inventory_anchor"
+  parent: "page_character"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory_grid"
+  parent: "inventory_anchor"
+  template: "/main/gui/components/inventory/inventory_grid.gui"
+}
+nodes {
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "inventory_grid/root"
+  parent: "inventory_grid"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "inventory_grid/container"
+  parent: "inventory_grid/root"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/drag_icon"
+  parent: "inventory_grid/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory_grid/slot_prefab"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/root"
+  parent: "inventory_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/icon"
+  parent: "inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "inventory_grid/slot_prefab/count"
+  parent: "inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/drag_icon1"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 320.0
+    y: 500.0
+  }
+  color {
+    x: 0.4
+    y: 0.3019608
+    z: 0.7019608
+  }
+  type: TYPE_BOX
+  id: "page_journal"
+  parent: "pages_container"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "character_journal"
+  parent: "page_journal"
+  inherit_alpha: true
+  template: "/main/gui/components/character_window/character_journal.gui"
+}
+nodes {
+  size {
+    x: 970.0
+    y: 500.0
+  }
+  type: TYPE_BOX
+  id: "character_journal/root"
+  parent: "character_journal"
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  position {
+    x: -336.0
+  }
+  size {
+    x: 300.0
+    y: 500.0
+  }
+  color {
+    x: 0.2
+    y: 0.4
+    z: 0.4
+  }
+  type: TYPE_BOX
+  id: "character_journal/quests"
+  parent: "character_journal/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  overridden_fields: 5
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_journal/text"
+  parent: "character_journal/quests"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 160.0
+  }
+  size {
+    x: 650.0
+    y: 500.0
+  }
+  color {
+    x: 0.7019608
+    y: 0.5019608
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "character_journal/description"
+  parent: "character_journal/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  overridden_fields: 5
+  overridden_fields: 21
+  overridden_fields: 30
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_journal/text1"
+  parent: "character_journal/description"
+  template_node_child: true
+}
+nodes {
+  size {
+    x: 970.0
+    y: 500.0
+  }
+  color {
+    x: 0.3019608
+    y: 0.101960786
+    z: 0.3019608
+  }
+  type: TYPE_BOX
+  id: "page_talents"
+  parent: "pages_container"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "character_talents"
+  parent: "page_talents"
+  inherit_alpha: true
+  template: "/main/gui/components/character_window/character_talents.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_talents/root"
+  parent: "character_talents"
+  template_node_child: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

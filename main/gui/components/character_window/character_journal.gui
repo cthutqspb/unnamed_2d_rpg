@@ -1,0 +1,62 @@
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "quests"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_TEXT
+  text: "\320\242\321\203\321\202 \320\261\321\203\320\264\321\203\321\202 \320\272\320\262\320\265\321\201\321\202\321\213"
+  font: "gui_title"
+  id: "text"
+  parent: "quests"
+  inherit_alpha: true
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "description"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_TEXT
+  text: "\320\236\320\277\320\270\321\201\320\260\320\275\320\270\321\217 \320\272\320\262\320\265\321\201\321\202\320\276\320\262"
+  font: "gui_title"
+  id: "text1"
+  parent: "description"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

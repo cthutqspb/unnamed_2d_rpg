@@ -1,3 +1,4 @@
+local player_inv = require("main.modules.player_inventory")
 local gui_utils = require("main.gui.gui_utils")
 local items_db = require("main.modules.items_db")
 
@@ -68,29 +69,21 @@ function M.create_slots(self)
                 drag = drag
             })
             
-            self.items_data[i] = {item_id = nil, amount = 0}
-            
             gui.set_enabled(slot_icon, false)
             gui.set_enabled(slot_count, false)
         end
     end
 end
 
-function M.set_item(self, slot_index, item_id, amount)
+function M.update_slot_visual(self, slot_index, item_id, amount)
     local slot = self.slots[slot_index]
-    local item_hash = type(item_id) == "string" and hash(item_id) or item_id
     if not slot then return end
 
     local data = items_db.get_item(item_id)
     if data then
-        self.items_data[slot_index] = {item_id = item_hash, amount = amount or 1}
-        
         gui.set_enabled(slot.icon, true)
         gui.set_color(slot.icon, data.color)
-        
-        if data.texture then
-            gui.set_texture(slot.icon, data.texture)
-        end
+        if data.texture then gui.set_texture(slot.icon, data.texture) end
         gui.play_flipbook(slot.icon, hash(data.animation))
 
         if amount and amount > 1 then
@@ -111,7 +104,7 @@ end
 
 function M.on_item_drag_start(self, index)
     msg.post("world", "drag_start")
-    local item_data = self.items_data[index]
+    local item_data = player_inv.items[index]
     if not item_data or not item_data.item_id then 
         self.dragging_index = nil
         return 
@@ -166,88 +159,74 @@ function M.on_item_drag(self, index, dx, dy)
     local local_y = self.mouse_y - root_y
     
     gui.set_position(self.drag_clone, vmath.vector3(local_x, local_y, 1))
+    msg.post("/gui_manager", "refresh_inventories")
 end
 
 function M.on_item_drag_end(self, index)
     msg.post("world", "drag_end")
     if not self.dragging_index then return end
     
-    -- Получаем целевой слот под курсором
     local target_slot = M.get_slot_at_position(self, self.mouse_x, self.mouse_y)
-
-    -- Определяем, над миром ли курсор
     local is_over_world = not M.is_mouse_over_any_gui(self)
     
     if is_over_world then
-        -- ВЫБРОС В МИР
+        -- 1. Выброс в мир (данные удалятся внутри M.drop_item)
         M.drop_item(self, self.dragging_index)
-    
+        -- После дропа обновляем визуал через общий модуль
+        self:refresh() 
+        
     elseif target_slot and target_slot ~= index then
-        -- Меняем предметы местами
-        local source_data = self.items_data[index]
-        local target_data = self.items_data[target_slot]
+        -- 2. ОБМЕН ДАННЫМИ В МОДУЛЕ
+        player_inv.swap_slots(index, target_slot)
+
+        -- 3. ОБНОВЛЯЕМ ВИЗУАЛ
+        -- Теперь вызываем refresh, чтобы оба инвентаря увидели изменения
+        -- Если у тебя есть глобальная ссылка на CharacterWindow, лучше вызвать refresh там
+        self:refresh() 
         
-        -- Обмениваем данные
-        self.items_data[index] = target_data
-        self.items_data[target_slot] = source_data
-        
-        -- Обновляем UI
-        if source_data and source_data.item_id then
-            M.set_item(self, target_slot, source_data.item_id, source_data.amount)
-        else
-            M.clear_slot(self, target_slot)
-        end
-        
-        if target_data and target_data.item_id then
-            M.set_item(self, index, target_data.item_id, target_data.amount)
-        else
-            M.clear_slot(self, index)
-        end
+        -- Если открыто "старое" окно, его тоже надо рефрешнуть. 
+        -- Можно отправить сообщение в HUD: msg.post("hud#gui", "refresh_inventories")
     else
-        -- Возвращаем предмет на место
-        local source_index = self.dragging_index
-        local item_data = self.items_data[source_index]
-        if item_data and item_data.item_id then
-            M.set_item(self, source_index, item_data.item_id, item_data.amount)
-        end
+        -- 4. ВОЗВРАТ (просто перерисовываем как было в данных)
+        self:refresh()
     end
     
-    -- Удаляем клон
+    -- Удаляем клон иконки
     if self.drag_clone then
         gui.delete_node(self.drag_clone)
         self.drag_clone = nil
     end
-    
     self.dragging_index = nil
 end
 
 function M.drop_item(self, slot_index)
-    local item_data = self.items_data[slot_index]
+    local item_data = player_inv.items[slot_index] -- Берем из модуля!
     if not item_data or not item_data.item_id then return end
     
-    -- Отправляем сообщение в мир
     msg.post("world", "spawn_dropped_item", {
         item_id = item_data.item_id,
         amount = item_data.amount,
-        mouse_x = self.mouse_x,  -- координаты мыши в момент дропа
+        mouse_x = self.mouse_x,
         mouse_y = self.mouse_y
     })
     
-    -- Удаляем из инвентаря
-    M.clear_slot(self, slot_index)
+    -- Очищаем данные в модуле
+    item_data.item_id = nil
+    item_data.amount = 0
+    msg.post("/gui_manager", "refresh_inventories")
 end
 
-function M.clear_slot(self, slot_index)
+-- ОЧИСТИТЬ ВИЗУАЛ СЛОТА
+function M.clear_slot_visual(self, slot_index)
     local slot = self.slots[slot_index]
     if slot then
-        self.items_data[slot_index] = {item_id = nil, amount = 0}
         gui.set_enabled(slot.icon, false)
         gui.set_enabled(slot.count, false)
     end
 end
 
 function M.on_slot_click(self, index)
-    print("Click on slot:", index, "Item:", self.items_data[index].item_id)
+    print("Click on slot:", index, "Item:", player_inv.items[index].item_id)
 end
 
 function M.get_slot_at_position(self, screen_x, screen_y)

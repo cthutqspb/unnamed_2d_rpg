@@ -14,7 +14,22 @@ M.data = {
 
 
         ["item_potion_name"] = "Зелье здоровья",
-        ["inventory_title"] = "ИНВЕНТАРЬ",
+        ["inventory_title"] = "Инвентарь",
+        ["character_window"] = "Окно персонажа",
+        ["character_journal"] = "Журнал",
+        ["character_talents"] = "Таланты",
+
+        --Character
+        ["race_human"] = "Человек",
+        ["race_elf"] = "Эльф",
+        ["race_dwarf"] = "Дворф",
+        ["class_warrior"] = "Воин",
+        ["class_mage"] = "Маг",
+        ["class_rogue"] = "Разбойник",
+        ["stat_strength"] = "Сила",
+        ["stat_agility"] = "Ловкость",
+        ["stat_intellect"] = "Интеллект",
+        ["stat_stamina"] = "Выносливость",
     },
     ["en"] = {
         ["item_iron_sword_name"] = "Iron Sword",
@@ -28,7 +43,22 @@ M.data = {
 
 
         ["item_potion_name"] = "Health Potion",
-        ["inventory_title"] = "INVENTORY",
+        ["inventory_title"] = "Inventory",
+        ["character_window"] = "Character window",
+        ["character_journal"] = "Journal",
+        ["character_talents"] = "Talents",
+
+        --Character
+        ["race_human"] = "Human",
+        ["race_elf"] = "Elf",
+        ["race_dwarf"] = "Dwarf",
+        ["class_warrior"] = "Warrior",
+        ["class_mage"] = "Mage",
+        ["class_rogue"] = "Rogue",
+        ["stat_strength"] = "Strength",
+        ["stat_agility"] = "Aglitity",
+        ["stat_intellect"] = "Intellect",
+        ["stat_stamina"] = "Stamina",
     }
 }
 

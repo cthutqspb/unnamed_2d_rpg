@@ -1,3 +1,4 @@
+local player_inv = require("main.modules.player_inventory")
 local DragModule = require("main.gui.components.inventory.inventory_drag")
 local items_db = require("main.modules.items_db")
 
@@ -60,8 +61,6 @@ function M.create_slots(self)
                 drag = drag
             })
             
-            self.items_data[i] = {item_id = nil, amount = 0}
-            
             gui.set_enabled(slot_icon, false)
             gui.set_enabled(slot_count, false)
         end
@@ -71,11 +70,11 @@ end
 function M.set_item(self, slot_index, item_id, amount)
     local slot = self.slots[slot_index]
     if not slot then return end
-
+    
+    player_inv.items[slot_index] = { item_id = item_id, amount = amount or 1}
     local data = items_db.get_item(item_id)
-    if data then
-        self.items_data[slot_index] = {item_id = item_id, amount = amount or 1}
-        
+
+    if data then        
         gui.set_enabled(slot.icon, true)
         gui.set_color(slot.icon, data.color)
         
@@ -93,27 +92,28 @@ function M.set_item(self, slot_index, item_id, amount)
     end
 end
 
-function M.add_item(self, item_id, amount)
-    print('ADD ITEM')
-    -- Ищем пустой слот
-    for i = 1, #self.slots do
-        local slot_data = self.items_data[i]
-        if not slot_data.item_id then
-            self:set_item(i, item_id, amount or 1)
-            print("Item added to slot:", i, item_id)
-            return true
+-- Функция ТОЛЬКО для отрисовки (не меняет данные в модуле)
+function M.update_slot_visual(self, slot_index, item_id, amount)
+    local slot = self.slots[slot_index]
+    if not slot then return end
+    
+    local data = items_db.get_item(item_id)
+    if data then        
+        gui.set_enabled(slot.icon, true)
+        -- ... весь твой код с текстурами и цветами ...
+        if amount and amount > 1 then
+            gui.set_enabled(slot.count, true)
+            gui.set_text(slot.count, tostring(amount))
+        else
+            gui.set_enabled(slot.count, false)
         end
     end
-    
-    print("Inventory full!")
-    -- TODO: выбросить предмет обратно в мир или показать сообщение
-    return false
 end
 
-function M.clear_slot(self, slot_index)
+-- Функция для очистки ТОЛЬКО визуала
+function M.clear_slot_visual(self, slot_index)
     local slot = self.slots[slot_index]
     if slot then
-        self.items_data[slot_index] = {item_id = nil, amount = 0}
         gui.set_enabled(slot.icon, false)
         gui.set_enabled(slot.count, false)
     end

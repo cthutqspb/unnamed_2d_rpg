@@ -1,0 +1,159 @@
+local player_inv = require("main.modules.player_inventory")
+local gui_utils = require("main.gui.gui_utils")
+local strings = require("main.modules.strings")
+local CharacterStats = require("main.gui.components.character_window.character_stats")
+local CharacterPaperdoll = require("main.gui.components.character_window.character_paperdoll")
+local CharacterInventory = require("main.gui.components.inventory.inventory_grid")
+local CharacterJournal = require("main.gui.components.character_window.character_journal")
+local CharacterTalents = require("main.gui.components.character_window.character_talents")
+
+local M = {}
+-- 1. Упрощаем конфиг. Теперь TAB_WIDTH — это ширина всего огромного окна
+local TOTAL_WIDTH = 1024 
+local WINDOW_HEIGHT = 600
+
+local TABS = {
+    character = {
+        window_title = "character_window",
+        btn_key = "btn_character",
+        container_key = "page_character",
+        -- Для сложной вкладки создадим список компонентов внутри
+        sub_components = {
+            { class = CharacterStats, template = "character_stats" },
+            { class = CharacterPaperdoll, template = "character_paperdoll" },
+            { class = CharacterInventory, template = "inventory_grid" }
+        }
+    },
+    journal = {
+        window_title = "character_journal",
+        btn_key = "btn_journal",
+        container_key = "page_journal",
+        template = "character_journal", 
+        components = CharacterJournal
+    },
+    talents = {
+        window_title = "character_talents",
+        btn_key = "btn_talents",
+        container_key = "page_talents",
+        template = "character_talents",
+        components = CharacterTalents
+    }
+}
+
+function M.set_visible(self, visible)
+    gui.set_enabled(self.root, visible)
+end
+
+function M.close_window(self)
+    self:set_visible(false) -- Теперь этот вызов найдет функцию выше
+    print("Window closed")
+end
+
+function M.toggle(self)
+    local current = gui.is_enabled(self.root)
+    self:set_visible(not current)
+end
+
+-- 2. В функции new инициализируем всё дерево
+function M.new(druid, template_id)
+     local self = {
+        druid = druid,
+        template_id = template_id,
+        root = gui.get_node(template_id .. "/root"),
+        body = gui.get_node(template_id .. "/body"),
+        header = gui.get_node(template_id .. "/header"),
+        --title = gui.get_node(template_id .. "/title"),
+        btn_close = gui.get_node(template_id .. "/btn_close"),
+        nav_bar = gui.get_node(template_id .. "/nav_bar"),
+        window_title = gui.get_node(template_id .. "/window_title"),
+        tabs = {},
+        active_tab = nil
+    }
+    -- ... (старая инициализация self.root, self.body и т.д.)
+    self.set_visible = M.set_visible
+    self.toggle = M.toggle
+    self.switch_tab = M.switch_tab
+    self.close_window = M.close_window
+    
+    -- Заголовок для драга (header должен иметь Manual size и покрывать всю верхнюю часть)
+    self.drag = druid:new_drag(self.header, function(_, dx, dy)
+        local pos = gui.get_position(self.root)
+        pos.x = pos.x + dx
+        pos.y = pos.y + dy
+        gui.set_position(self.root, pos)
+    end)
+    -- Чтобы драг не конфликтовал с кнопками на хедере
+    self.drag.is_touch_threshold = true
+    
+    druid:new_button(self.btn_close, function()
+        self:close_window()
+    end)
+
+    for name, cfg in pairs(TABS) do
+        local btn = gui.get_node(template_id .. "/" .. cfg.btn_key)
+        local container = gui.get_node(template_id .. "/" .. cfg.container_key)
+        
+        self.tabs[name] = {
+            window_title = cfg.window_title,
+            btn = btn,
+            container = container,
+            modules = {} -- здесь будут лежать компоненты вкладки
+        }
+
+        -- Инициализируем компоненты (один или несколько)
+        if cfg.sub_components then
+            for _, sub in ipairs(cfg.sub_components) do
+                local full_path = template_id .. "/" .. sub.template
+
+                local instance = druid:new(sub.class, full_path, sub.config)
+
+                table.insert(self.tabs[name].modules, instance)
+
+                if sub.class == CharacterInventory or sub.class == InventoryGrid then
+                    self.inventory_grid = instance
+                    print("Inventory grid link saved!")
+                end
+            end
+        elseif cfg.component then
+            local full_path = template_id .. "/" .. cfg.template_id
+            local instance = druid:new(cfg.component, full_path)
+            table.insert(self.tabs[name].modules, instance)
+        end
+        druid:new_button(btn, function() self:switch_tab(name) end)
+    end
+
+    -- Настраиваем финальный размер окна ОДИН раз
+    gui.set_size(self.body, vmath.vector3(TOTAL_WIDTH, WINDOW_HEIGHT, 0))
+    gui.set_size(self.header, vmath.vector3(TOTAL_WIDTH, 80, 0))
+    
+    
+    self:switch_tab("character")
+    return self
+end
+
+-- 3. Обновляем switch_tab
+function M.switch_tab(self, tab_name)
+    -- 1. Сначала находим данные активной вкладки и обновляем заголовок ОДИН раз
+    local active_tab_data = self.tabs[tab_name]
+    if active_tab_data then
+        local localized_title = strings.get(active_tab_data.window_title) or "No Title"
+        gui.set_text(self.window_title, localized_title)
+    end
+
+    -- 2. Теперь цикл для скрытия/показа нод
+    for name, tab in pairs(self.tabs) do
+        local is_active = (name == tab_name)
+        gui.set_enabled(tab.container, is_active)
+    
+        for _, module in ipairs(tab.modules) do
+            module:set_visible(is_active)
+        end
+
+        gui.set_color(tab.btn, is_active and vmath.vector4(1, 1, 0.6, 1) or vmath.vector4(0.8, 0.8, 0.8, 1))
+    end
+    
+    self.active_tab = tab_name
+end
+
+return M
+

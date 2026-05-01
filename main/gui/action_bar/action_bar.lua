@@ -19,7 +19,10 @@ function ActionBar:init(template_id)
     self.layout:set_margin(4, 4)
 
     -- 3. Список кнопок
-    local buttons = { "button_inventory", "button_character" }
+    local buttons = { 
+        "button_inventory",
+        "button_character"
+    }
     
     for _, id in ipairs(buttons) do
         local path = self.template_id .. "/" .. id .. "/root"
@@ -28,10 +31,13 @@ function ActionBar:init(template_id)
         d:new_button(node, function() 
         print("Клик: " .. id) -- Этот принт ты видишь
         
-        -- ДОБАВЬ ЭТО:
         if id == "button_inventory" then
             msg.post(".", "toggle_inventory") -- "." означает "отправить скрипту этого же объекта"
         end
+        if id == "button_character" then
+            msg.post(".", "toggle_character") -- "." означает "отправить скрипту этого же объекта"
+        end
+
     end)
 
         -- Добавляем в Layout

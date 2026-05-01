@@ -1,3 +1,4 @@
+local character_data = require("main.modules.character_data")
 local settings = require("main.modules.settings")
 
 function init(self)
@@ -7,14 +8,18 @@ function init(self)
     go.set_position(vmath.vector3(center_x, center_y, 1.0))
     -- Запрашиваем фокус ввода (как focus() в DOM)
     msg.post(".", "acquire_input_focus")
-    
+
+    self.pressed_keys = { up = 0, down = 0, left = 0, right = 0 }
     -- Состояние игрока (как useState)
+    self.health = character_data.player.health
+    self.max_health = character_data.player.max_health
+    self.mana = character_data.player.mana
+    self.max_mana = character_data.player.max_mana
+    self.stats = character_data.player.stats
+
+
     self.speed = 300  -- пикселей в секунду
     self.move_input = vmath.vector3(0, 0, 0)  -- запоминаем зажатые клавиши
-    self.max_health = 100
-    self.health = 100
-    self.max_mana = 50
-    self.mana = 50
     self.direction = 1
     
     -- Позиция игрока (будем хранить отдельно для плавности)
@@ -55,25 +60,26 @@ function update(self, dt)
         self.move_target = nil
     end
     
+    -- 1. Собираем вектор направления из того, что пришло из on_input
+    local move = vmath.vector3(self.move_input.x, self.move_input.y, 0)
+    
+    -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
-        -- движение к цели
-        local pos = go.get_position()
-        local dir = self.move_target - pos
-        local distance = vmath.length(dir)
-        
-        if distance < 5 then
-            self.move_target = nil
+        local p = go.get_position()
+        local d = self.move_target - p
+        if vmath.length(d) > 5 then
+            move = vmath.normalize(d)
         else
-            local move = vmath.normalize(dir)
-            pos = pos + move * self.speed * dt
-            go.set_position(pos)
+            self.move_target = nil -- Пришли на место
+            move = vmath.vector3(0,0,0)
         end
-    elseif self.move_input.x ~= 0 or self.move_input.y ~= 0 then
-        -- движение с клавиатуры
-        local pos = go.get_position()
-        local move = vmath.normalize(self.move_input)
-        pos = pos + move * self.speed * dt
-        go.set_position(pos)
+    end
+
+    -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (только один раз за кадр!)
+    if vmath.length(move) > 0 then
+        move = vmath.normalize(move)
+        local current_pos = go.get_position()
+        go.set_position(current_pos + move * self.speed * dt)
     end
 
     if self.move_target and self.pending_item then
@@ -88,22 +94,21 @@ function update(self, dt)
 end
 
 function on_input(self, action_id, action)
-     -- Движение с клавиатуры
+    -- Фиксируем нажатие/отпускание для каждой клавиши
     if action_id == hash("up") then
-        self.move_input.y = action.value
-        self.direction = -2
+        self.pressed_keys.up = action.released and 0 or 1
     elseif action_id == hash("down") then
-        self.move_input.y = -action.value
-        self.direction = 2
+        self.pressed_keys.down = action.released and 0 or 1
     elseif action_id == hash("left") then
-        self.move_input.x = -action.value
-        self.direction = -1
+        self.pressed_keys.left = action.released and 0 or 1
     elseif action_id == hash("right") then
-        self.move_input.x = action.value
-        self.direction = 1
-        
+        self.pressed_keys.right = action.released and 0 or 1
+    end
+
+    self.move_input.x = self.pressed_keys.right - self.pressed_keys.left
+    self.move_input.y = self.pressed_keys.up - self.pressed_keys.down
     -- Движение мышью (правый клик)
-    elseif action_id == hash("mouse_right") and action.pressed then
+    if action_id == hash("mouse_right") and action.pressed then
         local player_pos = go.get_position("player")
         local w = sys.get_config("display.width")
         local h = sys.get_config("display.height")
@@ -121,7 +126,9 @@ function on_input(self, action_id, action)
         heal(self, 10)
     elseif action_id == hash("toggle_inventory") and action.pressed then
         msg.post("/gui_manager", "toggle_inventory")
-    end   
+    elseif action_id == hash("toggle_character") and action.pressed then
+        msg.post("/gui_manager", "toggle_character")
+    end    
 
     if action_id == hash("key_alt") then
         -- Отправляем ТОЛЬКО когда состояние меняется (pressed или released)

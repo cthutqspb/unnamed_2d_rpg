@@ -58,7 +58,7 @@ nodes {
     z: 0.0
   }
   type: TYPE_BOX
-  id: "close_button"
+  id: "btn_close"
   parent: "header"
 }
 nodes {
@@ -70,7 +70,7 @@ nodes {
   text: "X"
   font: "gui_title"
   id: "icon"
-  parent: "close_button"
+  parent: "btn_close"
 }
 nodes {
   position {
@@ -86,7 +86,6 @@ nodes {
     z: 0.101960786
   }
   type: TYPE_TEXT
-  text: "Inventory"
   font: "gui_title"
   id: "title"
   pivot: PIVOT_W

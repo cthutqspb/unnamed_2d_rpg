@@ -18,10 +18,18 @@ end
 function M.send(message_id, message)
     local count = 0
     for callback, _ in pairs(listeners) do
-        count = count + 1
-        callback(message_id, message)
+        -- pcall пытается вызвать функцию. Если объект удален, 
+        -- вызов внутри callback (например, go.get_position) упадет,
+        -- pcall вернет false, и мы просто удалим этого слушателя.
+        local ok, err = pcall(callback, message_id, message)
+        if ok then
+            count = count + 1
+        else
+            listeners[callback] = nil -- Чистим "мертвеца"
+        end
     end
-    print("Sent to " .. count .. " listeners") -- Это покажет, сколько реально объектов слушают
+    -- Теперь принт будет показывать только реально живых слушателей
+    -- print("Sent to " .. count .. " alive listeners") 
 end
 
 return M

@@ -1,0 +1,53 @@
+local CHUNKS = {
+    meadows = { 
+        url = "/world#factory_meadows", 
+        w = 8192, h = 4096, 
+        pos = vmath.vector3(0, 0, 0), -- Игрок появится в центре этой зоны
+        root_id = nil 
+    },    
+}
+
+local PADDING = 500 -- Запас для подгрузки
+
+function update(self, dt)
+    local p_pos = go.get_position("player")
+
+    for name, chunk in pairs(CHUNKS) do
+        local x_min = chunk.pos.x - (chunk.w / 2) - PADDING
+        local x_max = chunk.pos.x + (chunk.w / 2) + PADDING
+        local y_min = chunk.pos.y - (chunk.h / 2) - PADDING
+        local y_max = chunk.pos.y + (chunk.h / 2) + PADDING
+
+        local is_inside = p_pos.x >= x_min and p_pos.x <= x_max and
+                          p_pos.y >= y_min and p_pos.y <= y_max
+
+        -- СПАВН
+        if is_inside and not chunk.root_id then
+            -- Вычисляем точку для левого нижнего угла
+            local spawn_pos = vmath.vector3(
+                chunk.pos.x - (chunk.w / 2), 
+                chunk.pos.y - (chunk.h / 2), 
+                0
+            )
+            
+            -- Спавним коллекцию в вычисленную точку
+            local ids = collectionfactory.create(chunk.url, spawn_pos)
+            
+            -- Находим root (как и раньше)
+            for full_id, _ in pairs(ids) do
+                if string.find(tostring(full_id), "/root") then
+                    chunk.root_id = full_id
+                    break
+                end
+            end
+            print("Чанк загружен и отцентрован: " .. name)
+
+        -- УДАЛЕНИЕ
+        elseif not is_inside and chunk.root_id then
+            -- Удаляем корневой объект, это автоматически удалит всё внутри него (тайлмап и т.д.)
+            go.delete(chunk.root_id)
+            chunk.root_id = nil
+            print("Чанк выгружен: " .. name)
+        end
+    end
+end

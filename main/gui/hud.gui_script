@@ -1,12 +1,11 @@
 local druid = require("druid.druid")
 local HealthBar = require("main.gui.components.health_bar.health_bar")
 local ActionBar = require("main.gui.action_bar.action_bar")
-local Inventory = require("main.gui.components.inventory.inventory") 
+local player_inv = require("main.modules.player_inventory")
+local Inventory = require("main.gui.components.inventory.inventory")
+local CharacterWindow = require("main.gui.components.character_window.character_window")
 
 function init(self)
-	-- Add initialization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
     -- Инициализируем Druid
     self.druid = druid.new(self)
     
@@ -14,7 +13,17 @@ function init(self)
     -- "health_bar" — это ID Template в Outline твоего hud.gui
     self.action_bar = self.druid:new(ActionBar, "action_bar", self.druid)
     self.hp_bar = self.druid:new(HealthBar, "health_bar")
+   
+    
+    -- Character — это модуль, а не Druid-компонент
+    player_inv.init() 
+    player_inv.add_item("iron_sword", 1) -- Добавляем стартовый
+
+    self.character_window = CharacterWindow.new(self.druid, "character_window")
     self.inventory = self.druid:new(Inventory, "inventory")
+
+    self.character_window.inventory_grid:refresh()
+    self.inventory:refresh()
 
     self.msg_handlers = {
         [hash("update_health")] = function(self, message) 
@@ -24,13 +33,18 @@ function init(self)
         [hash("toggle_inventory")] = function(self) 
             print('TOGGLE INVENTORY')
             self.inventory:toggle() 
+        end,
+
+        [hash("toggle_character")] = function(self) 
+            print('TOGGLE CHARACTER')
+            self.character_window:toggle() 
         end
     }
 
      -- Таблица для on_input (клавиатура/хоткеи)
     self.input_handlers = {
-        [hash("toggle_inventory")] = toggle_inventory, -- в input_binding назови его так
-        [hash("character_key")] = function(self) self.char_window:toggle() end
+        [hash("toggle_inventory")] = function(self) self.inventory:toggle() end,
+        [hash("toggle_character_window")] = function(self) self.character_window:toggle() end
     }
     print("HUD initialized")
 end
@@ -38,29 +52,40 @@ end
 
 
 function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	
 end
 
 function update(self, dt)
-	-- Add update code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	
 end
 
 function on_message(self, message_id, message, sender)
-	-- Add message-handling code here
-	-- Learn more: https://defold.com/manuals/message-passing/
-	-- Remove this function if not needed
     local handler = self.msg_handlers[message_id]
     if handler then
         handler(self, message)
     end
 
-    if message_id == hash("add_item_to_inventory") then
-        if self.inventory then
-            self.inventory:add_item(message.item_id, message.amount)
+    if message_id == hash("add_to_inv") then
+        local success = player_inv.add_item(message.item_id, message.amount)
+        if success then
+            -- Обновляем оба инвентаря
+            if self.character_window and self.character_window.inventory_grid then
+                self.character_window.inventory_grid:refresh()
+            end
+            if self.inventory and self.inventory.refresh then
+                self.inventory:refresh()
+            end
+        end
+    end
+
+    if message_id == hash("refresh_inventories") then
+        -- Используем те же ссылки, что и выше
+        if self.character_window and self.character_window.inventory_grid then
+            print('REFRESH CHAR')
+            self.character_window.inventory_grid:refresh()
+        end
+        if self.inventory and self.inventory.refresh then
+            self.inventory:refresh()
         end
     end
 end
@@ -76,11 +101,15 @@ function on_input(self, action_id, action)
         end
     end
 
+    if action_id == hash("key_esc") and action.pressed then
+        if gui.is_enabled(self.character_window.root) then
+            self.character_window:close_window()
+        end
+    end
+
     return self.druid:on_input(action_id, action)
 end
 
 function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
+
 end

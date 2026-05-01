@@ -30,3 +30,6 @@ dependencies#1 = https://github.com/Insality/druid/archive/refs/tags/1.2.2.zip
 [input]
 game_binding = /input/game.input_bindingc
 
+[tilemap]
+max_tile_count = 262144
+

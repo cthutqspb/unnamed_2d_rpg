@@ -2,62 +2,8 @@ name: "main"
 instances {
   id: "player"
   prototype: "/main/player/player.go"
-}
-instances {
-  id: "pine_tree"
-  prototype: "/main/objects/pine_tree.go"
-  children: "pine_tree1"
   position {
-    x: 605.0
-    y: 923.0
-  }
-}
-instances {
-  id: "pine_tree1"
-  prototype: "/main/objects/pine_tree.go"
-  position {
-    x: 192.0
-    y: 121.0
-    z: 1.0
-  }
-}
-instances {
-  id: "lesser_mana_potion"
-  prototype: "/main/objects/items/lootable_item.go"
-  position {
-    x: 721.0
-    y: 621.0
-    z: 1.0
-  }
-  component_properties {
-    id: "lootable_item"
-    properties {
-      id: "item_id"
-      value: "lesser_mana_potion"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "amount"
-      value: "3.0"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "crystal_sword"
-  prototype: "/main/objects/items/lootable_item.go"
-  position {
-    x: 690.0
-    y: 449.0
-    z: 1.0
-  }
-  component_properties {
-    id: "lootable_item"
-    properties {
-      id: "item_id"
-      value: "crystal_sword"
-      type: PROPERTY_TYPE_HASH
-    }
+    z: 0.9
   }
 }
 scale_along_z: 0
@@ -65,16 +11,18 @@ embedded_instances {
   id: "world"
   data: "components {\n"
   "  id: \"world\"\n"
-  "  component: \"/main/world.tilemap\"\n"
-  "}\n"
-  "components {\n"
-  "  id: \"world1\"\n"
   "  component: \"/main/world/world.script\"\n"
   "}\n"
   "embedded_components {\n"
   "  id: \"pickup_factory\"\n"
   "  type: \"factory\"\n"
   "  data: \"prototype: \\\"/main/objects/items/lootable_item.go\\\"\\n"
+  "\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"factory_meadows\"\n"
+  "  type: \"collectionfactory\"\n"
+  "  data: \"prototype: \\\"/main/zones/meadows/meadows.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -89,6 +37,10 @@ embedded_instances {
   "  component: \"/main/gui/hud.gui\"\n"
   "}\n"
   ""
+  position {
+    x: -960.0
+    y: -540.0
+  }
 }
 embedded_instances {
   id: "cursor"
@@ -118,6 +70,14 @@ embedded_instances {
   "  data: 5.0\\n"
   "}\\n"
   "\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "world_controller"
+  data: "components {\n"
+  "  id: \"world_controller\"\n"
+  "  component: \"/main/scripts/world_controller.script\"\n"
   "}\n"
   ""
 }

@@ -1,3 +1,4 @@
+local player_inv = require("main.modules.player_inventory")
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
 local strings = require("main.modules.strings")
@@ -12,7 +13,7 @@ function Inventory:init(template_id)
 
     self.root = gui.get_node(template_id .. "/root")
     self.header = gui.get_node(template_id .. "/header")
-    self.btn_close = gui.get_node(template_id .. "/icon")
+    self.btn_close = gui.get_node(template_id .. "/btn_close")
     self.container = gui.get_node(template_id .. "/container")
     
     -- Шаблон для клонирования (должен быть Box с размерами 40x40)
@@ -35,7 +36,7 @@ function Inventory:init(template_id)
     self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing) 
     self.grid:set_anchor(vmath.vector3(0, 1, 0))
 
-    self.items_data = {}
+    -- self.items_data = {}
     self.dragging_index = nil
     
     DragModule.create_slots(self)
@@ -66,11 +67,8 @@ function Inventory:init(template_id)
     if self.drag_template then
         gui.set_enabled(self.drag_template, false)
     end    
-
-    self:add_item("iron_sword", 1)
-    self:add_item("crystal_sword", 1)
-    self:add_item("lesser_mana_potion", 5)
-    self:set_visible(false)
+    
+    self:refresh()
     DragModule.init(self, d)
 end
 
@@ -83,52 +81,6 @@ function Inventory:on_input(action_id, action)
     end
 end
 
-function Inventory:add_item(item_id, amount)
-    local data = items_db.get_item(item_id)
-    if not data then
-        print("Unknown item:", item_id)
-        return false
-    end
-    
-    local max_stack = data.max_stack or 1
-    local remaining = amount
-    
-    -- 1. Если предмет стакается, ищем существующие стэки
-    if data.stackable then
-        for i = 1, #self.slots do
-            local slot = self.items_data[i]
-            local item_hash = type(item_id) == "string" and hash(item_id) or item_id
-            print('STACKABLE', slot.item_id, item_id, slot.amount, max_stack)
-            if slot.item_id == item_hash and slot.amount < max_stack then
-                local can_add = max_stack - slot.amount
-                local to_add = math.min(remaining, can_add)
-                slot.amount = slot.amount + to_add
-                DragModule.set_item(self, i, item_id, slot.amount)
-                remaining = remaining - to_add
-                if remaining <= 0 then
-                    return true
-                end
-            end
-        end
-    end
-    
-    -- 2. Ищем пустые слоты для новых стэков
-    for i = 1, #self.slots do
-        local slot = self.items_data[i]
-        if not slot.item_id then
-            local to_add = math.min(remaining, max_stack)
-            DragModule.set_item(self, i, item_id, to_add)
-            remaining = remaining - to_add
-            if remaining <= 0 then
-                return true
-            end
-        end
-    end
-    
-    print("Inventory full! Could not add:", amount - remaining, "of", amount)
-    return false
-end
-
 function Inventory:set_visible(is_visible)
     gui.set_enabled(self.root, is_visible)
 end
@@ -136,6 +88,19 @@ end
 function Inventory:toggle()
     local current = gui.is_enabled(self.root)
     self:set_visible(not current)
+end
+
+function Inventory:refresh()
+    -- Если ты не хочешь переписывать всё на InventoryGrid, 
+    -- просто вызови обновление визуалов для этого компонента
+    for i = 1, #self.slots do
+        local data = player_inv.items[i]
+        if data and data.item_id then
+            DragModule.update_slot_visual(self, i, data.item_id, data.amount)
+        else
+            DragModule.clear_slot_visual(self, i)
+        end
+    end
 end
 
 return Inventory

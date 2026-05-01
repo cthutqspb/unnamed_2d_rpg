@@ -1,0 +1,10 @@
+name: "swamp"
+scale_along_z: 0
+embedded_instances {
+  id: "root"
+  data: "components {\n"
+  "  id: \"zone_root\"\n"
+  "  component: \"/main/scripts/zone_root.script\"\n"
+  "}\n"
+  ""
+}

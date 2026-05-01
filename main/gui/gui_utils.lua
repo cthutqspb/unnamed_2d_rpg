@@ -14,4 +14,46 @@ function M.get_screen_position(node)
     return x, y
 end
 
+function M.layout_horizontal(parent_node, button_names, spacing)
+    local current_x = 0
+    local max_height = 0
+    
+    -- Сначала определяем максимальную высоту
+    for _, btn_name in ipairs(button_names) do
+        local btn = gui.get_node(parent_node .. "/" .. btn_name)
+        local size = gui.get_size(btn)
+        if size.y > max_height then
+            max_height = size.y
+        end
+    end
+    
+    -- Расставляем кнопки
+    for _, btn_name in ipairs(button_names) do
+        local btn = gui.get_node(parent_node .. "/" .. btn_name)
+        local size = gui.get_size(btn)
+        
+        gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
+        current_x = current_x + size.x + spacing
+    end
+end
+
+-- Новая функция, которая принимает ноду, а не строку
+function M.layout_horizontal_by_node(parent_node, button_nodes, spacing)
+    local current_x = 0
+    local max_height = 0
+    
+    for _, btn in ipairs(button_nodes) do
+        local size = gui.get_size(btn)
+        if size.y > max_height then
+            max_height = size.y
+        end
+    end
+    
+    for _, btn in ipairs(button_nodes) do
+        local size = gui.get_size(btn)
+        gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
+        current_x = current_x + size.x + spacing
+    end
+end
+
 return M

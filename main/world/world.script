@@ -119,16 +119,22 @@ function on_message(self, message_id, message, sender)
     -- end
     
     if message_id == hash("pickup_item") then
-        print("World received pickup_item:", message.item_id)
-        
-        -- Удаляем предмет, который отправил сообщение
-        go.delete(sender)
-        
-        -- Добавляем в инвентарь
-        msg.post("/gui_manager", "add_item_to_inventory", {
-            item_id = message.item_id,
-            amount = message.amount
-        })
+         if message_id == hash("pickup_item") then
+              print("World: sending to HUD...")
+              -- Попробуй указать полный путь, если не доходит
+              msg.post("main:/gui_manager", "add_to_inv", message) 
+              go.delete(sender)
+          end
+        -- print("World received pickup_item:", message.item_id)
+        -- 
+        -- -- Удаляем предмет, который отправил сообщение
+        -- go.delete(sender)
+        -- 
+        -- -- Добавляем в инвентарь
+        -- msg.post("/gui_manager", "add_item_to_inventory", {
+        --     item_id = message.item_id,
+        --     amount = message.amount
+        -- })
     end
 
     -- world.script
