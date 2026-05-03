@@ -51,12 +51,6 @@ function M.swap_slots(from_idx, to_idx)
     M.items[from_idx], M.items[to_idx] = M.items[to_idx], M.items[from_idx]
 end
 
--- Нужен для Drag-and-Drop: поменять данные в ячейках
--- function M.swap_slots(from_idx, to_idx)
---     local temp = M.items[from_idx]
---     M.items[from_idx] = M.items[to_idx]
---     M.items[to_idx] = temp
--- end
 M.init()
 return M
 

@@ -94,30 +94,11 @@ nodes {
 }
 nodes {
   position {
-    x: -132.0
-    y: 86.0
+    y: -98.0
   }
   size {
     x: 264.0
-    y: 178.0
-  }
-  color {
-    x: 0.6
-    y: 0.3019608
-    z: 0.0
-  }
-  type: TYPE_BOX
-  id: "container"
-  pivot: PIVOT_NW
-  parent: "root"
-}
-nodes {
-  position {
-    y: -101.0
-  }
-  size {
-    x: 264.0
-    y: 18.0
+    y: 24.0
   }
   color {
     x: 0.4
@@ -130,66 +111,68 @@ nodes {
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
-  type: TYPE_TEMPLATE
-  id: "slot_prefab"
-  inherit_alpha: true
-  template: "/main/gui/components/inventory/slot.gui"
-  enabled: false
-}
-nodes {
   size {
-    x: 40.0
-    y: 40.0
+    x: 264.0
+    y: 172.0
   }
   color {
-    x: 0.101960786
-    y: 0.101960786
-    z: 0.101960786
+    x: 0.6
+    y: 0.6
+    z: 0.2
   }
   type: TYPE_BOX
-  id: "slot_prefab/root"
-  parent: "slot_prefab"
-  overridden_fields: 4
-  overridden_fields: 5
-  overridden_fields: 7
-  overridden_fields: 14
-  overridden_fields: 20
-  overridden_fields: 21
-  overridden_fields: 28
-  overridden_fields: 29
-  overridden_fields: 46
+  id: "container"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory_grid"
+  parent: "container"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/inventory_grid.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/root"
+  parent: "inventory_grid"
   template_node_child: true
 }
 nodes {
-  size {
-    x: 36.0
-    y: 36.0
-  }
   type: TYPE_BOX
-  id: "slot_prefab/icon"
-  parent: "slot_prefab/root"
-  overridden_fields: 4
-  overridden_fields: 20
-  overridden_fields: 21
-  overridden_fields: 30
+  id: "inventory_grid/container"
+  parent: "inventory_grid/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory_grid/slot_prefab"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/root"
+  parent: "inventory_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/icon"
+  parent: "inventory_grid/slot_prefab/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_prefab/count"
-  parent: "slot_prefab/root"
-  overridden_fields: 20
-  overridden_fields: 21
+  id: "inventory_grid/slot_prefab/count"
+  parent: "inventory_grid/slot_prefab/root"
   template_node_child: true
 }
 nodes {
-  size {
-    x: 40.0
-    y: 40.0
-  }
   type: TYPE_BOX
-  id: "drag_icon"
-  enabled: false
+  id: "inventory_grid/drag_icon"
+  parent: "inventory_grid"
+  template_node_child: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

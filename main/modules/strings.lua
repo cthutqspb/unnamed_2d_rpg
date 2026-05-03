@@ -9,6 +9,8 @@ M.data = {
         ["item_crystal_sword_name"] = "Кристальный меч",
         ["item_crystal_sword_desc"] = "Сквозь него все выглядит смешнее. Кому вообще взбрело в голову делать меч из стекла? .",
 
+        ["item_leather_helmet_name"] = "Кожаный шлем",
+
         ["item_lesser_mana_potion_name"] = "Малое зелье маны",
         ["item_lesser_mana_potion_desk"] = "Это зелье восстанавливает немного маны.",
 
@@ -36,7 +38,9 @@ M.data = {
         ["item_iron_sword_desc"] = "A simple steel blade. Good for training.",
         ["item_crystal_sword_name"] = "Crystal Sword",
         ["item_crystal_sword_desc"] = "Everything looks funnier through it. Who even thought of making a sword out of glass?.",
+        
 
+        ["item_leather_helmet_name"] = "Leather helmet",
         ["item_lesser_mana_potion_name"] = "Lesser mana potion" ,
         ["item_lesser_mana_potion_desk"] = "This potion restores some mana.",
 

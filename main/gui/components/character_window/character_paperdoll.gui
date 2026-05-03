@@ -1,12 +1,154 @@
 nodes {
   size {
-    x: 320.0
-    y: 100.0
+    x: 300.0
+    y: 500.0
   }
   type: TYPE_BOX
   id: "root"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 150.0
+  }
+  type: TYPE_TEMPLATE
+  id: "slot_head"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_head/root"
+  parent: "slot_head"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_head/icon"
+  parent: "slot_head/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_head/count"
+  parent: "slot_head/root"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 50.0
+  }
+  type: TYPE_TEMPLATE
+  id: "slot_chest"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_chest/root"
+  parent: "slot_chest"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_chest/icon"
+  parent: "slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_chest/count"
+  parent: "slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: -25.0
+  }
+  type: TYPE_TEMPLATE
+  id: "slot_legs"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_legs/root"
+  parent: "slot_legs"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_legs/icon"
+  parent: "slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_legs/count"
+  parent: "slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: -100.0
+    y: 50.0
+  }
+  type: TYPE_TEMPLATE
+  id: "slot_main_hand"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_main_hand/root"
+  parent: "slot_main_hand"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_main_hand/icon"
+  parent: "slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_main_hand/count"
+  parent: "slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 100.0
+    y: 50.0
+  }
+  type: TYPE_TEMPLATE
+  id: "slot_off_hand"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/slot.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_off_hand/root"
+  parent: "slot_off_hand"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_off_hand/icon"
+  parent: "slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_off_hand/count"
+  parent: "slot_off_hand/root"
+  template_node_child: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

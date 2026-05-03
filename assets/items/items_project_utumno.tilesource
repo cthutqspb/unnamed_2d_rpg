@@ -18,8 +18,18 @@ animations {
   end_tile: 2976
 }
 animations {
+  id: "leather_helmet"
+  start_tile: 2345
+  end_tile: 2345
+}
+animations {
   id: "lesser_mana_potion"
   start_tile: 2683
   end_tile: 2683
+}
+animations {
+  id: "slot_head_background"
+  start_tile: 2358
+  end_tile: 2358
 }
 extrude_borders: 2

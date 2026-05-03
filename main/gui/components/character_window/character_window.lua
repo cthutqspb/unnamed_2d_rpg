@@ -21,22 +21,32 @@ local TABS = {
         sub_components = {
             { class = CharacterStats, template = "character_stats" },
             { class = CharacterPaperdoll, template = "character_paperdoll" },
-            { class = CharacterInventory, template = "inventory_grid" }
+            { 
+                class = CharacterInventory,
+                template = "inventory_grid",
+                config = {
+                    columns = 7,
+                    rows = 12,
+                    item_size = 40,
+                    spacing = 2,
+                    data_source = require("main.modules.player_inventory")  -- ЯВНО ПЕРЕДАЕМ
+                }
+            }
         }
     },
     journal = {
         window_title = "character_journal",
         btn_key = "btn_journal",
         container_key = "page_journal",
-        template = "character_journal", 
-        components = CharacterJournal
+        template_id = "character_journal", 
+        component = CharacterJournal
     },
     talents = {
         window_title = "character_talents",
         btn_key = "btn_talents",
         container_key = "page_talents",
-        template = "character_talents",
-        components = CharacterTalents
+        template_id = "character_talents",
+        component = CharacterTalents
     }
 }
 
@@ -54,22 +64,34 @@ function M.toggle(self)
     self:set_visible(not current)
 end
 
+function M.on_input(self, action_id, action)
+    -- Передаем ввод в Druid (для кнопок окна)
+    -- Но главное — передаем его в модули текущей вкладки
+    local tab = self.tabs[self.active_tab]
+    if tab then
+        for _, module in ipairs(tab.modules) do
+            if module.on_input then
+                module:on_input(action_id, action)
+            end
+        end
+    end
+end
+
 -- 2. В функции new инициализируем всё дерево
-function M.new(druid, template_id)
+function M.new(druid, template_id, player_inventory)
      local self = {
         druid = druid,
         template_id = template_id,
         root = gui.get_node(template_id .. "/root"),
         body = gui.get_node(template_id .. "/body"),
         header = gui.get_node(template_id .. "/header"),
-        --title = gui.get_node(template_id .. "/title"),
         btn_close = gui.get_node(template_id .. "/btn_close"),
         nav_bar = gui.get_node(template_id .. "/nav_bar"),
         window_title = gui.get_node(template_id .. "/window_title"),
         tabs = {},
         active_tab = nil
     }
-    -- ... (старая инициализация self.root, self.body и т.д.)
+
     self.set_visible = M.set_visible
     self.toggle = M.toggle
     self.switch_tab = M.switch_tab
@@ -104,14 +126,22 @@ function M.new(druid, template_id)
         if cfg.sub_components then
             for _, sub in ipairs(cfg.sub_components) do
                 local full_path = template_id .. "/" .. sub.template
+                local sub_config = sub.config or {}
+            
+                -- Если это инвентарь - добавляем в config data_source
+                if sub.template == "inventory_grid" then
+                    sub_config.data_source = player_inventory
+                end      
+            
+                local instance = druid:new(sub.class, full_path, sub_config)
+                instance.character_window = self
+                table.insert(self.tabs[name].modules, instance)                
+                local sub_config = sub.config or {}
 
-                local instance = druid:new(sub.class, full_path, sub.config)
-
-                table.insert(self.tabs[name].modules, instance)
-
-                if sub.class == CharacterInventory or sub.class == InventoryGrid then
+                if sub.template == "inventory_grid" then 
                     self.inventory_grid = instance
-                    print("Inventory grid link saved!")
+                elseif sub.template == "character_paperdoll" then
+                    self.paperdoll_module = instance
                 end
             end
         elseif cfg.component then
@@ -126,6 +156,12 @@ function M.new(druid, template_id)
     gui.set_size(self.body, vmath.vector3(TOTAL_WIDTH, WINDOW_HEIGHT, 0))
     gui.set_size(self.header, vmath.vector3(TOTAL_WIDTH, 80, 0))
     
+    if self.inventory_grid then
+        self.inventory_grid:refresh()
+    end
+    if self.paperdoll_module then
+        self.paperdoll_module:refresh()
+    end
     
     self:switch_tab("character")
     return self

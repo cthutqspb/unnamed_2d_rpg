@@ -18,12 +18,18 @@ function init(self)
     -- Character — это модуль, а не Druid-компонент
     player_inv.init() 
     player_inv.add_item("iron_sword", 1) -- Добавляем стартовый
+    player_inv.add_item("lesser_mana_potion", 10)
+    player_inv.add_item("leather_helmet", 1)
 
-    self.character_window = CharacterWindow.new(self.druid, "character_window")
-    self.inventory = self.druid:new(Inventory, "inventory")
-
-    self.character_window.inventory_grid:refresh()
-    self.inventory:refresh()
+    self.character_window = CharacterWindow.new(self.druid, "character_window", player_inv)
+    self.inventory = self.druid:new(Inventory, "inventory", {
+        data_source = player_inv,
+        columns = 6,
+        rows = 4,
+        item_size = 40,
+        spacing = 2
+    })
+    -- self.inventory:refresh()
 
     self.msg_handlers = {
         [hash("update_health")] = function(self, message) 
@@ -81,7 +87,6 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("refresh_inventories") then
         -- Используем те же ссылки, что и выше
         if self.character_window and self.character_window.inventory_grid then
-            print('REFRESH CHAR')
             self.character_window.inventory_grid:refresh()
         end
         if self.inventory and self.inventory.refresh then

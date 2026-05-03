@@ -104,7 +104,7 @@ end
 
 function M.on_item_drag_start(self, index)
     msg.post("world", "drag_start")
-    local item_data = player_inv.items[index]
+    local item_data = self:get_data_source().items[index]
     if not item_data or not item_data.item_id then 
         self.dragging_index = nil
         return 
@@ -159,7 +159,7 @@ function M.on_item_drag(self, index, dx, dy)
     local local_y = self.mouse_y - root_y
     
     gui.set_position(self.drag_clone, vmath.vector3(local_x, local_y, 1))
-    msg.post("/gui_manager", "refresh_inventories")
+    -- msg.post("/gui_manager", "refresh_inventories")
 end
 
 function M.on_item_drag_end(self, index)
@@ -196,11 +196,12 @@ function M.on_item_drag_end(self, index)
         gui.delete_node(self.drag_clone)
         self.drag_clone = nil
     end
+    msg.post("/gui_manager", "refresh_inventories")
     self.dragging_index = nil
 end
 
 function M.drop_item(self, slot_index)
-    local item_data = player_inv.items[slot_index] -- Берем из модуля!
+    local item_data = self:get_data_source().items[slot_index] -- Берем из модуля!
     if not item_data or not item_data.item_id then return end
     
     msg.post("world", "spawn_dropped_item", {
@@ -226,7 +227,7 @@ function M.clear_slot_visual(self, slot_index)
 end
 
 function M.on_slot_click(self, index)
-    print("Click on slot:", index, "Item:", player_inv.items[index].item_id)
+    print("Click on slot:", index, "Item:", self:get_data_source().items[index].item_id)
 end
 
 function M.get_slot_at_position(self, screen_x, screen_y)
@@ -255,21 +256,23 @@ function M.get_slot_at_position(self, screen_x, screen_y)
     return nil
 end
 
--- Проверка, над любым ли GUI элементом курсор
 function M.is_mouse_over_any_gui(self)
-    -- Проверяем корень инвентаря
-    if gui.pick_node(self.root, self.mouse_x, self.mouse_y) then
-        return true
-    end
-    
-    -- Если есть другие GUI окна (хотя бы проверить main GUI)
-    -- local main_gui = gui.get_node("/hud") -- или как назван твой основной GUI
-    -- if main_gui and gui.pick_node(main_gui, self.mouse_x, self.mouse_y) then
-    --     return true
-    -- end
-    
-    return false
-end
+    -- Список нод, которые реально являются окнами или панелями
+    local ui_windows = {
+        "character_window/body", -- Фон окна персонажа
+        "inventory/root",         -- Фон сумки
+        "action_bar/root"         -- Твоя панель навыков
+    }
 
+    for _, path in ipairs(ui_windows) do
+        local ok, node = pcall(gui.get_node, path)
+        -- Проверяем: окно открыто (enabled) и мышь над ним
+        if ok and gui.is_enabled(node) and gui.pick_node(node, self.mouse_x, self.mouse_y) then
+            return true -- Не выкидываем!
+        end
+    end
+
+    return false -- Если мышь не над окнами — выкидываем в мир
+end
 
 return M

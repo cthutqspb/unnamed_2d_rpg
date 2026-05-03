@@ -10,7 +10,8 @@ function InventoryGrid:init(template_id, config)
     self.template_id = template_id
     config = config or {}
     local d = self:get_druid()
-
+      
+    self.data_source = config.data_source
     -- Ищем стандартные ноды внутри любого переданного шаблона
     self.root = gui.get_node(template_id .. "/root")
     self.container = gui.get_node(template_id .. "/container")
@@ -40,6 +41,32 @@ function InventoryGrid:init(template_id, config)
     if self.drag_template then
         gui.set_enabled(self.drag_template, false)
     end
+
+     -- Находим inventory_anchor
+    local anchor = gui.get_parent(self.root)  -- предполагая что self.root внутри anchor
+    if anchor then
+        local anchor_height = gui.get_size(anchor).y
+        local current_pos = gui.get_position(self.root)
+        
+        -- Поднимаем на половину высоты anchor
+        current_pos.y = current_pos.y + (anchor_height / 2)
+        gui.set_position(self.root, current_pos)
+        
+        print("Raised by:", anchor_height / 2)
+    end
+end
+
+function InventoryGrid:set_data_source(data_source)
+    self.data_source = data_source
+    self:refresh()
+end
+
+function InventoryGrid:get_data_source()
+    if self.data_source then
+        return self.data_source
+    end
+    -- По умолчанию - инвентарь игрока
+    return require("main.modules.player_inventory")
 end
 
 function InventoryGrid:on_input(action_id, action)
@@ -52,19 +79,17 @@ function InventoryGrid:on_input(action_id, action)
 end
 
 function InventoryGrid:refresh()
-    local player_inv = require("main.modules.player_inventory")
-    print("InventoryGrid:refresh called. Slots in this instance:", #self.slots)
+    local data_source = self.data_source
     
     for i = 1, #self.slots do
-        local data = player_inv.items[i]
+        local data = data_source.items[i]
         if data and data.item_id then
-            print("Slot", i, "updating visual with:", data.item_id)
             DragModule.update_slot_visual(self, i, data.item_id, data.amount)
         else
             -- Если предмет выкинули, мы должны попасть сюда
             DragModule.clear_slot_visual(self, i)
         end
-    end
+    end 
 end
 
 function InventoryGrid:set_visible(visible)
