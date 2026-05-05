@@ -42,18 +42,18 @@ function InventoryGrid:init(template_id, config)
         gui.set_enabled(self.drag_template, false)
     end
 
-     -- Находим inventory_anchor
-    local anchor = gui.get_parent(self.root)  -- предполагая что self.root внутри anchor
-    if anchor then
-        local anchor_height = gui.get_size(anchor).y
-        local current_pos = gui.get_position(self.root)
-        
-        -- Поднимаем на половину высоты anchor
-        current_pos.y = current_pos.y + (anchor_height / 2)
-        gui.set_position(self.root, current_pos)
-        
-        print("Raised by:", anchor_height / 2)
-    end
+    --  -- Находим inventory_anchor
+    -- local anchor = gui.get_parent(self.root)  -- предполагая что self.root внутри anchor
+    -- if anchor then
+    --     local anchor_height = gui.get_size(anchor).y
+    --     local current_pos = gui.get_position(self.root)
+    --     
+    --     -- Поднимаем на половину высоты anchor
+    --     current_pos.y = current_pos.y + (anchor_height / 2)
+    --     gui.set_position(self.root, current_pos)
+    --     self.position_adjusted = true
+    --     print("Raised by:", anchor_height / 2)
+    -- end
 end
 
 function InventoryGrid:set_data_source(data_source)

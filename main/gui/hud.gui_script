@@ -2,22 +2,20 @@ local druid = require("druid.druid")
 local HealthBar = require("main.gui.components.health_bar.health_bar")
 local ActionBar = require("main.gui.action_bar.action_bar")
 local player_inv = require("main.modules.player_inventory")
+local InventoryGrid = require("main.gui.components.inventory.inventory_grid")
 local Inventory = require("main.gui.components.inventory.inventory")
 local CharacterWindow = require("main.gui.components.character_window.character_window")
+local ContainerWindow = require("main.gui.components.container_window.container_window")
+local gui_utils = require("main.gui.gui_utils")
 
 function init(self)
-    -- Инициализируем Druid
     self.druid = druid.new(self)
     
-    -- Регистрируем нашу полоску здоровья. 
-    -- "health_bar" — это ID Template в Outline твоего hud.gui
     self.action_bar = self.druid:new(ActionBar, "action_bar", self.druid)
     self.hp_bar = self.druid:new(HealthBar, "health_bar")
    
-    
-    -- Character — это модуль, а не Druid-компонент
     player_inv.init() 
-    player_inv.add_item("iron_sword", 1) -- Добавляем стартовый
+    player_inv.add_item("iron_sword", 1)
     player_inv.add_item("lesser_mana_potion", 10)
     player_inv.add_item("leather_helmet", 1)
 
@@ -29,7 +27,13 @@ function init(self)
         item_size = 40,
         spacing = 2
     })
-    -- self.inventory:refresh()
+   
+    self.container_window = ContainerWindow.new(self.druid, "container_window", {
+        columns = 6,
+        rows = 4
+    })
+
+    self.container_window:set_visible(false)
 
     self.msg_handlers = {
         [hash("update_health")] = function(self, message) 
@@ -37,32 +41,20 @@ function init(self)
         end,
         
         [hash("toggle_inventory")] = function(self) 
-            print('TOGGLE INVENTORY')
             self.inventory:toggle() 
         end,
 
         [hash("toggle_character")] = function(self) 
-            print('TOGGLE CHARACTER')
             self.character_window:toggle() 
         end
     }
 
-     -- Таблица для on_input (клавиатура/хоткеи)
     self.input_handlers = {
         [hash("toggle_inventory")] = function(self) self.inventory:toggle() end,
         [hash("toggle_character_window")] = function(self) self.character_window:toggle() end
     }
+    
     print("HUD initialized")
-end
-
-
-
-function final(self)
-	
-end
-
-function update(self, dt)
-	
 end
 
 function on_message(self, message_id, message, sender)
@@ -74,7 +66,6 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("add_to_inv") then
         local success = player_inv.add_item(message.item_id, message.amount)
         if success then
-            -- Обновляем оба инвентаря
             if self.character_window and self.character_window.inventory_grid then
                 self.character_window.inventory_grid:refresh()
             end
@@ -85,7 +76,6 @@ function on_message(self, message_id, message, sender)
     end
 
     if message_id == hash("refresh_inventories") then
-        -- Используем те же ссылки, что и выше
         if self.character_window and self.character_window.inventory_grid then
             self.character_window.inventory_grid:refresh()
         end
@@ -93,28 +83,53 @@ function on_message(self, message_id, message, sender)
             self.inventory:refresh()
         end
     end
+
+    if message_id == hash("open_container") then        
+        self.container_window:open(
+            message.container_id,
+            message.columns,
+            message.rows,
+            message.position,      -- мирная позиция контейнера
+            message.player_pos     -- позиция игрока
+        )
+    end
+
+    if message_id == hash("close_container_window") then
+        if self.container_window then
+            self.container_window:set_visible(false)
+        end
+    end
 end
 
 function on_input(self, action_id, action)
-    -- Сначала проверяем наши хоткеи
     if action.pressed then
         local handler = self.input_handlers[action_id]
-        print('handler', handler)
         if handler then
             handler(self)
-            return true -- Прерываем ввод, чтобы Druid не кликал "сквозь" это действие
+            return true
         end
     end
 
     if action_id == hash("key_esc") and action.pressed then
-        if gui.is_enabled(self.character_window.root) then
+        if self.container_window then
+            self.container_window:set_visible(false)
+        end
+        if self.character_window and gui.is_enabled(self.character_window.root) then
             self.character_window:close_window()
+        end
+        if self.inventory then
+            self.inventory:set_visible(false)
         end
     end
 
     return self.druid:on_input(action_id, action)
 end
 
-function on_reload(self)
+function final(self)
+end
 
+function update(self, dt)
+end
+
+function on_reload(self)
 end

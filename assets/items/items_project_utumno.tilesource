@@ -13,6 +13,11 @@ animations {
   end_tile: 3013
 }
 animations {
+  id: "default_container"
+  start_tile: 7
+  end_tile: 7
+}
+animations {
   id: "iron_sword"
   start_tile: 2976
   end_tile: 2976

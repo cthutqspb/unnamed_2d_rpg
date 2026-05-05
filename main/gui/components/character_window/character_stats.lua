@@ -1,6 +1,6 @@
 local component = require("druid.component")
-local character_data = require("main.modules.character_data")
-local config = require("main.modules.character_config")
+local character_data = require("main.modules.character.character_data")
+local config = require("main.modules.character.character_config")
 local strings = require("main.modules.strings")
 
 local CharacterStats = component.create("CharacterStats")

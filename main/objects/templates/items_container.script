@@ -1,0 +1,207 @@
+go.property("container_id", hash("unknown"))
+go.property("container_name", hash("container_name"))
+go.property("columns", 6)
+go.property("rows", 4)
+go.property("is_lootable", true)
+-- go.property("items_list", "[])  -- ссылка на таблицу лута
+go.property("is_random_loot", true)
+go.property("loot_table_id", hash("empty"))
+
+local interaction = require("main.modules.interaction")
+local loot_tables = require("main.modules.loot_tables")
+local containers_state = require("main.modules.game_state.containers_state")
+local strings = require("main.modules.strings")
+local broadcast = require("main.modules.broadcast")
+local items_db = require("main.modules.items_db")
+local display_name = strings.get(name_key) or "Container"
+
+local CONTAINER_KEYS = {
+    ["container_chest"] = "container_chest",
+    ["container_barrel"] = "container_barrel",
+  }
+
+function apply_container_visual(self)
+    --local name_key = strings.get(self.container_name)  -- получим "container_chest"
+    local name_key = tostring(self.container_name)
+    local display_name = strings.get(name_key) or "Сундук"  -- получим "Сундук" или дефолт
+    
+    -- Устанавливаем текст как в lootable_item
+    label.set_text("#container_name", "Сундук")
+    -- msg.post("#container_name", "disable")
+end
+
+-- function add_item(self, item_id, amount)
+--     -- ищем пустой слот или стакаем
+--     for i = 1, self.max_slots do
+--         local slot = self.container_data.items[i]
+--         if not slot.item_id then
+--             self.container_data.items[i] = {item_id = hash(item_id), amount = amount}
+--             return true
+--         end
+--     end
+--     return false
+-- end
+
+function init(self)
+	  msg.post(".", "acquire_input_focus")
+    self.go_id = go.get_id()
+    self.container_id = tostring(self.go_id)
+       -- Инициализируем контейнер
+    self.container_data = {
+        id = self.container_id,
+        -- name = self.container_name,
+        columns = self.columns,
+        rows = self.rows,
+        items = {}
+    }
+
+    self.is_looted = false
+    containers_state.init(self.container_id, {
+        items = self.container_data.items,
+        columns = self.columns,
+        rows = self.rows,
+        is_looted = self.is_looted,
+        loot_table_id = self.loot_table_id
+    })
+
+
+    apply_container_visual(self)
+
+    msg.post("#container_name", "disable")
+    
+    -- if self.loot_table_id ~= hash("empty") then
+    --     local items = loot_tables.get_loot(self.loot_table_id)
+    --     for i, item in ipairs(items) do
+    --         self.container_data.items[i] = item
+    --     end
+    -- end
+
+    -- self.container_data.items[1] = {item_id = hash("iron_sword"), amount = 1}
+    -- self.container_data.items[2] = {item_id = hash("lesser_mana_potion"), amount = 2}
+
+    -- Подписываемся на хайлайт
+    self.broadcast_handler = function(message_id, message)
+        if message_id == hash("toggle_interactable_highlight") then
+          print('TEST PRINT')
+            if message.show then
+                go.set_scale(vmath.vector3(1.2, 1.2, 1), self.go_id)
+                -- label.set_text("#container_name", 'СУНДУК')
+                msg.post(msg.url(nil, self.go_id, "container_name"), "enable")
+            else
+                go.set_scale(vmath.vector3(1, 1, 1), self.go_id)
+                msg.post(msg.url(nil, self.go_id, "container_name"),"disable")
+            end
+        end
+    end
+    
+    broadcast.subscribe(self.broadcast_handler)
+end
+
+function final(self)
+	  broadcast.unsubscribe(self.broadcast_handler)
+    containers_state.remove(self.container_id)
+end
+
+function update(self, dt)
+
+end
+
+function late_update(self, dt)
+
+end
+
+function fixed_update(self, dt)
+	
+end
+
+function on_message(self, message_id, message, sender)
+	  if message_id == hash("click") then
+        interaction.handle_click(self, 50, function()
+            open_container(self)
+        end)
+    end
+    
+    if message_id == hash("close_container") then
+        self:close_container()
+    end
+end
+
+function on_input(self, action_id, action)
+
+end
+
+function on_reload(self)
+
+end
+
+function open_container(self)
+    local state = containers_state.get(self.container_id)
+    print("container_id:", self.container_id)
+    print("Opening container:", self.container_name)
+    if not state.is_looted then
+        -- генерируем лут в state.items
+        local items = loot_tables.get_loot(self.loot_table_id)
+        for i, item in ipairs(items) do
+            state.items[i] = item
+        end
+        state.is_looted = true
+        -- обновляем реестр
+        containers_state.init(self.container_id, state)
+    end
+    
+    -- Передаём в GUI ссылку на state.items
+    msg.post("/gui_manager", "open_container", {
+        container_id = self.container_id,
+        container_items = state.items,  -- передаём ссылку на предметы
+        columns = self.columns,
+        rows = self.rows,
+        position = go.get_world_position(),
+        player_pos = go.get_position("/player")
+    })
+    -- Если ещё не лутали — генерируем лут
+    -- if not self.is_looted then 
+    --     if self.loot_table_id ~= hash("empty") then
+    --         local items = loot_tables.get_loot(self.loot_table_id)
+    --         for i, item in ipairs(items) do
+    --             self.container_data.items[i] = item
+    --         end
+    --     end
+    --     self.is_looted = true
+    -- end
+    --
+    -- local player_pos = go.get_position("/player")
+    -- -- Отправляем сообщение в HUD для открытия окна контейнера
+    -- msg.post("/gui_manager", "open_container", {
+    --     container_id = self.container_id,
+    --     container_name = self.container_name,
+    --     container_data = self.container_data,
+    --     columns = self.columns,
+    --     rows = self.rows,
+    --     spacing = 4,
+    --     bg_color = vmath.vector4(0.2, 0.1, 0.05, 1),
+    --     position = go.get_world_position(),
+    --     player_pos = player_pos
+    -- })
+    
+    -- Если контейнер одноразовый (лутается)
+    -- if self.is_lootable then
+    --     go.delete(self.go_id)  -- или self:empty_container()
+    -- end
+end
+
+function close_container(self)
+    -- Закрыть окно
+    msg.post("hud#gui", "close_container")
+end
+
+function update_container_data(self)
+    msg.post("/gui_manager", "update_container_data", {
+        container_id = self.container_id,
+        container_data = self.container_data
+    })
+end
+
+function get_data_source(self)
+    print("get_data_source called, returning", self.container_data)
+    return self.container_data  -- возвращаем ссылку на оригинал
+end

@@ -21,8 +21,8 @@ M.player = {
 }
 
 function M.update_from_config()
-    local race_data = require("main.modules.character_config").races[M.player.race]
-    local class_data = require("main.modules.character_config").classes[M.player.class]
+    local race_data = require("main.modules.character.character_config").races[M.player.race]
+    local class_data = require("main.modules.character.character_config").classes[M.player.class]
     
     -- Соединяем базовые статы расы и класса (если нужно)
     -- ...

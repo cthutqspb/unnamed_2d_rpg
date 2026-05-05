@@ -1,0 +1,154 @@
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+nodes {
+  size {
+    x: 300.0
+    y: 240.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  alpha: 0.49
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 108.0
+  }
+  size {
+    x: 300.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "header"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 138.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "btn_close"
+  parent: "header"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.6
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_TEXT
+  text: "\320\232\320\276\320\275\321\202\320\265\320\271\320\275\320\265\321\200\n"
+  ""
+  font: "gui_title"
+  id: "title"
+  parent: "header"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    y: 96.0
+  }
+  type: TYPE_TEMPLATE
+  id: "inventory_grid"
+  parent: "root"
+  template: "/main/gui/components/inventory/inventory_grid.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/root"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/container"
+  parent: "inventory_grid/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "inventory_grid/slot_prefab"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/root"
+  parent: "inventory_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/slot_prefab/icon"
+  parent: "inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "inventory_grid/slot_prefab/count"
+  parent: "inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "inventory_grid/drag_icon"
+  parent: "inventory_grid"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: -106.0
+  }
+  size {
+    x: 200.0
+    y: 42.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.3019608
+    z: 0.3019608
+  }
+  type: TYPE_BOX
+  id: "footer"
+  parent: "root"
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 42.0
+  }
+  color {
+    x: 0.0
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_take_all"
+  parent: "footer"
+  size_mode: SIZE_MODE_AUTO
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

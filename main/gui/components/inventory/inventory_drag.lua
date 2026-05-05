@@ -1,6 +1,7 @@
 local player_inv = require("main.modules.player_inventory")
 local gui_utils = require("main.gui.gui_utils")
 local items_db = require("main.modules.items_db")
+local ItemTransfer = require("main.modules.item_transfer_manager")
 
 local M = {}
 
@@ -166,28 +167,44 @@ function M.on_item_drag_end(self, index)
     msg.post("world", "drag_end")
     if not self.dragging_index then return end
     
-    local target_slot = M.get_slot_at_position(self, self.mouse_x, self.mouse_y)
+    local target = M.get_slot_at_position(self, self.mouse_x, self.mouse_y)
     local is_over_world = not M.is_mouse_over_any_gui(self)
     
     if is_over_world then
-        -- 1. Выброс в мир (данные удалятся внутри M.drop_item)
-        M.drop_item(self, self.dragging_index)
-        -- После дропа обновляем визуал через общий модуль
-        self:refresh() 
+        -- Выброс в мир
+        ItemTransfer.transfer(self, self.dragging_index, "world", nil, self.mouse_x, self.mouse_y)
+        self:refresh()
         
-    elseif target_slot and target_slot ~= index then
-        -- 2. ОБМЕН ДАННЫМИ В МОДУЛЕ
-        player_inv.swap_slots(index, target_slot)
-
-        -- 3. ОБНОВЛЯЕМ ВИЗУАЛ
-        -- Теперь вызываем refresh, чтобы оба инвентаря увидели изменения
-        -- Если у тебя есть глобальная ссылка на CharacterWindow, лучше вызвать refresh там
-        self:refresh() 
-        
-        -- Если открыто "старое" окно, его тоже надо рефрешнуть. 
-        -- Можно отправить сообщение в HUD: msg.post("hud#gui", "refresh_inventories")
+    elseif target and target.slot ~= index then
+        -- Попали в слот
+        if target.component ~= self then
+            -- Перетаскивание между разными инвентарями
+            ItemTransfer.transfer(
+                self,
+                self.dragging_index,
+                "inventory",
+                {
+                    items = target.component:get_data_source().items,
+                    slot = target.slot,
+                    component = target.component
+                },
+                nil, nil
+            )
+        else
+            -- Свап внутри одного инвентаря
+            local data_source = self:get_data_source()
+            if data_source.swap_slots then
+                data_source.swap_slots(self.dragging_index, target.slot)
+            else
+                -- Простой обмен, если нет метода swap_slots
+                local temp = data_source.items[self.dragging_index]
+                data_source.items[self.dragging_index] = data_source.items[target.slot]
+                data_source.items[target.slot] = temp
+            end
+            self:refresh()
+        end
     else
-        -- 4. ВОЗВРАТ (просто перерисовываем как было в данных)
+        -- Возврат на место (ничего не делаем, просто обновляем визуал)
         self:refresh()
     end
     
@@ -198,23 +215,6 @@ function M.on_item_drag_end(self, index)
     end
     msg.post("/gui_manager", "refresh_inventories")
     self.dragging_index = nil
-end
-
-function M.drop_item(self, slot_index)
-    local item_data = self:get_data_source().items[slot_index] -- Берем из модуля!
-    if not item_data or not item_data.item_id then return end
-    
-    msg.post("world", "spawn_dropped_item", {
-        item_id = item_data.item_id,
-        amount = item_data.amount,
-        mouse_x = self.mouse_x,
-        mouse_y = self.mouse_y
-    })
-    
-    -- Очищаем данные в модуле
-    item_data.item_id = nil
-    item_data.amount = 0
-    msg.post("/gui_manager", "refresh_inventories")
 end
 
 -- ОЧИСТИТЬ ВИЗУАЛ СЛОТА
@@ -238,7 +238,7 @@ function M.get_slot_at_position(self, screen_x, screen_y)
     local local_x = screen_x - container_screen_x
     local local_y = screen_y - container_screen_y
     
-    -- Проверяем попадание в слоты (ручная проверка вместо gui.pick_node)
+    -- Проверяем попадание в слоты
     for i, slot in ipairs(self.slots) do
         local slot_pos = gui.get_position(slot.root)
         local slot_size = gui.get_size(slot.root)
@@ -249,7 +249,7 @@ function M.get_slot_at_position(self, screen_x, screen_y)
         local top = slot_pos.y + slot_size.y/2
         
         if local_x >= left and local_x <= right and local_y >= bottom and local_y <= top then
-            return i
+            return { component = self, slot = i }
         end
     end
     
@@ -259,9 +259,10 @@ end
 function M.is_mouse_over_any_gui(self)
     -- Список нод, которые реально являются окнами или панелями
     local ui_windows = {
-        "character_window/body", -- Фон окна персонажа
+        "character_window/root", -- Фон окна персонажа
+        "container_window/root",
         "inventory/root",         -- Фон сумки
-        "action_bar/root"         -- Твоя панель навыков
+        "action_bar/root"         -- Твоя панель навыков     
     }
 
     for _, path in ipairs(ui_windows) do

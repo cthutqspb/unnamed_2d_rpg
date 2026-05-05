@@ -12,6 +12,7 @@ function init(self)
 	-- Add initialization code here
 	-- Learn more: https://defold.com/manuals/script/
 	-- Remove this function if not needed
+    math.randomseed(os.time())
     print("World initialized")
     self.player_direction = 1  -- по умолчанию вправо
     self.drag_active = false
@@ -46,10 +47,10 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	  if message_id == hash("toggle_interactable_highlight") then
-        print("Broadcasting via Module...")
-        broadcast.send(message_id, message)
-    end  
+	  -- if message_id == hash("toggle_interactable_highlight") then
+   --      print("Broadcasting via Module...")
+   --      broadcast.send(message_id, message)
+   --  end  
 
     if message_id == hash("player_direction") then
         self.player_direction = message.direction
@@ -139,12 +140,10 @@ function on_message(self, message_id, message, sender)
 
     -- world.script
     if message_id == hash("toggle_interactable_highlight") then        
-        if message_id == hash("toggle_interactable_highlight") then
         print("World broadcasting via MODULE: " .. tostring(message.show))
         
         -- ВМЕСТО msg.post вызываем функцию модуля
         broadcast.send(hash("toggle_interactable_highlight"), { show = message.show })
-    end
     end
 end
 

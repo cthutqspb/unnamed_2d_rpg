@@ -13,6 +13,10 @@ M.data = {
 
         ["item_lesser_mana_potion_name"] = "Малое зелье маны",
         ["item_lesser_mana_potion_desk"] = "Это зелье восстанавливает немного маны.",
+        
+        ["container_chest"] = "Сундук",
+        ["container_status_empty"] = "Пусто",
+        
 
 
         ["item_potion_name"] = "Зелье здоровья",
@@ -44,7 +48,8 @@ M.data = {
         ["item_lesser_mana_potion_name"] = "Lesser mana potion" ,
         ["item_lesser_mana_potion_desk"] = "This potion restores some mana.",
 
-
+        ["container_chest"] = "Chest",
+        ["container_status_empty"] = "Empty",
 
         ["item_potion_name"] = "Health Potion",
         ["inventory_title"] = "Inventory",

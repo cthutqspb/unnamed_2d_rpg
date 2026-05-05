@@ -220,6 +220,8 @@ nodes {
   type: TYPE_BOX
   id: "character_window/root"
   parent: "character_window"
+  overridden_fields: 45
+  overridden_fields: 46
   template_node_child: true
 }
 nodes {
@@ -499,21 +501,33 @@ nodes {
   template_node_child: true
 }
 nodes {
+  position {
+    y: 197.0
+  }
   type: TYPE_TEMPLATE
   id: "character_window/inventory_grid"
   parent: "character_window/inventory_anchor"
+  overridden_fields: 1
   template_node_child: true
 }
 nodes {
+  position {
+    y: 53.0
+  }
   type: TYPE_BOX
   id: "character_window/inventory_grid/root"
+  pivot: PIVOT_N
   parent: "character_window/inventory_grid"
+  overridden_fields: 1
+  overridden_fields: 14
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
   id: "character_window/inventory_grid/container"
+  pivot: PIVOT_N
   parent: "character_window/inventory_grid/root"
+  overridden_fields: 14
   template_node_child: true
 }
 nodes {
@@ -606,5 +620,172 @@ nodes {
   parent: "character_window/character_talents"
   template_node_child: true
 }
+nodes {
+  position {
+    x: 1693.0
+    y: 606.0
+  }
+  type: TYPE_TEMPLATE
+  id: "container_window_back"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/inventory/inventory_grid.gui"
+  enabled: false
+}
+nodes {
+  size {
+    x: 300.0
+    y: 220.0
+  }
+  type: TYPE_BOX
+  id: "container_window_back/root"
+  xanchor: XANCHOR_LEFT
+  yanchor: YANCHOR_TOP
+  pivot: PIVOT_N
+  parent: "container_window_back"
+  alpha: 0.64
+  overridden_fields: 4
+  overridden_fields: 12
+  overridden_fields: 13
+  overridden_fields: 14
+  overridden_fields: 30
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window_back/container"
+  pivot: PIVOT_N
+  parent: "container_window_back/root"
+  alpha: 0.0
+  overridden_fields: 14
+  overridden_fields: 30
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "container_window_back/slot_prefab"
+  parent: "container_window_back"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window_back/slot_prefab/root"
+  parent: "container_window_back/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window_back/slot_prefab/icon"
+  parent: "container_window_back/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "container_window_back/slot_prefab/count"
+  parent: "container_window_back/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window_back/drag_icon"
+  parent: "container_window_back"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 1713.0
+    y: 830.0
+  }
+  type: TYPE_TEMPLATE
+  id: "container_window"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/container_window/container_window.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/root"
+  parent: "container_window"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/header"
+  parent: "container_window/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/btn_close"
+  parent: "container_window/header"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "container_window/title"
+  parent: "container_window/header"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "container_window/inventory_grid"
+  parent: "container_window/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/inventory_grid/root"
+  parent: "container_window/inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/inventory_grid/container"
+  parent: "container_window/inventory_grid/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "container_window/inventory_grid/slot_prefab"
+  parent: "container_window/inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/inventory_grid/slot_prefab/root"
+  parent: "container_window/inventory_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/inventory_grid/slot_prefab/icon"
+  parent: "container_window/inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "container_window/inventory_grid/slot_prefab/count"
+  parent: "container_window/inventory_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/inventory_grid/drag_icon"
+  parent: "container_window/inventory_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/footer"
+  parent: "container_window/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/btn_take_all"
+  parent: "container_window/footer"
+  template_node_child: true
+}
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 1024

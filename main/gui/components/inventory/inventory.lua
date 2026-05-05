@@ -14,7 +14,6 @@ function Inventory:init(template_id, config)
     self.btn_close = gui.get_node(template_id .. "/btn_close")
     self.container = gui.get_node(template_id .. "/container")  -- пустой контейнер
 
-    -- 🔥 СОЗДАЕМ INVENTORY_GRID ПРОГРАММНО
     self.inventory_grid = d:new(InventoryGrid, template_id .. "/inventory_grid", {
         data_source = config.data_source,
         columns = config.columns or 6,
@@ -31,8 +30,16 @@ function Inventory:init(template_id, config)
     local inv_size = gui.get_size(self.root)
     local target_x = screen_w - (inv_size.x / 2) - 20
     local target_y = 60 + (inv_size.y / 2)
-    gui.set_position(self.root, vmath.vector3(target_x, target_y, 0))
+      
+    if config.bg_color then
+        local bg_node = gui.get_node(self.template_id .. "/background") -- нода для фона
+        if bg_node then
+            gui.set_color(bg_node, config.bg_color)
+        end
+    end
 
+    gui.set_position(self.root, vmath.vector3(target_x, target_y, 0))
+        
     self.drag = d:new_drag(self.header, function(context, dx, dy)
         local pos = gui.get_position(self.root)
         pos.x = pos.x + dx

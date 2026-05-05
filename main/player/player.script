@@ -1,4 +1,4 @@
-local character_data = require("main.modules.character_data")
+local character_data = require("main.modules.character.character_data")
 local settings = require("main.modules.settings")
 
 function init(self)
@@ -58,6 +58,7 @@ function update(self, dt)
    -- Если есть ввод с клавиатуры — отменяем движение мышью
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
         self.move_target = nil
+        msg.post("/gui_manager", "close_container_window")
     end
     
     -- 1. Собираем вектор направления из того, что пришло из on_input
@@ -65,13 +66,14 @@ function update(self, dt)
     
     -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
+        msg.post("/gui_manager", "close_container_window")
         local p = go.get_position()
         local d = self.move_target - p
         if vmath.length(d) > 5 then
             move = vmath.normalize(d)
         else
             self.move_target = nil -- Пришли на место
-            move = vmath.vector3(0,0,0)
+            move = vmath.vector3(0,0,1)
         end
     end
 
@@ -157,7 +159,8 @@ function on_message(self, message_id, message, sender)
     -- end
 
     if message_id == hash("move_to_item") then
-        self.move_target = go.get_position(message.item_id)
+        self.move_target = go.get_world_position(message.item_id)
+        -- self.move_target = go.get_position(message.item_id)
         self.pending_item = message.item_id  -- запоминаем, что после подхода нужно подобрать
         self.move_input = vmath.vector3(0, 0, 0)
     end

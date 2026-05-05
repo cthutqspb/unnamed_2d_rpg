@@ -1,6 +1,7 @@
 go.property("item_id",  hash("unknown"))
 go.property("amount", 1)
 
+local interaction = require("main.modules.interaction")
 local items_db = require "main.modules.items_db"
 local broadcast = require("main.modules.broadcast")
 
@@ -103,22 +104,12 @@ function on_message(self, message_id, message, sender)
         end
     end
     if message_id == hash("click") then
-        print("Lootable item got click, item_id:", self.item_id)
-        
-        -- Проверка дистанции до игрока
-        local player_pos = go.get_position("player")
-        local my_pos = go.get_position()
-        local dist = vmath.length(player_pos - my_pos)
-
-        if dist < 50 then
-            print("Picking up:", self.item_id)
-            msg.post("world", "pickup_item", {
+        interaction.handle_click(self, 50, function()
+            msg.post("/world#world", "pickup_item", {
                 item_id = self.item_id,
                 amount = self.amount
             })
-        else
-            print("Too far:", dist)
-        end
+        end)
     end
 end
 

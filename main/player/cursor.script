@@ -42,8 +42,8 @@ function on_message(self, message_id, message, sender)
         print("Clicked on:", message.other_id)
         
         -- Проверяем дистанцию до предмета
-        local player_pos = go.get_position("player")
-        local item_pos = go.get_position(message.other_id)
+        local player_pos = go.get_world_position(msg.url("/player"))
+        local item_pos = go.get_world_position(go.get_id()) 
         local dist = vmath.length(player_pos - item_pos)
         
         if dist < 50 then

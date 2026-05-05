@@ -1,5 +1,26 @@
 local M = {}
 
+function M.world_to_screen(world_pos, ref_pos)
+    local screen_w = sys.get_config("display.width") or 1920
+    local screen_h = sys.get_config("display.height") or 1080
+    
+    local screen_x = (world_pos.x - ref_pos.x) + screen_w / 2
+    local screen_y = (world_pos.y - ref_pos.y) + screen_h / 2
+    
+    return screen_x, screen_y
+end
+
+-- function M.screen_to_world(screen_x, screen_y)
+--     local camera_pos = go.get_position("camera")
+--     local screen_w = sys.get_config("display.width") or 1920
+--     local screen_h = sys.get_config("display.height") or 1080
+--     
+--     local world_x = screen_x + camera_pos.x - screen_w / 2
+--     local world_y = screen_y + camera_pos.y - screen_h / 2
+--     
+--     return vmath.vector3(world_x, world_y, 0)
+-- end
+
 function M.get_screen_position(node)
     local x, y = 0, 0
     local current = node
