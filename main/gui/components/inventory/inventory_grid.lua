@@ -42,18 +42,6 @@ function InventoryGrid:init(template_id, config)
         gui.set_enabled(self.drag_template, false)
     end
 
-    --  -- Находим inventory_anchor
-    -- local anchor = gui.get_parent(self.root)  -- предполагая что self.root внутри anchor
-    -- if anchor then
-    --     local anchor_height = gui.get_size(anchor).y
-    --     local current_pos = gui.get_position(self.root)
-    --     
-    --     -- Поднимаем на половину высоты anchor
-    --     current_pos.y = current_pos.y + (anchor_height / 2)
-    --     gui.set_position(self.root, current_pos)
-    --     self.position_adjusted = true
-    --     print("Raised by:", anchor_height / 2)
-    -- end
 end
 
 function InventoryGrid:set_data_source(data_source)
@@ -74,11 +62,11 @@ function InventoryGrid:get_slot_at_position(x, y)
 end
 
 function InventoryGrid:on_input(action_id, action)
-    -- Прокидываем координаты мыши в DragModule
-    DragModule.on_input(self, action_id, action)
     if action and action.x and action.y then
         self.mouse_x = action.x
         self.mouse_y = action.y
+        -- Прокидываем в DragModule, чтобы он знал актуальные координаты
+        DragModule.on_input(self, action_id, action)
     end
 end
 
@@ -102,6 +90,20 @@ end
 
 function InventoryGrid:set_visible(visible)
     gui.set_enabled(self.root, visible)
+end
+
+function InventoryGrid:on_drop(x, y)
+    -- Ищем слот через DragModule
+    local slot_index = self:get_slot_at_position(x, y)
+    
+    if slot_index then
+        local drag_manager = require("main.gui.drag_manager")
+        print("InventoryGrid [" .. self.template_id .. "]: Drop into slot", slot_index)
+        drag_manager.finish(self, slot_index)
+        return true -- Мы обработали дроп
+    end
+    
+    return false -- Мышь была не над этой сеткой
 end
 
 return InventoryGrid

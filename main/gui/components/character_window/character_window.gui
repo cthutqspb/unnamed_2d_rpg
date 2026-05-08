@@ -1,8 +1,13 @@
+script: "/main/gui/components/character_window/character_window.gui_script"
 fonts {
   name: "gui_title"
   font: "/assets/fonts/gui_title.font"
 }
 nodes {
+  position {
+    x: 960.0
+    y: 590.0
+  }
   size {
     x: 960.0
     y: 640.0
@@ -520,6 +525,9 @@ nodes {
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
+  position {
+    y: 250.0
+  }
   type: TYPE_TEMPLATE
   id: "inventory_grid"
   parent: "inventory_anchor"

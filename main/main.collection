@@ -32,9 +32,14 @@ embedded_instances {
 }
 embedded_instances {
   id: "gui_manager"
+  children: "character_window"
   data: "components {\n"
   "  id: \"hud\"\n"
   "  component: \"/main/gui/hud.gui\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"chunk_meadows\"\n"
+  "  component: \"/assets/tilemaps/chunk_meadows.tilemap\"\n"
   "}\n"
   ""
   position {
@@ -79,6 +84,18 @@ embedded_instances {
   data: "components {\n"
   "  id: \"world_controller\"\n"
   "  component: \"/main/scripts/world_controller.script\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "character_window"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/character_window/character_window.gui\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"health_bar\"\n"
+  "  component: \"/main/gui/components/health_bar/health_bar.gui\"\n"
   "}\n"
   ""
 }

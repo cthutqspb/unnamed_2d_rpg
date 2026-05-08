@@ -1,0 +1,91 @@
+local druid = require("druid.druid")
+local CharacterWindow = require("main.gui.components.character_window.character_window")
+local player_inv = require("main.modules.player_inventory")
+local drag_manager = require("main.gui.drag_manager") -- Не забудь импорт!
+local h_touch = hash("touch")
+
+function init(self)
+  print("DEBUG: Character Window Address is:", msg.url())
+    msg.post(".", "acquire_input_focus")
+    -- 1. Создаем Druid для этого конкретного GUI
+    self.druid = druid.new(self)
+    
+    -- 2. Создаем экземпляр твоего окна, передавая ему Druid
+    -- Мы используем твой M.new из Lua-файла
+    -- self.window_logic = CharacterWindow.new(self.druid, "character_window", player_inv)
+    self.character_window = CharacterWindow.new(self.druid, "", player_inv)
+    msg.post(".", "acquire_input_focus")
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("toggle_character_window") then
+        print('TOGGLE')
+        self.character_window:toggle() -- Вызываем метод из твоего Lua-файла
+        
+        -- ПОБЕДА: теперь это работает глобально!
+        if self.character_window:is_visible() then
+            gui.set_render_order(10)
+        else
+            gui.set_render_order(0)
+        end  
+    end
+
+   if message_id == hash("refresh") then
+        -- 1. Обновляем визуализацию слотов
+        if self.character_window and self.character_window.inventory_grid then
+            self.character_window.inventory_grid:refresh()
+            
+            -- 2. ЗАЧИСТКА КЛОНА
+            -- Достаем сохраненную ссылку из модуля
+            local grid = self.character_window.inventory_grid
+            if grid.current_drag_clone then
+                -- Удаляем ноду (здесь pcall даже не обязателен, но для страховки можно)
+                pcall(gui.delete_node, grid.current_drag_clone)
+                grid.current_drag_clone = nil -- Очищаем ссылку, чтобы не удалять дважды
+            end
+        end
+    end   
+end
+
+function on_input(self, action_id, action)
+    if action_id == h_touch and action.released then print("CHAR: Released") end
+
+    if drag_manager.is_dragging() then
+        -- Обновление позиции
+        if action_id == nil or action_id == h_touch then
+            drag_manager.update(action.x, action.y)
+        end
+
+        -- Попытка дропа
+        if action_id == h_touch and action.released then
+            if self.character_window.inventory_grid:on_drop(action.x, action.y) then
+                return true -- Попали в инвентарь персонажа
+            end
+            
+            -- ЕСЛИ МЫ ЗДЕСЬ, значит в инвентарь персонажа НЕ попали.
+            -- Мы НИЧЕГО не возвращаем и не вызываем finish.
+            -- Событие провалится в HUD.gui_script.
+        end
+    end
+
+    return self.druid:on_input(action_id, action) -- Можно вернуть return обратно
+end
+
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

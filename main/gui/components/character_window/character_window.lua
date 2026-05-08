@@ -49,6 +49,14 @@ local TABS = {
         component = CharacterTalents
     }
 }
+-- Вспомогательная функция для сборки путей внутри модуля
+local function get_path(template_id, node_id)
+    if not template_id or template_id == "" then
+        return node_id
+    else
+        return template_id .. "/" .. node_id
+    end
+end
 
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
@@ -82,12 +90,13 @@ function M.new(druid, template_id, player_inventory)
      local self = {
         druid = druid,
         template_id = template_id,
-        root = gui.get_node(template_id .. "/root"),
-        body = gui.get_node(template_id .. "/body"),
-        header = gui.get_node(template_id .. "/header"),
-        btn_close = gui.get_node(template_id .. "/btn_close"),
-        nav_bar = gui.get_node(template_id .. "/nav_bar"),
-        window_title = gui.get_node(template_id .. "/window_title"),
+        -- Используем get_path, чтобы убрать лишние слэши
+        root = gui.get_node("root"),
+        body = gui.get_node("body"), -- УБРАЛ "root/body", в GUI пишем просто "body"
+        header = gui.get_node("header"),
+        btn_close = gui.get_node("btn_close"),
+        nav_bar = gui.get_node("nav_bar"),
+        window_title = gui.get_node("window_title"),
         tabs = {},
         active_tab = nil
     }
@@ -96,6 +105,9 @@ function M.new(druid, template_id, player_inventory)
     self.toggle = M.toggle
     self.switch_tab = M.switch_tab
     self.close_window = M.close_window
+    self.get_slot_at_position = M.get_slot_at_position
+    self.is_visible = M.is_visible -- ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО
+    self.on_input = M.on_input
     
     -- Заголовок для драга (header должен иметь Manual size и покрывать всю верхнюю часть)
     self.drag = druid:new_drag(self.header, function(_, dx, dy)
@@ -112,8 +124,8 @@ function M.new(druid, template_id, player_inventory)
     end)
 
     for name, cfg in pairs(TABS) do
-        local btn = gui.get_node(template_id .. "/" .. cfg.btn_key)
-        local container = gui.get_node(template_id .. "/" .. cfg.container_key)
+        local btn = gui.get_node(cfg.btn_key)
+        local container = gui.get_node(cfg.container_key)
         
         self.tabs[name] = {
             window_title = cfg.window_title,
@@ -125,7 +137,7 @@ function M.new(druid, template_id, player_inventory)
         -- Инициализируем компоненты (один или несколько)
         if cfg.sub_components then
             for _, sub in ipairs(cfg.sub_components) do
-                local full_path = template_id .. "/" .. sub.template
+                local full_path = sub.template
                 local sub_config = sub.config or {}
             
                 -- Если это инвентарь - добавляем в config data_source
@@ -145,7 +157,7 @@ function M.new(druid, template_id, player_inventory)
                 end
             end
         elseif cfg.component then
-            local full_path = template_id .. "/" .. cfg.template_id
+            local full_path = cfg.template_id
             local instance = druid:new(cfg.component, full_path)
             table.insert(self.tabs[name].modules, instance)
         end

@@ -128,8 +128,9 @@ function on_input(self, action_id, action)
         heal(self, 10)
     elseif action_id == hash("toggle_inventory") and action.pressed then
         msg.post("/gui_manager", "toggle_inventory")
-    elseif action_id == hash("toggle_character") and action.pressed then
-        msg.post("/gui_manager", "toggle_character")
+    elseif action_id == hash("toggle_character_window") and action.pressed then
+        print('TOGGLE FROM PLAYER')
+        msg.post("main:/character_window#gui", "toggle_character_window")
     end    
 
     if action_id == hash("key_alt") then

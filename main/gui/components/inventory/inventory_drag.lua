@@ -109,7 +109,6 @@ function M.on_item_drag_start(self, index)
     if not item_data or not item_data.item_id then return end
     
     local data = items_db.get_item(item_data.item_id)
-    
     -- Создаём клон
     local template_id = gui.get_id(self.drag_template) -- Получаем ID оригинала (уже хэшированный)
     local cloned_nodes = gui.clone_tree(self.drag_template)
@@ -122,6 +121,7 @@ function M.on_item_drag_start(self, index)
         end
     end
     
+    self.current_drag_clone = drag_clone
     gui.set_parent(drag_clone, self.root)
     
     local root_x, root_y = gui_utils.get_screen_position(self.root)
@@ -163,7 +163,13 @@ function M.clear_slot_visual(self, slot_index)
 end
 
 function M.on_slot_click(self, index)
-    print("Click on slot:", index, "Item:", self:get_data_source().items[index].item_id)
+    local items = self:get_data_source().items
+    local item = items[index]
+    if item and item.item_id then
+        print("Click on slot:", index, "Item:", item.item_id)
+    else
+        print("Click on empty slot:", index)
+    end
 end
 
 function M.get_slot_at_position(self, screen_x, screen_y)
