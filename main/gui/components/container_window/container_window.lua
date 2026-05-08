@@ -7,32 +7,43 @@ function ContainerWindow.new(druid, template_id, config)
     local self = {
         druid = druid,
         root = gui.get_node(template_id .. "/root"),
+        body = gui.get_node(template_id .. "/body"),
+        header = gui.get_node(template_id .. "/header"),
+        btn_close = gui.get_node(template_id .. "/btn_close"),
+        title = gui.get_node(template_id .. "/title"),
+        btn_take_all = gui.get_node(template_id .. "/btn_take_all"),
         grid = nil
     }
     
     -- Создаём грид
     -- local container_data = containers_state.get(config.container_id)
     
-    self.grid = druid:new(InventoryGrid, template_id .. "/inventory_grid", {
+    self.inventory_grid = druid:new(InventoryGrid, template_id .. "/inventory_grid", {
         columns = config.columns,
         rows = config.rows,
-        item_size = 48,
-        spacing = 4
+        item_size = config.item_size,
+        spacing = config.spacing
     })
-    -- self.grid:refresh()
+     -- Заголовок для драга (header должен иметь Manual size и покрывать всю верхнюю часть)
+    self.drag = druid:new_drag(self.header, function(_, dx, dy)
+        local pos = gui.get_position(self.root)
+        pos.x = pos.x + dx
+        pos.y = pos.y + dy
+        gui.set_position(self.root, pos)
+    end)
+    -- Чтобы драг не конфликтовал с кнопками на хедере
+    self.drag.is_touch_threshold = true
+
     -- Заголовок
-    local title_node = gui.get_node(template_id .. "/title")
-    gui.set_text(title_node, config.title or "Container")
+    gui.set_text(self.title, config.title or "Container")
     
     -- Кнопка закрытия
-    local btn_close = gui.get_node(template_id .. "/btn_close")
-    druid:new_button(btn_close, function()
+    druid:new_button(self.btn_close, function()
         self:close()
     end)
     
     -- Кнопка "Забрать всё"
-    local btn_take_all = gui.get_node(template_id .. "/btn_take_all")
-    druid:new_button(btn_take_all, function()
+    druid:new_button(self.btn_take_all, function()
         self:take_all()
     end)
     
@@ -45,8 +56,8 @@ function ContainerWindow.new(druid, template_id, config)
     
     function self:set_visible(visible)
         gui.set_enabled(self.root, visible)
-        if visible and self.grid then
-            self.grid:refresh()
+        if visible and self.inventory_grid then
+            self.inventory_grid:refresh()
         end
     end
 
@@ -80,6 +91,8 @@ function ContainerWindow.new(druid, template_id, config)
         end
         
         -- 3. Устанавливаем позицию и показываем
+        print("Setting container position to:", final_x, final_y)
+
         self:set_position(vmath.vector3(final_x, final_y, 0))
         self:set_visible(true)
     end
@@ -94,12 +107,30 @@ function ContainerWindow.new(druid, template_id, config)
     end
     
     function self:set_data_source(data_source)
-        self.grid:set_data_source(data_source)
-        self.grid:refresh()
+        self.inventory_grid:set_data_source(data_source)
+        self.inventory_grid:refresh()
     end
 
     function self:set_position(position)
         gui.set_position(self.root, position)
+    end
+
+    -- function ContainerWindow:get_slot_at_position(x, y)
+    --     if self.grid and self.grid.get_slot_at_position then
+    --         return self.grid:get_slot_at_position(x, y)
+    --     end
+    --     return nil
+    -- end
+
+    function ContainerWindow:get_slot_at_position(x, y)
+        if self.inventory_grid then
+            return self.inventory_grid:get_slot_at_position(x, y)
+        end
+        return nil
+    end
+
+    function ContainerWindow:is_visible()
+        return gui.is_enabled(self.root)
     end
     
     return self

@@ -28,7 +28,6 @@ nodes {
   type: TYPE_BOX
   id: "header"
   parent: "root"
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   position {
@@ -46,6 +45,18 @@ nodes {
   id: "btn_close"
   parent: "header"
   size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_TEXT
+  text: "X"
+  font: "gui_title"
+  id: "text"
+  parent: "btn_close"
+  inherit_alpha: true
 }
 nodes {
   size {
@@ -114,6 +125,7 @@ nodes {
   type: TYPE_BOX
   id: "inventory_grid/drag_icon"
   parent: "inventory_grid"
+  overridden_fields: 1
   template_node_child: true
 }
 nodes {
@@ -148,6 +160,18 @@ nodes {
   type: TYPE_BOX
   id: "btn_take_all"
   parent: "footer"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "body"
+  parent: "root"
+  inherit_alpha: true
+  alpha: 0.0
   size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"

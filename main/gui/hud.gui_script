@@ -7,8 +7,11 @@ local Inventory = require("main.gui.components.inventory.inventory")
 local CharacterWindow = require("main.gui.components.character_window.character_window")
 local ContainerWindow = require("main.gui.components.container_window.container_window")
 local gui_utils = require("main.gui.gui_utils")
+local drag_manager = require("main.gui.drag_manager")
+
 
 function init(self)
+    msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
     
     self.action_bar = self.druid:new(ActionBar, "action_bar", self.druid)
@@ -30,7 +33,8 @@ function init(self)
    
     self.container_window = ContainerWindow.new(self.druid, "container_window", {
         columns = 6,
-        rows = 4
+        rows = 4,
+        spacing = 2
     })
 
     self.container_window:set_visible(false)
@@ -101,7 +105,20 @@ function on_message(self, message_id, message, sender)
     end
 end
 
+function clear_slot_highlights(self)
+    if self.container_window and self.container_window.inventory_grid then
+        self.container_window.inventory_grid:highlight_slot(nil)
+    end
+    if self.character_window and self.character_window.inventory_grid then
+        self.character_window.inventory_grid:highlight_slot(nil)
+    end
+    if self.inventory and self.inventory.inventory_grid then
+        self.inventory.inventory_grid:highlight_slot(nil)
+    end
+end
+
 function on_input(self, action_id, action)
+    -- Начинаем с клавиаутры
     if action.pressed then
         local handler = self.input_handlers[action_id]
         if handler then
@@ -120,6 +137,67 @@ function on_input(self, action_id, action)
         if self.inventory then
             self.inventory:set_visible(false)
         end
+    end
+    
+    if not action.x or not action.y then
+        return self.druid:on_input(action_id, action)
+    end
+
+    -- Обработка окончания драга
+    if drag_manager.is_dragging() and action.released then
+        local target_component = nil
+        local target_slot = nil
+        
+        -- Проверяем открытые окна
+        if self.container_window and self.container_window.inventory_grid then
+            local inv_grid = self.container_window.inventory_grid
+            local slot = inv_grid:get_slot_at_position(action.x, action.y)
+            if slot then 
+                target_component = inv_grid
+                target_slot = slot
+                print("Target: container window, slot:", target_slot)
+            end
+        end
+
+        if self.character_window and self.character_window.inventory_grid then
+            local inv_grid = self.character_window.inventory_grid
+            local slot = inv_grid:get_slot_at_position(action.x, action.y) 
+            if slot then 
+                target_component = inv_grid
+                target_slot = slot
+                print("Target: same inventory, slot:", slot)
+            end
+        end
+
+        
+        if self.inventory and self.inventory.inventory_grid then
+            local inv_grid = self.inventory.inventory_grid
+            local slot = inv_grid:get_slot_at_position(action.x, action.y)
+            if slot then
+                target_component = inv_grid
+                target_slot = slot
+                print("Target: same inventory, slot:", slot)
+            end
+        end
+        
+        if target_component then
+            drag_manager.finish(target_component, target_slot)
+        else
+            local source, source_slot = drag_manager.get_source()
+            if source and source.is_mouse_over_any_gui then
+                local over_gui = source:is_mouse_over_any_gui(action.x, action.y)
+                if over_gui then
+                    -- Возврат на место (свап с самим собой)
+                    drag_manager.finish(source, source_slot)
+                else
+                    drag_manager.finish(nil, nil)
+                end
+            else
+                drag_manager.finish(nil, nil)
+            end
+        end
+
+        return true    
     end
 
     return self.druid:on_input(action_id, action)

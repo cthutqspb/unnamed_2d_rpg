@@ -69,6 +69,10 @@ function InventoryGrid:get_data_source()
     return require("main.modules.player_inventory")
 end
 
+function InventoryGrid:get_slot_at_position(x, y)
+    return DragModule.get_slot_at_position(self, x, y)
+end
+
 function InventoryGrid:on_input(action_id, action)
     -- Прокидываем координаты мыши в DragModule
     DragModule.on_input(self, action_id, action)
@@ -76,6 +80,10 @@ function InventoryGrid:on_input(action_id, action)
         self.mouse_x = action.x
         self.mouse_y = action.y
     end
+end
+
+function InventoryGrid:is_mouse_over_any_gui(x, y)
+    return DragModule.is_mouse_over_any_gui(self, x, y)
 end
 
 function InventoryGrid:refresh()

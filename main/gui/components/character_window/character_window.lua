@@ -191,5 +191,16 @@ function M.switch_tab(self, tab_name)
     self.active_tab = tab_name
 end
 
+function M:get_slot_at_position(x, y)
+    if self.inventory_grid then
+        return self.inventory_grid:get_slot_at_position(x, y)
+    end
+    return nil
+end
+
+function M:is_visible()
+    return gui.is_enabled(self.root)
+end
+
 return M
 

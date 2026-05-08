@@ -108,6 +108,7 @@ nodes {
   parent: "root"
   inherit_alpha: true
   template: "/main/gui/components/inventory/inventory.gui"
+  enabled: false
 }
 nodes {
   type: TYPE_BOX
@@ -555,9 +556,14 @@ nodes {
   template_node_child: true
 }
 nodes {
+  position {
+    z: 1.0
+  }
   type: TYPE_BOX
   id: "character_window/inventory_grid/drag_icon"
   parent: "character_window/inventory_grid"
+  overridden_fields: 1
+  overridden_fields: 20
   template_node_child: true
 }
 nodes {
@@ -686,9 +692,14 @@ nodes {
   template_node_child: true
 }
 nodes {
+  position {
+    z: 1.0
+  }
   type: TYPE_BOX
   id: "container_window_back/drag_icon"
   parent: "container_window_back"
+  overridden_fields: 1
+  overridden_fields: 20
   template_node_child: true
 }
 nodes {
@@ -718,6 +729,12 @@ nodes {
   type: TYPE_BOX
   id: "container_window/btn_close"
   parent: "container_window/header"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "container_window/text"
+  parent: "container_window/btn_close"
   template_node_child: true
 }
 nodes {
@@ -785,6 +802,15 @@ nodes {
   id: "container_window/btn_take_all"
   parent: "container_window/footer"
   template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "container_window/body"
+  parent: "container_window/root"
+  template_node_child: true
+}
+layers {
+  name: "drag_layer"
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

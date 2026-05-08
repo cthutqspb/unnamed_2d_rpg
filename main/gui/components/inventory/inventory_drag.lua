@@ -2,6 +2,7 @@ local player_inv = require("main.modules.player_inventory")
 local gui_utils = require("main.gui.gui_utils")
 local items_db = require("main.modules.items_db")
 local ItemTransfer = require("main.modules.item_transfer_manager")
+local drag_manager = require("main.gui.drag_manager")
 
 local M = {}
 
@@ -42,9 +43,7 @@ function M.create_slots(self)
             local btn = d:new_button(slot_root, function() M.on_slot_click(self, i) end)
             
             local drag = d:new_drag(slot_root, function(ctx, dx, dy)
-                if self.dragging_index then
-                    M.on_item_drag(self, self.dragging_index, dx, dy)
-                end
+                drag_manager.update(self.mouse_x + dx, self.mouse_y + dy)
             end)
             
             drag.is_touch_threshold = false 
@@ -103,48 +102,38 @@ function M.on_input(self, action_id, action)
     end
 end
 
+-- В M.on_item_drag_start
 function M.on_item_drag_start(self, index)
-    msg.post("world", "drag_start")
+    gui.set_render_order(15)
     local item_data = self:get_data_source().items[index]
-    if not item_data or not item_data.item_id then 
-        self.dragging_index = nil
-        return 
-    end
-
-    self.dragging_index = index
+    if not item_data or not item_data.item_id then return end
+    
     local data = items_db.get_item(item_data.item_id)
     
-    -- СОЗДАЕМ КЛОН
+    -- Создаём клон
+    local template_id = gui.get_id(self.drag_template) -- Получаем ID оригинала (уже хэшированный)
     local cloned_nodes = gui.clone_tree(self.drag_template)
-    self.drag_clone = cloned_nodes[""] or cloned_nodes[hash("")]
+    local drag_clone = cloned_nodes[template_id] 
     
-    if not self.drag_clone then
+    if not drag_clone then
         for _, node in pairs(cloned_nodes) do
-            self.drag_clone = node
+            drag_clone = node
             break
         end
     end
     
-    -- Прикрепляем к корню
-    gui.set_parent(self.drag_clone, self.root)
+    gui.set_parent(drag_clone, self.root)
     
-    -- ВАЖНО: Пересчитываем позицию
-    -- Получаем экранную позицию root
     local root_x, root_y = gui_utils.get_screen_position(self.root)
+    gui.set_texture(drag_clone, data.texture)
+    gui.play_flipbook(drag_clone, hash(data.animation))
+    gui.set_size(drag_clone, vmath.vector3(self.item_size, self.item_size, 0))
+    gui.set_color(drag_clone, vmath.vector4(1, 1, 1, 1))
+    gui.set_position(drag_clone, vmath.vector3(self.mouse_x - root_x, self.mouse_y - root_y, 1))
+    gui.set_enabled(drag_clone, true)
     
-    -- Вычисляем относительную позицию для drag_clone
-    local local_x = self.mouse_x - root_x
-    local local_y = self.mouse_y - root_y
-    
-    -- Настраиваем внешний вид
-    gui.set_texture(self.drag_clone, data.texture)
-    gui.play_flipbook(self.drag_clone, hash(data.animation))
-    gui.set_size(self.drag_clone, vmath.vector3(self.item_size, self.item_size, 0))
-    gui.set_color(self.drag_clone, vmath.vector4(1, 1, 1, 1))
-    
-    -- Ставим под курсор (с учетом позиции root)
-    gui.set_position(self.drag_clone, vmath.vector3(local_x, local_y, 1))
-    gui.set_enabled(self.drag_clone, true)
+    -- Запускаем драг в менеджере
+    drag_manager.start(self, index, item_data, drag_clone, self.root)
     
     -- Скрываем оригинал
     gui.set_enabled(self.slots[index].icon, false)
@@ -152,69 +141,16 @@ function M.on_item_drag_start(self, index)
 end
 
 function M.on_item_drag(self, index, dx, dy)
-    if not self.dragging_index or not self.drag_clone then return end
-    
-    -- Также пересчитываем при движении
-    local root_x, root_y = gui_utils.get_screen_position(self.root)
-    local local_x = self.mouse_x - root_x
-    local local_y = self.mouse_y - root_y
-    
-    gui.set_position(self.drag_clone, vmath.vector3(local_x, local_y, 1))
-    -- msg.post("/gui_manager", "refresh_inventories")
+    print("on_item_drag called", dx, dy)
+    self.mouse_x = self.mouse_x + dx
+    self.mouse_y = self.mouse_y + dy
+    drag_manager.update(self.mouse_x, self.mouse_y)
 end
 
 function M.on_item_drag_end(self, index)
     msg.post("world", "drag_end")
-    if not self.dragging_index then return end
-    
-    local target = M.get_slot_at_position(self, self.mouse_x, self.mouse_y)
-    local is_over_world = not M.is_mouse_over_any_gui(self)
-    
-    if is_over_world then
-        -- Выброс в мир
-        ItemTransfer.transfer(self, self.dragging_index, "world", nil, self.mouse_x, self.mouse_y)
-        self:refresh()
-        
-    elseif target and target.slot ~= index then
-        -- Попали в слот
-        if target.component ~= self then
-            -- Перетаскивание между разными инвентарями
-            ItemTransfer.transfer(
-                self,
-                self.dragging_index,
-                "inventory",
-                {
-                    items = target.component:get_data_source().items,
-                    slot = target.slot,
-                    component = target.component
-                },
-                nil, nil
-            )
-        else
-            -- Свап внутри одного инвентаря
-            local data_source = self:get_data_source()
-            if data_source.swap_slots then
-                data_source.swap_slots(self.dragging_index, target.slot)
-            else
-                -- Простой обмен, если нет метода swap_slots
-                local temp = data_source.items[self.dragging_index]
-                data_source.items[self.dragging_index] = data_source.items[target.slot]
-                data_source.items[target.slot] = temp
-            end
-            self:refresh()
-        end
-    else
-        -- Возврат на место (ничего не делаем, просто обновляем визуал)
-        self:refresh()
-    end
-    
-    -- Удаляем клон иконки
-    if self.drag_clone then
-        gui.delete_node(self.drag_clone)
-        self.drag_clone = nil
-    end
-    msg.post("/gui_manager", "refresh_inventories")
     self.dragging_index = nil
+    -- Драг завершится в hud.gui_script
 end
 
 -- ОЧИСТИТЬ ВИЗУАЛ СЛОТА
@@ -231,14 +167,12 @@ function M.on_slot_click(self, index)
 end
 
 function M.get_slot_at_position(self, screen_x, screen_y)
-    -- Получаем экранную позицию container
+    
     local container_screen_x, container_screen_y = gui_utils.get_screen_position(self.container)
     
-    -- Переводим в локальные координаты container
     local local_x = screen_x - container_screen_x
     local local_y = screen_y - container_screen_y
     
-    -- Проверяем попадание в слоты
     for i, slot in ipairs(self.slots) do
         local slot_pos = gui.get_position(slot.root)
         local slot_size = gui.get_size(slot.root)
@@ -248,32 +182,31 @@ function M.get_slot_at_position(self, screen_x, screen_y)
         local bottom = slot_pos.y - slot_size.y/2
         local top = slot_pos.y + slot_size.y/2
         
+        
         if local_x >= left and local_x <= right and local_y >= bottom and local_y <= top then
-            return { component = self, slot = i }
+            print("HIT slot", i)
+            return i
         end
     end
     
     return nil
 end
 
-function M.is_mouse_over_any_gui(self)
-    -- Список нод, которые реально являются окнами или панелями
+function M.is_mouse_over_any_gui(self, mouse_x, mouse_y)
     local ui_windows = {
-        "character_window/root", -- Фон окна персонажа
+        "character_window/root",
         "container_window/root",
-        "inventory/root",         -- Фон сумки
-        "action_bar/root"         -- Твоя панель навыков     
+        "inventory/root",
+        "action_bar/root"
     }
 
     for _, path in ipairs(ui_windows) do
         local ok, node = pcall(gui.get_node, path)
-        -- Проверяем: окно открыто (enabled) и мышь над ним
-        if ok and gui.is_enabled(node) and gui.pick_node(node, self.mouse_x, self.mouse_y) then
-            return true -- Не выкидываем!
+        if ok and node and gui.is_enabled(node) and gui.pick_node(node, mouse_x, mouse_y) then
+            return true
         end
     end
-
-    return false -- Если мышь не над окнами — выкидываем в мир
+    return false
 end
 
 return M

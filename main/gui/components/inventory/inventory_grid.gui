@@ -79,6 +79,9 @@ nodes {
   template_node_child: true
 }
 nodes {
+  position {
+    z: 10.0
+  }
   size {
     x: 40.0
     y: 40.0
