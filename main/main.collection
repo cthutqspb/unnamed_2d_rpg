@@ -33,13 +33,11 @@ embedded_instances {
 embedded_instances {
   id: "gui_manager"
   children: "character_window"
+  children: "container_window"
+  children: "drag_layer"
   data: "components {\n"
   "  id: \"hud\"\n"
   "  component: \"/main/gui/hud.gui\"\n"
-  "}\n"
-  "components {\n"
-  "  id: \"chunk_meadows\"\n"
-  "  component: \"/assets/tilemaps/chunk_meadows.tilemap\"\n"
   "}\n"
   ""
   position {
@@ -93,9 +91,21 @@ embedded_instances {
   "  id: \"gui\"\n"
   "  component: \"/main/gui/components/character_window/character_window.gui\"\n"
   "}\n"
-  "components {\n"
-  "  id: \"health_bar\"\n"
-  "  component: \"/main/gui/components/health_bar/health_bar.gui\"\n"
+  ""
+}
+embedded_instances {
+  id: "container_window"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/container_window/container_window.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "drag_layer"
+  data: "components {\n"
+  "  id: \"drag_layer\"\n"
+  "  component: \"/main/gui/components/layers/drag_layer.gui\"\n"
   "}\n"
   ""
 }

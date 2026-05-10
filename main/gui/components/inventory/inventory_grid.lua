@@ -75,7 +75,11 @@ function InventoryGrid:is_mouse_over_any_gui(x, y)
 end
 
 function InventoryGrid:refresh()
-    local data_source = self.data_source
+    local data_source = self:get_data_source()
+    if not data_source or not data_source.items then 
+        print("Warning: InventoryGrid has no data_source during refresh")
+        return 
+    end
     
     for i = 1, #self.slots do
         local data = data_source.items[i]

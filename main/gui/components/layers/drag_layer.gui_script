@@ -1,0 +1,57 @@
+local drag_manager = require("main.gui.drag_manager")
+
+function init(self)
+    -- Мы не запрашиваем фокус ввода! Этот слой только для отрисовки.
+    gui.set_render_order(20)
+    self.icon = gui.get_node("icon")
+    gui.set_enabled(self.icon, false)
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+    if drag_manager.is_dragging() then
+        local d = drag_manager.get_active()
+        gui.set_enabled(self.icon, true)
+        
+        -- Устанавливаем визуал из данных менеджера
+        print('texture', d.texture, 'anim', d.anim)
+        if d.texture and d.anim then
+            gui.set_texture(self.icon, d.texture)
+            gui.play_flipbook(self.icon, d.anim)
+        end
+        
+        -- Позиция напрямую по координатам мыши
+        gui.set_position(self.icon, vmath.vector3(d.x, d.y, 0))
+    else
+        gui.set_enabled(self.icon, false)
+    end
+end
+
+function on_message(self, message_id, message, sender)
+	-- Add message-handling code here
+	-- Learn more: https://defold.com/manuals/message-passing/
+	-- Remove this function if not needed
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here. The game object this script is attached to
+	-- must have acquired input focus:
+	--
+	--    msg.post(".", "acquire_input_focus")
+	--
+	-- All mapped input bindings will be received. Mouse and touch input will
+	-- be received regardless of where on the screen it happened.
+	-- Learn more: https://defold.com/manuals/input/
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

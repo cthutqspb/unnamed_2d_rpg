@@ -5,19 +5,27 @@ local M = {}
 
 local active_drag = nil
 
-function M.start(source, slot, item, clone, root_node)
+function M.start(source, slot, item, texture, anim)
     -- Считаем экранную позицию корня ОДИН РАЗ при старте
     -- (в этот момент мы еще в правильной сцене)
-    local rx, ry = gui_utils.get_screen_position(root_node)
+    -- local rx, ry = gui_utils.get_screen_position(root_node)
     
+    -- active_drag = {
+    --     source = source,
+    --     slot = slot,
+    --     item = item,
+    --     clone = clone,
+    --     root_screen_pos = vmath.vector3(rx, ry, 0), -- Храним координаты, а не ноду
+    --     x = 0,
+    --     y = 0
+    -- }
     active_drag = {
         source = source,
         slot = slot,
         item = item,
-        clone = clone,
-        root_screen_pos = vmath.vector3(rx, ry, 0), -- Храним координаты, а не ноду
-        x = 0,
-        y = 0
+        texture = texture, -- строка (атлас)
+        anim = anim,       -- хеш (анимация)
+        x = 0, y = 0
     }
     print("Drag started")
 end
@@ -27,15 +35,15 @@ function M.update(x, y)
     active_drag.x = x
     active_drag.y = y
     
-    if active_drag.clone then
-        -- Используем сохраненные координаты, не вызывая gui_utils
-        local root_pos = active_drag.root_screen_pos
-        local local_x = x - root_pos.x
-        local local_y = y - root_pos.y
-        
-        -- pcall защитит от ошибки отрисовки в чужой сцене
-        pcall(gui.set_position, active_drag.clone, vmath.vector3(local_x, local_y, 1))
-    end
+    -- if active_drag.clone then
+    --     -- Используем сохраненные координаты, не вызывая gui_utils
+    --     local root_pos = active_drag.root_screen_pos
+    --     local local_x = x - root_pos.x
+    --     local local_y = y - root_pos.y
+    --     
+    --     -- pcall защитит от ошибки отрисовки в чужой сцене
+    --     pcall(gui.set_position, active_drag.clone, vmath.vector3(local_x, local_y, 1))
+    -- end
 end
 
 function M.get_active()
@@ -106,7 +114,8 @@ function M.finish(target_component, target_slot)
     -- Это обновит сумку в HUD
     msg.post("/gui_manager#hud", "refresh_inventories")
     -- Это обновит окно персонажа (убедись, что адрес верный из дебага)
-    msg.post("main:/character_window#gui", "refresh") 
+    msg.post("main:/character_window#gui", "refresh")
+    msg.post("main:/container_window#gui", "refresh") 
 end
 
 -- function M.finish(target_component, target_slot)

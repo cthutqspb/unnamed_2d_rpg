@@ -1,7 +1,8 @@
 local druid = require("druid.druid")
 local CharacterWindow = require("main.gui.components.character_window.character_window")
 local player_inv = require("main.modules.player_inventory")
-local drag_manager = require("main.gui.drag_manager") -- Не забудь импорт!
+local drag_manager = require("main.gui.drag_manager")
+local window_manager = require("main.modules.gui.window_manager")
 local h_touch = hash("touch")
 
 function init(self)
@@ -14,7 +15,6 @@ function init(self)
     -- Мы используем твой M.new из Lua-файла
     -- self.window_logic = CharacterWindow.new(self.druid, "character_window", player_inv)
     self.character_window = CharacterWindow.new(self.druid, "", player_inv)
-    msg.post(".", "acquire_input_focus")
 end
 
 function final(self)
@@ -30,33 +30,31 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-    if message_id == hash("toggle_character_window") then
-        print('TOGGLE')
-        self.character_window:toggle() -- Вызываем метод из твоего Lua-файла
+    -- ГОЛОЕ ЗАКРЫТИЕ (от менеджера или кнопки Esc)
+    if message_id == hash("close_window") then
+        if self.character_window:is_visible() then
+            self.character_window:close() -- Твой метод модуля
+            gui.set_render_order(0)
+            window_manager.pop(msg.url())
+        end
+
+    -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
+    elseif message_id == hash("toggle_character_window") then
+        self.character_window:toggle()
         
-        -- ПОБЕДА: теперь это работает глобально!
         if self.character_window:is_visible() then
             gui.set_render_order(10)
+            window_manager.push(msg.url(), hash("close_window")) 
         else
             gui.set_render_order(0)
-        end  
-    end
-
-   if message_id == hash("refresh") then
-        -- 1. Обновляем визуализацию слотов
-        if self.character_window and self.character_window.inventory_grid then
-            self.character_window.inventory_grid:refresh()
-            
-            -- 2. ЗАЧИСТКА КЛОНА
-            -- Достаем сохраненную ссылку из модуля
-            local grid = self.character_window.inventory_grid
-            if grid.current_drag_clone then
-                -- Удаляем ноду (здесь pcall даже не обязателен, но для страховки можно)
-                pcall(gui.delete_node, grid.current_drag_clone)
-                grid.current_drag_clone = nil -- Очищаем ссылку, чтобы не удалять дважды
-            end
+            window_manager.pop(msg.url())
         end
-    end   
+
+    elseif message_id == hash("refresh") then
+        if self.character_window and self.character_window:is_visible() then
+            self.character_window.inventory_grid:refresh()
+        end
+    end    
 end
 
 function on_input(self, action_id, action)

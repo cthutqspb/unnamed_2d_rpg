@@ -4,10 +4,9 @@ local ActionBar = require("main.gui.action_bar.action_bar")
 local player_inv = require("main.modules.player_inventory")
 local InventoryGrid = require("main.gui.components.inventory.inventory_grid")
 local Inventory = require("main.gui.components.inventory.inventory")
-local CharacterWindow = require("main.gui.components.character_window.character_window")
-local ContainerWindow = require("main.gui.components.container_window.container_window")
 local gui_utils = require("main.gui.gui_utils")
 local drag_manager = require("main.gui.drag_manager")
+local window_manager = require("main.modules.gui.window_manager")
 local h_touch = hash("touch")
 
 
@@ -29,15 +28,7 @@ function init(self)
         rows = 4,
         item_size = 40,
         spacing = 2
-    })
-   
-    self.container_window = ContainerWindow.new(self.druid, "container_window", {
-        columns = 6,
-        rows = 4,
-        spacing = 2
-    })
-
-    self.container_window:set_visible(false)
+    }) 
 
     self.msg_handlers = {
         [hash("update_health")] = function(self, message) 
@@ -81,27 +72,12 @@ function on_message(self, message_id, message, sender)
         end
     end
 
-    if message_id == hash("open_container") then        
-        self.container_window:open(
-            message.container_id,
-            message.columns,
-            message.rows,
-            message.position,      -- мирная позиция контейнера
-            message.player_pos     -- позиция игрока
-        )
-    end
-
-    if message_id == hash("close_container_window") then
-        if self.container_window then
-            self.container_window:set_visible(false)
-        end
-    end
 end
 
 function clear_slot_highlights(self)
-    if self.container_window and self.container_window.inventory_grid then
-        self.container_window.inventory_grid:highlight_slot(nil)
-    end
+    -- if self.container_window and self.container_window.inventory_grid then
+    --     self.container_window.inventory_grid:highlight_slot(nil)
+    -- end
     -- if self.character_window and self.character_window.inventory_grid then
     --     self.character_window.inventory_grid:highlight_slot(nil)
     -- end
@@ -121,16 +97,25 @@ function on_input(self, action_id, action)
             return true
         end
     end
-
+    
     if action_id == hash("key_esc") and action.pressed then
-        if self.container_window then
-            self.container_window:set_visible(false)
+        -- Пытаемся закрыть верхнее окно
+        local handled = window_manager.close_top()
+        
+        if not handled then
+            -- Если окон в стеке нет, открываем общее меню игры (Settings/Exit)
+            print("No windows to close. Open Main Menu?")
+            -- self.main_menu:toggle()
         end
-        msg.post("main:/character_window#gui", "toggle_character_window")
-        if self.inventory then
-            self.inventory:set_visible(false)
-        end
+        return true -- Поглощаем ESC, чтобы игра не закрылась сразу
     end
+    -- if action_id == hash("key_esc") and action.pressed then
+    --     msg.post("main:/container_window#gui", "close_container_window")
+    --     msg.post("main:/character_window#gui", "close_character_window")
+    --     if self.inventory then
+    --         self.inventory:set_visible(false)
+    --     end
+    -- end
     
     if not action.x or not action.y then
         return self.druid:on_input(action_id, action)
@@ -145,11 +130,11 @@ function on_input(self, action_id, action)
     if action_id == h_touch and action.released and drag_manager.is_dragging() then
         print("HUD: Checking drop...") -- Если этого принта нет, значит h_touch nil или ввод не дошел
 
-        -- Сначала проверяем Контейнер (Лут)
-        if self.container_window and self.container_window.inventory_grid:on_drop(action.x, action.y) then
-            print("HUD: Dropped into Container")
-            return true
-        end
+        -- -- Сначала проверяем Контейнер (Лут)
+        -- if self.container_window and self.container_window.inventory_grid:on_drop(action.x, action.y) then
+        --     print("HUD: Dropped into Container")
+        --     return true
+        -- end
 
         -- Потом проверяем Сумку (Inventory)
         if self.inventory and self.inventory.inventory_grid:on_drop(action.x, action.y) then

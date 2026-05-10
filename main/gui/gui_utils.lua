@@ -77,4 +77,39 @@ function M.layout_horizontal_by_node(parent_node, button_nodes, spacing)
     end
 end
 
+function M.clamp_to_screen(node, new_pos, margin_x, margin_y)
+    -- Если передали только margin_x, используем его для всех сторон
+    margin_x = margin_x or 0
+    margin_y = margin_y or margin_x
+
+    local sw = gui.get_width()
+    local sh = gui.get_height()
+    
+    local size = gui.get_size(node)
+    local scale = gui.get_scale(node)
+    
+    local w = size.x * scale.x
+    local h = size.y * scale.y
+    
+    -- Для Pivot: Center
+    local hw = w / 2
+    local hh = h / 2
+
+    -- Ограничение по горизонтали (X)
+    if new_pos.x - hw < margin_x then 
+        new_pos.x = hw + margin_x 
+    elseif new_pos.x + hw > sw - margin_x then 
+        new_pos.x = sw - hw - margin_x 
+    end
+
+    -- Ограничение по вертикали (Y)
+    if new_pos.y - hh < margin_y then 
+        new_pos.y = hh + margin_y 
+    elseif new_pos.y + hh > sh - margin_y then 
+        new_pos.y = sh - hh - margin_y 
+    end
+
+    return new_pos
+end
+
 return M

@@ -3,7 +3,6 @@ go.property("container_name", hash("container_name"))
 go.property("columns", 6)
 go.property("rows", 4)
 go.property("is_lootable", true)
--- go.property("items_list", "[])  -- ссылка на таблицу лута
 go.property("is_random_loot", true)
 go.property("loot_table_id", hash("empty"))
 
@@ -121,7 +120,7 @@ function on_message(self, message_id, message, sender)
         end)
     end
     
-    if message_id == hash("close_container") then
+    if message_id == hash("close_window") then
         self:close_container()
     end
 end
@@ -150,7 +149,7 @@ function open_container(self)
     end
     
     -- Передаём в GUI ссылку на state.items
-    msg.post("/gui_manager", "open_container", {
+    msg.post("main:/container_window#gui", "open_container_window", {
         container_id = self.container_id,
         container_items = state.items,  -- передаём ссылку на предметы
         columns = self.columns,

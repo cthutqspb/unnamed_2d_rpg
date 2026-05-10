@@ -4,21 +4,29 @@ local InventoryGrid = require("main.gui.components.inventory.inventory_grid")
 local containers_state = require("main.modules.game_state.containers_state")
 
 function ContainerWindow.new(druid, template_id, config)
+
+     local function get_id(node_name)
+        if not template_id or template_id == "" then 
+            return node_name 
+        end
+        return template_id .. "/" .. node_name
+    end
+
     local self = {
         druid = druid,
-        root = gui.get_node(template_id .. "/root"),
-        body = gui.get_node(template_id .. "/body"),
-        header = gui.get_node(template_id .. "/header"),
-        btn_close = gui.get_node(template_id .. "/btn_close"),
-        title = gui.get_node(template_id .. "/title"),
-        btn_take_all = gui.get_node(template_id .. "/btn_take_all"),
+        root = gui.get_node(get_id("root")),
+        body = gui.get_node(get_id("body")),
+        header = gui.get_node(get_id("header")),
+        btn_close = gui.get_node(get_id("btn_close")),
+        title = gui.get_node(get_id("title")),
+        btn_take_all = gui.get_node(get_id("btn_take_all")),
         grid = nil
     }
     
     -- Создаём грид
     -- local container_data = containers_state.get(config.container_id)
     
-    self.inventory_grid = druid:new(InventoryGrid, template_id .. "/inventory_grid", {
+    self.inventory_grid = druid:new(InventoryGrid, get_id("inventory_grid"), {
         columns = config.columns,
         rows = config.rows,
         item_size = config.item_size,
@@ -27,9 +35,12 @@ function ContainerWindow.new(druid, template_id, config)
      -- Заголовок для драга (header должен иметь Manual size и покрывать всю верхнюю часть)
     self.drag = druid:new_drag(self.header, function(_, dx, dy)
         local pos = gui.get_position(self.root)
-        pos.x = pos.x + dx
-        pos.y = pos.y + dy
-        gui.set_position(self.root, pos)
+        local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
+        
+        -- Ограничиваем target_pos по размерам ноды body
+        local final_pos = gui_utils.clamp_to_screen(self.body, target_pos, 0, 20)
+        
+        gui.set_position(self.root, final_pos)    
     end)
     -- Чтобы драг не конфликтовал с кнопками на хедере
     self.drag.is_touch_threshold = true
@@ -99,7 +110,6 @@ function ContainerWindow.new(druid, template_id, config)
     
     function self:close()
         self:set_visible(false)
-        msg.post("/gui_manager", "close_container_window")
     end
     
     function self:take_all()
@@ -122,14 +132,14 @@ function ContainerWindow.new(druid, template_id, config)
     --     return nil
     -- end
 
-    function ContainerWindow:get_slot_at_position(x, y)
+    function self:get_slot_at_position(x, y)
         if self.inventory_grid then
             return self.inventory_grid:get_slot_at_position(x, y)
         end
         return nil
     end
 
-    function ContainerWindow:is_visible()
+    function self:is_visible()
         return gui.is_enabled(self.root)
     end
     

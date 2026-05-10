@@ -62,7 +62,7 @@ function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
 end
 
-function M.close_window(self)
+function M.close(self)
     self:set_visible(false) -- Теперь этот вызов найдет функцию выше
     print("Window closed")
 end
@@ -104,23 +104,32 @@ function M.new(druid, template_id, player_inventory)
     self.set_visible = M.set_visible
     self.toggle = M.toggle
     self.switch_tab = M.switch_tab
-    self.close_window = M.close_window
+    self.close = M.close
     self.get_slot_at_position = M.get_slot_at_position
     self.is_visible = M.is_visible -- ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО
     self.on_input = M.on_input
     
     -- Заголовок для драга (header должен иметь Manual size и покрывать всю верхнюю часть)
+    -- self.drag = druid:new_drag(self.header, function(_, dx, dy)
+    --     local pos = gui.get_position(self.root)
+    --     pos.x = pos.x + dx
+    --     pos.y = pos.y + dy
+    --     gui.set_position(self.root, pos)
+    -- end)
     self.drag = druid:new_drag(self.header, function(_, dx, dy)
         local pos = gui.get_position(self.root)
-        pos.x = pos.x + dx
-        pos.y = pos.y + dy
-        gui.set_position(self.root, pos)
+        local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
+        
+        -- Ограничиваем target_pos по размерам ноды body
+        local final_pos = gui_utils.clamp_to_screen(self.body, target_pos, 0, 40)
+        
+        gui.set_position(self.root, final_pos)
     end)
     -- Чтобы драг не конфликтовал с кнопками на хедере
     self.drag.is_touch_threshold = true
     
     druid:new_button(self.btn_close, function()
-        self:close_window()
+        self:close()
     end)
 
     for name, cfg in pairs(TABS) do

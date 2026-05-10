@@ -58,7 +58,7 @@ function update(self, dt)
    -- Если есть ввод с клавиатуры — отменяем движение мышью
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
         self.move_target = nil
-        msg.post("/gui_manager", "close_container_window")
+        msg.post("main:/container_window#gui", "close_window")
     end
     
     -- 1. Собираем вектор направления из того, что пришло из on_input
@@ -66,7 +66,7 @@ function update(self, dt)
     
     -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
-        msg.post("/gui_manager", "close_container_window")
+        msg.post("main:/container_window#gui", "close_window")
         local p = go.get_position()
         local d = self.move_target - p
         if vmath.length(d) > 5 then

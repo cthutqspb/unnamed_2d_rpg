@@ -1,8 +1,13 @@
+script: "/main/gui/components/container_window/container_window.gui_script"
 fonts {
   name: "gui_title"
   font: "/assets/fonts/gui_title.font"
 }
 nodes {
+  position {
+    x: 1440.0
+    y: 320.0
+  }
   size {
     x: 300.0
     y: 240.0
@@ -48,8 +53,8 @@ nodes {
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 24.0
+    y: 24.0
   }
   type: TYPE_TEXT
   text: "X"

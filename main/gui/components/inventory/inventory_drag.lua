@@ -43,7 +43,7 @@ function M.create_slots(self)
             local btn = d:new_button(slot_root, function() M.on_slot_click(self, i) end)
             
             local drag = d:new_drag(slot_root, function(ctx, dx, dy)
-                drag_manager.update(self.mouse_x + dx, self.mouse_y + dy)
+          
             end)
             
             drag.is_touch_threshold = false 
@@ -102,43 +102,62 @@ function M.on_input(self, action_id, action)
     end
 end
 
--- В M.on_item_drag_start
 function M.on_item_drag_start(self, index)
-    gui.set_render_order(15)
+    -- 1. Получаем данные предмета
     local item_data = self:get_data_source().items[index]
     if not item_data or not item_data.item_id then return end
     
     local data = items_db.get_item(item_data.item_id)
-    -- Создаём клон
-    local template_id = gui.get_id(self.drag_template) -- Получаем ID оригинала (уже хэшированный)
-    local cloned_nodes = gui.clone_tree(self.drag_template)
-    local drag_clone = cloned_nodes[template_id] 
-    
-    if not drag_clone then
-        for _, node in pairs(cloned_nodes) do
-            drag_clone = node
-            break
-        end
-    end
-    
-    self.current_drag_clone = drag_clone
-    gui.set_parent(drag_clone, self.root)
-    
-    local root_x, root_y = gui_utils.get_screen_position(self.root)
-    gui.set_texture(drag_clone, data.texture)
-    gui.play_flipbook(drag_clone, hash(data.animation))
-    gui.set_size(drag_clone, vmath.vector3(self.item_size, self.item_size, 0))
-    gui.set_color(drag_clone, vmath.vector4(1, 1, 1, 1))
-    gui.set_position(drag_clone, vmath.vector3(self.mouse_x - root_x, self.mouse_y - root_y, 1))
-    gui.set_enabled(drag_clone, true)
-    
-    -- Запускаем драг в менеджере
-    drag_manager.start(self, index, item_data, drag_clone, self.root)
-    
-    -- Скрываем оригинал
+
+    -- 2. Просто уведомляем менеджер, ЧТО мы тащим
+    -- Нам не нужно создавать ноды, менеджер скажет drag_layer.gui, что отрисовать
+    print('DRAG START', data.texture, data.animation)
+    drag_manager.start(self, index, item_data, data.texture, hash(data.animation))
+
+    -- 3. Скрываем оригинал в слоте
     gui.set_enabled(self.slots[index].icon, false)
     gui.set_enabled(self.slots[index].count, false)
+    
+    -- НИКАКИХ gui.clone_tree, gui.set_parent и gui.set_render_order здесь больше не нужно!
 end
+--
+-- function M.on_item_drag_start(self, index)
+--     gui.set_render_order(15)
+--     local item_data = self:get_data_source().items[index]
+--     if not item_data or not item_data.item_id then return end
+--     
+--     local data = items_db.get_item(item_data.item_id)
+--     -- Создаём клон
+--     local template_id = gui.get_id(self.drag_template) -- Получаем ID оригинала (уже хэшированный)
+--     local cloned_nodes = gui.clone_tree(self.drag_template)
+--     local drag_clone = cloned_nodes[template_id] 
+--     
+--     if not drag_clone then
+--         for _, node in pairs(cloned_nodes) do
+--             drag_clone = node
+--             break
+--         end
+--     end
+--     
+--     self.current_drag_clone = drag_clone
+--     gui.set_parent(drag_clone, self.root)
+--     
+--     local root_x, root_y = gui_utils.get_screen_position(self.root)
+--     gui.set_texture(drag_clone, data.texture)
+--     gui.play_flipbook(drag_clone, hash(data.animation))
+--     gui.set_size(drag_clone, vmath.vector3(self.item_size, self.item_size, 0))
+--     gui.set_color(drag_clone, vmath.vector4(1, 1, 1, 1))
+--     gui.set_position(drag_clone, vmath.vector3(self.mouse_x - root_x, self.mouse_y - root_y, 1))
+--     gui.set_enabled(drag_clone, true)
+--     
+--     -- Запускаем драг в менеджере
+--     -- drag_manager.start(self, index, item_data, drag_clone, self.root)
+--     drag_manager.start(self, index, item_data, data.texture, hash(data.animation))
+--
+--     -- Скрываем оригинал
+--     gui.set_enabled(self.slots[index].icon, false)
+--     gui.set_enabled(self.slots[index].count, false)
+-- end
 
 function M.on_item_drag(self, index, dx, dy)
     print("on_item_drag called", dx, dy)
