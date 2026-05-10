@@ -4,21 +4,14 @@ local gui_utils = require("main.gui.gui_utils")
 local M = {}
 
 local active_drag = nil
+local is_over_any_gui = false
+
+local function get_items_table(component)
+    local ds = component:get_data_source()
+    return ds.slots or ds.items
+end
 
 function M.start(source, slot, item, texture, anim)
-    -- Считаем экранную позицию корня ОДИН РАЗ при старте
-    -- (в этот момент мы еще в правильной сцене)
-    -- local rx, ry = gui_utils.get_screen_position(root_node)
-    
-    -- active_drag = {
-    --     source = source,
-    --     slot = slot,
-    --     item = item,
-    --     clone = clone,
-    --     root_screen_pos = vmath.vector3(rx, ry, 0), -- Храним координаты, а не ноду
-    --     x = 0,
-    --     y = 0
-    -- }
     active_drag = {
         source = source,
         slot = slot,
@@ -34,16 +27,7 @@ function M.update(x, y)
     if not active_drag then return end
     active_drag.x = x
     active_drag.y = y
-    
-    -- if active_drag.clone then
-    --     -- Используем сохраненные координаты, не вызывая gui_utils
-    --     local root_pos = active_drag.root_screen_pos
-    --     local local_x = x - root_pos.x
-    --     local local_y = y - root_pos.y
-    --     
-    --     -- pcall защитит от ошибки отрисовки в чужой сцене
-    --     pcall(gui.set_position, active_drag.clone, vmath.vector3(local_x, local_y, 1))
-    -- end
+    is_over_any_gui = false
 end
 
 function M.get_active()
@@ -59,120 +43,71 @@ function M.get_source()
     return active_drag.source, active_drag.slot, active_drag.item
 end
 
+function M.set_over_gui(value)
+    is_over_any_gui = value
+end
+
 function M.finish(target_component, target_slot)
     if not active_drag then return end
 
-    -- 1. Копируем данные в локальную переменную, чтобы ОНИ НЕ ПРОПАЛИ
     local d = active_drag 
-    -- 2. Сразу обнуляем глобальную переменную, чтобы иконка "отлипла"
     active_drag = nil 
 
-    -- 3. Удаляем клон (pcall защитит от вылета, если мы не в той сцене)
-    if d.clone then
-        pcall(gui.delete_node, d.clone)
-    end
-
-    -- !!! ВАЖНО: дальше используем 'd', а не 'active_drag' !!!
     local source = d.source
     local source_slot = d.slot
     local item = d.item
-    
-    if source == target_component then
-        -- Свап внутри одного компонента
-        local data = source:get_data_source()
-        local temp = data.items[source_slot]
-        data.items[source_slot] = data.items[target_slot]
-        data.items[target_slot] = temp
-        -- Прямой вызов сработает только если мы в той же сцене
+    local source_items = get_items_table(source)
+
+    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но не в слоте)
+    if not target_component and is_over_any_gui then
+        print("Cancel drag: mouse over GUI but no slot")
+        -- Просто обновляем источник, чтобы иконка вернулась на место
+        pcall(function() source:refresh() end)
+
+    -- 2. СЛУЧАЙ: СВАП (Внутри того же окна/инвентаря)
+    elseif source == target_component then
+        local temp = source_items[source_slot]
+        source_items[source_slot] = source_items[target_slot]
+        source_items[target_slot] = temp
         pcall(function() source:refresh() end)
         
+    -- 3. СЛУЧАЙ: ПЕРЕНОС (Между разными окнами: Инвентарь <-> Кукла <-> Сундук)
     elseif target_component then
-        -- Перемещение между разными компонентами
-        local source_data = source:get_data_source()
-        local target_data = target_component:get_data_source()
+        local target_items = get_items_table(target_component)
+        local old_target_item = target_items[target_slot]
         
-        target_data.items[target_slot] = item
-        source_data.items[source_slot] = {item_id = nil, amount = 0}
+        target_items[target_slot] = item
+        
+        -- Рокировка: если в слоте что-то было, возвращаем это в источник
+        if old_target_item and old_target_item.item_id then
+            source_items[source_slot] = old_target_item
+        else
+            source_items[source_slot] = {item_id = nil, amount = 0}
+        end
         
         pcall(function() source:refresh() end)
         pcall(function() target_component:refresh() end)
         
+    -- 4. СЛУЧАЙ: ДРОП В МИР (Не над GUI вообще)
     else
-        -- Дроп в мир
+        print("DROP to world")
         msg.post("world", "spawn_dropped_item", {
             item_id = item.item_id,
             amount = item.amount,
             mouse_x = d.x,
             mouse_y = d.y
         })
-        local source_data = source:get_data_source()
-        source_data.items[source_slot] = {item_id = nil, amount = 0}
+        source_items[source_slot] = {item_id = nil, amount = 0}
         pcall(function() source:refresh() end)
     end
-    
-    -- 4. ГЛОБАЛЬНАЯ РАССЫЛКА (чтобы все окна обновились легально)
-    -- Это обновит сумку в HUD
+
+    -- СБРОС ФЛАГА
+    is_over_any_gui = false
+
+    -- Глобальное обновление (визуал)
     msg.post("/gui_manager#hud", "refresh_inventories")
-    -- Это обновит окно персонажа (убедись, что адрес верный из дебага)
     msg.post("main:/character_window#gui", "refresh")
     msg.post("main:/container_window#gui", "refresh") 
 end
-
--- function M.finish(target_component, target_slot)
---     if not active_drag then 
---         print("No active drag")
---         return 
---     end
---     
---     local source = active_drag.source
---     local source_slot = active_drag.slot
---     local item = active_drag.item
---     
---     print("finish: source_slot=", source_slot, "target_slot=", target_slot)
---     print("source == target_component?", source == target_component)
---     
---     if source == target_component then
---         -- Свап внутри одного компонента
---         print("SWAP inside same component")
---         local data = source:get_data_source()
---         local temp = data.items[source_slot]
---         data.items[source_slot] = data.items[target_slot]
---         data.items[target_slot] = temp
---         source:refresh()
---         
---     elseif target_component then
---         -- Перемещение между разными компонентами
---         print("MOVE to different component")
---         local source_data = source:get_data_source()
---         local target_data = target_component:get_data_source()
---         
---         target_data.items[target_slot] = item
---         source_data.items[source_slot] = {item_id = nil, amount = 0}
---         
---         source:refresh()
---         target_component:refresh()
---         
---     else
---         -- Дроп в мир
---         print("DROP to world")
---         msg.post("world", "spawn_dropped_item", {
---             item_id = item.item_id,
---             amount = item.amount,
---             mouse_x = active_drag.x,
---             mouse_y = active_drag.y
---         })
---         local source_data = source:get_data_source()
---         source_data.items[source_slot] = {item_id = nil, amount = 0}
---         source:refresh()
---     end
---     
---     msg.post("/gui_manager#hud", "refresh_inventories")
---     if active_drag.clone then
---         gui.delete_node(active_drag.clone)
---     end
---     active_drag = nil
---     msg.post("/gui_manager", "refresh_inventories")
---     print("Drag finished")
--- end
 
 return M

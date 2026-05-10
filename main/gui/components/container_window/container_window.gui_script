@@ -1,6 +1,7 @@
 local druid = require("druid.druid")
 local ContainerWindow = require("main.gui.components.container_window.container_window")
 local drag_manager = require("main.gui.drag_manager")
+local tooltip_manager = require("main.modules.gui.tooltip_manager")
 local window_manager = require("main.modules.gui.window_manager")
 local h_touch = hash("touch")
 
@@ -26,9 +27,30 @@ function final(self)
 end
 
 function update(self, dt)
-	-- Add update code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+    -- Если объект окна еще не создан или не проинициализирован
+    if not self.container_window or not self.container_window.inventory_grid then
+        return
+    end
+    
+    -- Берем координаты из менеджера (которые обновляет world.script)
+    local mx = tooltip_manager.mouse_x
+    local my = tooltip_manager.mouse_y
+    
+    local hovered = false
+    -- Проверяем инвентарь (если окно открыто)
+    if self.container_window:is_visible() then
+        if self.container_window.inventory_grid:update_hover(mx, my) then
+            hovered = true
+        end
+    end
+    
+    -- Если ни один слот ни в одном модуле не поймал мышь
+    if not hovered then
+        -- Важно: прячем только если мышь была над этим окном
+        if gui.pick_node(self.container_window.root, mx, my) then
+            tooltip_manager.hide()
+        end
+    end
 end
 
 function on_message(self, message_id, message, sender)

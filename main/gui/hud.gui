@@ -19,7 +19,6 @@ nodes {
   type: TYPE_TEMPLATE
   id: "health_bar"
   parent: "root"
-  inherit_alpha: true
   template: "/main/gui/components/health_bar/health_bar.gui"
 }
 nodes {
@@ -42,7 +41,6 @@ nodes {
   type: TYPE_TEMPLATE
   id: "mana_bar"
   parent: "root"
-  inherit_alpha: true
   template: "/main/gui/components/mana_bar/mana_bar.gui"
 }
 nodes {
@@ -312,9 +310,6 @@ nodes {
   id: "container_window_back/body"
   parent: "container_window_back/root"
   template_node_child: true
-}
-layers {
-  name: "drag_layer"
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

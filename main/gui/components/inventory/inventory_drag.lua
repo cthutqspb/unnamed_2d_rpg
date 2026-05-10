@@ -1,8 +1,10 @@
+local druid = require("druid.druid")
 local player_inv = require("main.modules.player_inventory")
 local gui_utils = require("main.gui.gui_utils")
 local items_db = require("main.modules.items_db")
 local ItemTransfer = require("main.modules.item_transfer_manager")
 local drag_manager = require("main.gui.drag_manager")
+local tooltip_manager = require("main.modules.gui.tooltip_manager")
 
 local M = {}
 
@@ -41,7 +43,24 @@ function M.create_slots(self)
             
             local d = self:get_druid()
             local btn = d:new_button(slot_root, function() M.on_slot_click(self, i) end)
-            
+              
+            -- d:new_hover(slot_root, 
+            --     -- Функция 1: МЫШЬ ЗАШЛА (OnEnter)
+            --     function()
+            --         print("ENTERED SLOT:")
+            --         local item_data = self:get_data_source().items[i]
+            --         if item_data and item_data.item_id and not drag_manager.is_dragging() then
+            --             print("TOOLTIP: SHOW for slot", i)
+            --             tooltip_manager.show("item", item_data.item_id)
+            --         end
+            --     end,
+            --     -- Функция 2: МЫШЬ УШЛА (OnLeave)
+            --     function() 
+            --         print("TOOLTIP: HIDE for slot", i)
+            --         tooltip_manager.hide()
+            --     end
+            -- )
+
             local drag = d:new_drag(slot_root, function(ctx, dx, dy)
           
             end)

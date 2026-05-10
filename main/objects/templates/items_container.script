@@ -126,7 +126,16 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
-
+    -- if action_id == nil then -- просто движение мыши
+    --     if mouse_is_over_this_object(action.x, action.y) then
+    --         tooltip_manager.show("unit", self.unit_id, { hp = self.hp })
+    --     else
+    --         -- Важно: скрывать только если МЫ его показали
+    --         if tooltip_manager.get_current() and tooltip_manager.get_current().id == self.unit_id then
+    --             tooltip_manager.hide()
+    --         end
+    --     end
+    -- end
 end
 
 function on_reload(self)
@@ -157,35 +166,6 @@ function open_container(self)
         position = go.get_world_position(),
         player_pos = go.get_position("/player")
     })
-    -- Если ещё не лутали — генерируем лут
-    -- if not self.is_looted then 
-    --     if self.loot_table_id ~= hash("empty") then
-    --         local items = loot_tables.get_loot(self.loot_table_id)
-    --         for i, item in ipairs(items) do
-    --             self.container_data.items[i] = item
-    --         end
-    --     end
-    --     self.is_looted = true
-    -- end
-    --
-    -- local player_pos = go.get_position("/player")
-    -- -- Отправляем сообщение в HUD для открытия окна контейнера
-    -- msg.post("/gui_manager", "open_container", {
-    --     container_id = self.container_id,
-    --     container_name = self.container_name,
-    --     container_data = self.container_data,
-    --     columns = self.columns,
-    --     rows = self.rows,
-    --     spacing = 4,
-    --     bg_color = vmath.vector4(0.2, 0.1, 0.05, 1),
-    --     position = go.get_world_position(),
-    --     player_pos = player_pos
-    -- })
-    
-    -- Если контейнер одноразовый (лутается)
-    -- if self.is_lootable then
-    --     go.delete(self.go_id)  -- или self:empty_container()
-    -- end
 end
 
 function close_container(self)

@@ -1,12 +1,12 @@
 local M = {}
 
--- Хранилище экипировки
+
 M.slots = {
-    HEAD = nil,   -- тут будет лежать {item_id = hash("leather_helmet"), weight = 1.0}
-    CHEST = nil,
-    LEGS = nil,
-    WEAPON = nil,
-    SHIELD = nil
+    HEAD = {item_id = nil, amount = 0},
+    CHEST = {item_id = nil, amount = 0},
+    LEGS = {item_id = nil, amount = 0},
+    WEAPON = {item_id = nil, amount = 0},
+    SHIELD = {item_id = nil, amount = 0}
 }
 
 -- Проверка: можно ли этот предмет надеть в этот слот?

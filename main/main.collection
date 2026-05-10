@@ -35,6 +35,7 @@ embedded_instances {
   children: "character_window"
   children: "container_window"
   children: "drag_layer"
+  children: "tooltip_layer"
   data: "components {\n"
   "  id: \"hud\"\n"
   "  component: \"/main/gui/hud.gui\"\n"
@@ -106,6 +107,14 @@ embedded_instances {
   data: "components {\n"
   "  id: \"drag_layer\"\n"
   "  component: \"/main/gui/components/layers/drag_layer.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "tooltip_layer"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/tooltips/tooltip_layer.gui\"\n"
   "}\n"
   ""
 }

@@ -6,6 +6,7 @@ nodes {
   type: TYPE_BOX
   id: "root"
   inherit_alpha: true
+  alpha: 0.0
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
@@ -19,9 +20,16 @@ nodes {
   template: "/main/gui/components/inventory/slot.gui"
 }
 nodes {
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
   type: TYPE_BOX
   id: "slot_head/root"
   parent: "slot_head"
+  overridden_fields: 5
+  overridden_fields: 30
   template_node_child: true
 }
 nodes {
@@ -47,9 +55,16 @@ nodes {
   template: "/main/gui/components/inventory/slot.gui"
 }
 nodes {
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
   type: TYPE_BOX
   id: "slot_chest/root"
   parent: "slot_chest"
+  overridden_fields: 5
+  overridden_fields: 30
   template_node_child: true
 }
 nodes {
@@ -75,9 +90,16 @@ nodes {
   template: "/main/gui/components/inventory/slot.gui"
 }
 nodes {
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
   type: TYPE_BOX
   id: "slot_legs/root"
   parent: "slot_legs"
+  overridden_fields: 5
+  overridden_fields: 30
   template_node_child: true
 }
 nodes {
@@ -104,9 +126,16 @@ nodes {
   template: "/main/gui/components/inventory/slot.gui"
 }
 nodes {
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
   type: TYPE_BOX
   id: "slot_main_hand/root"
   parent: "slot_main_hand"
+  overridden_fields: 5
+  overridden_fields: 30
   template_node_child: true
 }
 nodes {
@@ -133,9 +162,16 @@ nodes {
   template: "/main/gui/components/inventory/slot.gui"
 }
 nodes {
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
   type: TYPE_BOX
   id: "slot_off_hand/root"
   parent: "slot_off_hand"
+  overridden_fields: 5
+  overridden_fields: 30
   template_node_child: true
 }
 nodes {

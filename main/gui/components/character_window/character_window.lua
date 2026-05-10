@@ -60,6 +60,10 @@ end
 
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
+    if visible then
+        -- Как только окно становится видимым — принудительно обновляем данные
+        self.inventory_grid:refresh() 
+    end
 end
 
 function M.close(self)
@@ -156,13 +160,12 @@ function M.new(druid, template_id, player_inventory)
             
                 local instance = druid:new(sub.class, full_path, sub_config)
                 instance.character_window = self
-                table.insert(self.tabs[name].modules, instance)                
-                local sub_config = sub.config or {}
+                table.insert(self.tabs[name].modules, instance)
 
                 if sub.template == "inventory_grid" then 
                     self.inventory_grid = instance
                 elseif sub.template == "character_paperdoll" then
-                    self.paperdoll_module = instance
+                    self.paperdoll = instance
                 end
             end
         elseif cfg.component then
@@ -180,8 +183,8 @@ function M.new(druid, template_id, player_inventory)
     if self.inventory_grid then
         self.inventory_grid:refresh()
     end
-    if self.paperdoll_module then
-        self.paperdoll_module:refresh()
+    if self.paperdoll then
+        self.paperdoll:refresh()
     end
     
     self:switch_tab("character")

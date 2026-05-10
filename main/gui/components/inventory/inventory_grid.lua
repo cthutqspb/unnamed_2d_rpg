@@ -1,4 +1,6 @@
 local items_db = require("main.modules.items_db")
+local tooltip_manager = require("main.modules.gui.tooltip_manager")
+local drag_manager = require("main.gui.drag_manager")
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
 -- Модуль драга теперь один для всех инвентарей
@@ -108,6 +110,34 @@ function InventoryGrid:on_drop(x, y)
     end
     
     return false -- Мышь была не над этой сеткой
+end
+
+function InventoryGrid:update_hover(mx, my)
+    -- 1. Жесткая проверка: готов ли компонент
+    if not self.slots then return false end
+
+    if drag_manager.is_dragging() then 
+        tooltip_manager.hide()
+        return false
+    end
+
+    local over_any_slot = false
+    -- 2. Инвентарь — это массив, используем ipairs
+    for i, slot_nodes in ipairs(self.slots) do
+        if gui.pick_node(slot_nodes.root, mx, my) then
+            local item_data = self:get_data_source().items[i]
+            
+            -- Если слот пустой (item_id == nil), просто прячем тултип
+            if item_data and item_data.item_id then
+                tooltip_manager.show("item", item_data.item_id)
+            else
+                tooltip_manager.hide()
+            end
+            over_any_slot = true
+            break
+        end
+    end
+    return over_any_slot
 end
 
 return InventoryGrid

@@ -1,4 +1,5 @@
 local character_data = require("main.modules.character.character_data")
+local character_logic = require("main.modules.character.character_logic")
 local settings = require("main.modules.settings")
 
 function init(self)
@@ -10,15 +11,7 @@ function init(self)
     msg.post(".", "acquire_input_focus")
 
     self.pressed_keys = { up = 0, down = 0, left = 0, right = 0 }
-    -- Состояние игрока (как useState)
-    self.health = character_data.player.health
-    self.max_health = character_data.player.max_health
-    self.mana = character_data.player.mana
-    self.max_mana = character_data.player.max_mana
-    self.stats = character_data.player.stats
-
-
-    self.speed = 300  -- пикселей в секунду
+    self.base_speed = 300  -- пикселей в секунду
     self.move_input = vmath.vector3(0, 0, 0)  -- запоминаем зажатые клавиши
     self.direction = 1
     
@@ -32,30 +25,55 @@ function init(self)
     self.world_bounds = settings.world_bounds
 end
 
-function take_damage(self, damage)
-    print("g pressed")  
-    self.health = math.max(0, self.health - damage)
-    local percentage = self.health / self.max_health
+-- function take_damage(self, damage)
+--     print("g pressed")  
+--     self.health = math.max(0, self.health - damage)
+--     local percentage = self.health / self.max_health
+--     
+--     -- Отправляем сообщение в HUD
+--     msg.post("/gui_manager", "update_health", { percentage = percentage })
+--     
+--     print("Health:", self.health, "Percentage:", percentage)
+-- end
+
+function take_damage(self, amount)
+    -- Логика сама изменит данные в модуле и обновит HUD
+    character_logic.take_damage(amount)
     
-    -- Отправляем сообщение в HUD
-    msg.post("/gui_manager", "update_health", { percentage = percentage })
-    
-    print("Health:", self.health, "Percentage:", percentage)
+    -- Если тебе нужно проверить смерть:
+    if character_data.player.health <= 0 then
+        print("Player died!")
+    end
 end
 
 function heal(self, amount)
-    print("h pressed")  
-    self.health = math.min(self.max_health, self.health + amount)
-    local percentage = self.health / self.max_health
+    character_logic.heal(amount)
     
-    -- Отправляем сообщение в HUD
-    msg.post("/gui_manager", "update_health", { percentage = percentage })
-    
-    print("Health:", self.health, "Percentage:", percentage)
+    if character_data.player.health >= character_data.player.max_health then
+        print("Already full HP!")
+    end
 end
 
+-- function heal(self, amount)
+--     print("h pressed")  
+--     self.health = math.min(self.max_health, self.health + amount)
+--     local percentage = self.health / self.max_health
+--     
+--     -- Отправляем сообщение в HUD
+--     msg.post("/gui_manager", "update_health", { percentage = percentage })
+--     
+--     print("Health:", self.health, "Percentage:", percentage)
+-- end
+
 function update(self, dt)
-   -- Если есть ввод с клавиатуры — отменяем движение мышью
+    local player = character_data.player
+    
+    -- Считаем модификатор скорости от ХП
+    local hp_mod = (player.health < 20) and 0.50 or 1.0
+    -- Итоговая скорость для этого кадра
+    local current_speed = self.base_speed * hp_mod
+    
+    -- Если есть ввод с клавиатуры — отменяем движение мышью
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
         self.move_target = nil
         msg.post("main:/container_window#gui", "close_window")
@@ -76,12 +94,13 @@ function update(self, dt)
             move = vmath.vector3(0,0,1)
         end
     end
-
+    
     -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (только один раз за кадр!)
+    -- НЕ ЗАБЫВАТЬ ЧТО СЕЙЧАС МОДИФИКАТОР ЕСТЬ НА МИНУС СКОРОСТЬ ОТ ЗДОРОВЬЯ
     if vmath.length(move) > 0 then
         move = vmath.normalize(move)
         local current_pos = go.get_position()
-        go.set_position(current_pos + move * self.speed * dt)
+        go.set_position(current_pos + move * current_speed * dt)
     end
 
     if self.move_target and self.pending_item then
@@ -161,7 +180,6 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("move_to_item") then
         self.move_target = go.get_world_position(message.item_id)
-        -- self.move_target = go.get_position(message.item_id)
         self.pending_item = message.item_id  -- запоминаем, что после подхода нужно подобрать
         self.move_input = vmath.vector3(0, 0, 0)
     end

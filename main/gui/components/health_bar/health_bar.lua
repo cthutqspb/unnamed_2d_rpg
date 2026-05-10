@@ -5,7 +5,7 @@ local HealthBar = component.create("health_bar")
 function HealthBar:init()
     -- Получаем узлы из шаблона
     self.fill = gui.get_node("health_bar/fill")
-    self.max_width = 240  -- или можно получить из размера fill или bg
+     self.max_width = gui.get_size(self.fill).x
     
     -- Устанавливаем начальное значение
     self:update_health(1.0)

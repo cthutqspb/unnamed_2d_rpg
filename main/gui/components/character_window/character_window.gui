@@ -346,6 +346,111 @@ nodes {
   template_node_child: true
 }
 nodes {
+  position {
+    y: 60.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_health"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_health_text"
+  parent: "character_stats/player_health"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: 20.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_strength"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_strength_text"
+  parent: "character_stats/player_strength"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: -20.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_intellect"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_intellect_text"
+  parent: "character_stats/player_intellect"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: -60.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_agility"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_agility_text"
+  parent: "character_stats/player_agility"
+  template_node_child: true
+}
+nodes {
+  position {
+    y: -100.0
+  }
+  size {
+    x: 280.0
+    y: 24.0
+  }
+  type: TYPE_BOX
+  id: "character_stats/player_stamina"
+  parent: "character_stats/root"
+  overridden_fields: 1
+  overridden_fields: 4
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_stamina_text"
+  parent: "character_stats/player_stamina"
+  template_node_child: true
+}
+nodes {
   size {
     x: 300.0
     y: 500.0
@@ -376,9 +481,11 @@ nodes {
   type: TYPE_BOX
   id: "character_paperdoll/root"
   parent: "character_paperdoll"
-  alpha: 0.72
+  inherit_alpha: true
+  alpha: 0.0
   overridden_fields: 4
   overridden_fields: 5
+  overridden_fields: 21
   overridden_fields: 30
   template_node_child: true
 }

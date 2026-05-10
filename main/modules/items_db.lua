@@ -37,7 +37,11 @@ M.items_raw = {
         type = "HEAD",
         weight = 1.0,
         stackable = false,
-        max_stack = 1
+        max_stack = 1,
+        stats = {
+            stamina = 5,
+            agility = 2
+        }
     },
     ["lesser_mana_potion"] = {
         name_key = "item_lesser_mana_potion_name",

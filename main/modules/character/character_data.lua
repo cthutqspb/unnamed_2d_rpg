@@ -17,6 +17,12 @@ M.player = {
         agility = 10,
         intellect = 10,
         stamina = 10
+    },
+    current_stats = {
+        strength = 10,
+        agility = 10,
+        intellect = 10,
+        stamina = 10
     }
 }
 

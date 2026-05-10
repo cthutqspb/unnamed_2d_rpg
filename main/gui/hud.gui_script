@@ -7,6 +7,7 @@ local Inventory = require("main.gui.components.inventory.inventory")
 local gui_utils = require("main.gui.gui_utils")
 local drag_manager = require("main.gui.drag_manager")
 local window_manager = require("main.modules.gui.window_manager")
+local tooltip_manager = require("main.modules.gui.tooltip_manager")
 local h_touch = hash("touch")
 
 
@@ -87,16 +88,17 @@ function clear_slot_highlights(self)
 end
 
 function on_input(self, action_id, action)
-  if action_id == h_touch and action.released then print("HUD: Released") end
-
-    -- Начинаем с клавиаутры
-    if action.pressed then
-        local handler = self.input_handlers[action_id]
-        if handler then
-            handler(self)
-            return true
-        end
+     -- 1. Если это просто движение мыши - ДАЕМ ПРОЙТИ СКВОЗЬ
+    if not action_id then
+        -- Мы уже обновили координаты в player.script, 
+        -- тут просто отдаем Друиду и возвращаем false
+        self.druid:on_input(action_id, action)
+        return false -- ВАЖНО: возвращаем false, чтобы Character Window тоже увидело мышь
     end
+
+    -- 2. В остальном - Druid первый
+    local handled = self.druid:on_input(action_id, action)
+    if handled then return true end
     
     if action_id == hash("key_esc") and action.pressed then
         -- Пытаемся закрыть верхнее окно
@@ -109,13 +111,6 @@ function on_input(self, action_id, action)
         end
         return true -- Поглощаем ESC, чтобы игра не закрылась сразу
     end
-    -- if action_id == hash("key_esc") and action.pressed then
-    --     msg.post("main:/container_window#gui", "close_container_window")
-    --     msg.post("main:/character_window#gui", "close_character_window")
-    --     if self.inventory then
-    --         self.inventory:set_visible(false)
-    --     end
-    -- end
     
     if not action.x or not action.y then
         return self.druid:on_input(action_id, action)
@@ -149,101 +144,8 @@ function on_input(self, action_id, action)
         return true
     end
 
-    return self.druid:on_input(action_id, action)
+    return handled
 end
-
-
--- function on_input(self, action_id, action)
---     -- Начинаем с клавиаутры
---     if action.pressed then
---         local handler = self.input_handlers[action_id]
---         if handler then
---             handler(self)
---             return true
---         end
---     end
---
---     if action_id == hash("key_esc") and action.pressed then
---         if self.container_window then
---             self.container_window:set_visible(false)
---         end
---         msg.post("main:/character_window#gui", "toggle_character_window")
---         if self.inventory then
---             self.inventory:set_visible(false)
---         end
---     end
---     
---     if not action.x or not action.y then
---         return self.druid:on_input(action_id, action)
---     end
---
---     if action_id == h_touch and action.released and drag_manager.is_dragging() then
---         -- Если мы дошли сюда, значит Character Window НЕ вернуло true
---         -- (либо оно закрыто, либо мышь не над ним)
---         local source, source_slot = drag_manager.get_source()
---         drag_manager.finish(nil, nil) -- Выбрасываем в мир
---         return true
---     end
---
---     -- Обработка окончания драга
---     if drag_manager.is_dragging() and action.released then
---         local target_component = nil
---         local target_slot = nil
---         
---         -- Проверяем открытые окна
---         if self.container_window and self.container_window.inventory_grid then
---             local inv_grid = self.container_window.inventory_grid
---             local slot = inv_grid:get_slot_at_position(action.x, action.y)
---             if slot then 
---                 target_component = inv_grid
---                 target_slot = slot
---                 print("Target: container window, slot:", target_slot)
---             end
---         end
---
---         -- if self.character_window and self.character_window.inventory_grid then
---         --     local inv_grid = self.character_window.inventory_grid
---         --     local slot = inv_grid:get_slot_at_position(action.x, action.y) 
---         --     if slot then 
---         --         target_component = inv_grid
---         --         target_slot = slot
---         --         print("Target: same inventory, slot:", slot)
---         --     end
---         -- end
---
---         
---         if self.inventory and self.inventory.inventory_grid then
---             local inv_grid = self.inventory.inventory_grid
---             local slot = inv_grid:get_slot_at_position(action.x, action.y)
---             if slot then
---                 target_component = inv_grid
---                 target_slot = slot
---                 print("Target: same inventory, slot:", slot)
---             end
---         end
---         
---         if target_component then
---             drag_manager.finish(target_component, target_slot)
---         else
---             local source, source_slot = drag_manager.get_source()
---             if source and source.is_mouse_over_any_gui then
---                 local over_gui = source:is_mouse_over_any_gui(action.x, action.y)
---                 if over_gui then
---                     -- Возврат на место (свап с самим собой)
---                     drag_manager.finish(source, source_slot)
---                 else
---                     drag_manager.finish(nil, nil)
---                 end
---             else
---                 drag_manager.finish(nil, nil)
---             end
---         end
---
---         return true    
---     end
---
---     return self.druid:on_input(action_id, action)
--- end
 
 function final(self)
 end

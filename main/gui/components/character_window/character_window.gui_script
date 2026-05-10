@@ -1,8 +1,10 @@
 local druid = require("druid.druid")
 local CharacterWindow = require("main.gui.components.character_window.character_window")
+local CharacterLogic = require("main.modules.character.character_logic")
 local player_inv = require("main.modules.player_inventory")
 local drag_manager = require("main.gui.drag_manager")
 local window_manager = require("main.modules.gui.window_manager")
+local tooltip_manager = require("main.modules.gui.tooltip_manager")
 local h_touch = hash("touch")
 
 function init(self)
@@ -24,9 +26,36 @@ function final(self)
 end
 
 function update(self, dt)
-	-- Add update code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+    -- Если объект окна еще не создан или не проинициализирован
+    if not self.character_window or not self.character_window.inventory_grid then
+        return
+    end
+    
+    -- Берем координаты из менеджера (которые обновляет world.script)
+    local mx = tooltip_manager.mouse_x
+    local my = tooltip_manager.mouse_y
+    
+    local hovered = false
+    -- Проверяем инвентарь (если окно открыто)
+    if self.character_window:is_visible() then
+        if self.character_window.inventory_grid:update_hover(mx, my) then
+            hovered = true
+        end
+        
+        -- Если у тебя кукла тоже в этом окне:
+        if not hovered and self.character_window.paperdoll:update_hover(mx, my) then
+          print('AAAAAA')  
+          hovered = true
+        end
+    end
+    
+    -- Если ни один слот ни в одном модуле не поймал мышь
+    if not hovered then
+        -- Важно: прячем только если мышь была над этим окном
+        if gui.pick_node(self.character_window.root, mx, my) then
+            tooltip_manager.hide()
+        end
+    end
 end
 
 function on_message(self, message_id, message, sender)
@@ -53,32 +82,103 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("refresh") then
         if self.character_window and self.character_window:is_visible() then
             self.character_window.inventory_grid:refresh()
+        end 
+
+    elseif message_id == hash("data_updated") then
+        CharacterLogic.update_derived_stats()
+        
+        -- Ищем модули во всех вкладках
+        for name, tab in pairs(self.character_window.tabs) do
+            for _, module in ipairs(tab.modules) do
+                if module.update_display then
+                    print("Updating module in tab:", name)
+                    module:update_display()
+                end
+            end
         end
-    end    
+    end
 end
 
+-- function on_input(self, action_id, action)
+--     local handled = self.druid:on_input(action_id, action)
+--
+--     if action_id == h_touch and action.released then print("CHAR: Released") end
+--
+--     if drag_manager.is_dragging() then
+--         -- 1. Обновление позиции и флага GUI
+--         if action_id == nil or action_id == h_touch then
+--             drag_manager.update(action.x, action.y)
+--         end
+--
+--         -- Важно: ставим флаг "мы над GUI"
+--         if gui.pick_node(self.character_window.root, action.x, action.y) then
+--             drag_manager.set_over_gui(true)
+--         end
+--
+--         -- 2. Попытка дропа (только при отпускании)
+--         if action_id == h_touch and action.released then
+--             -- Проверяем инвентарь
+--             if self.character_window.inventory_grid:on_drop(action.x, action.y) then
+--                 return true
+--             end
+--
+--             -- Проверяем куклу
+--             if self.character_window.paperdoll:on_drop(action.x, action.y) then
+--                 return true
+--             end
+--
+--             -- 3. ЗАЩИТА: Если мы отпустили кнопку над ОКНОМ, но не попали в слоты
+--             if gui.pick_node(self.character_window.root, action.x, action.y) then
+--                 print("CHAR: Released over window, but no slot found. Cancelling.")
+--                 drag_manager.finish(nil, nil) -- Менеджер сам сделает возврат, так как set_over_gui = true
+--                 return true
+--             end
+--         end
+--     end
+--
+--     return self.druid:on_input(action_id, action)
+-- end
+
 function on_input(self, action_id, action)
-    if action_id == h_touch and action.released then print("CHAR: Released") end
+    local handled = self.druid:on_input(action_id, action)
 
-    if drag_manager.is_dragging() then
-        -- Обновление позиции
-        if action_id == nil or action_id == h_touch then
+    if not action_id then
+        -- Обновляем драг и НЕ возвращаем true
+        if drag_manager.is_dragging() then
             drag_manager.update(action.x, action.y)
-        end
-
-        -- Попытка дропа
-        if action_id == h_touch and action.released then
-            if self.character_window.inventory_grid:on_drop(action.x, action.y) then
-                return true -- Попали в инвентарь персонажа
+            if gui.pick_node(self.character_window.root, action.x, action.y) then
+                drag_manager.set_over_gui(true)
             end
+        end
+        return handled -- Скорее всего false
+    end
+
+    -- 2. КЛИКИ И ДРАГ (action_id ~= nil)
+    if action_id == h_touch then
+        if drag_manager.is_dragging() then
+            -- Обновляем позицию иконки при зажатой кнопке
+            drag_manager.update(action.x, action.y)
             
-            -- ЕСЛИ МЫ ЗДЕСЬ, значит в инвентарь персонажа НЕ попали.
-            -- Мы НИЧЕГО не возвращаем и не вызываем finish.
-            -- Событие провалится в HUD.gui_script.
+            -- Проставляем флаг GUI
+            if gui.pick_node(self.character_window.root, action.x, action.y) then
+                drag_manager.set_over_gui(true)
+            end
+
+            -- ЛОГИКА ОТПУСКАНИЯ (DROP)
+            if action.released then
+                print("CHAR: Released")
+                if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
+                if self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
+
+                if gui.pick_node(self.character_window.root, action.x, action.y) then
+                    drag_manager.finish(nil, nil)
+                    return true
+                end
+            end
         end
     end
 
-    return self.druid:on_input(action_id, action) -- Можно вернуть return обратно
+    return handled
 end
 
 

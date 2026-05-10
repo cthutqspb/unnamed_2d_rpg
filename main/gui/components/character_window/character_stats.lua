@@ -18,28 +18,46 @@ function CharacterStats:init(template_id)
     self.player_race_node = gui.get_node(template_id .. "/player_race_text")
     self.player_class_node = gui.get_node(template_id .. "/player_class_text")
     self.player_level_node = gui.get_node(template_id .. "/player_level_text")
-
+    self.player_health_node = gui.get_node(template_id .. "/player_health_text")
     -- Аналогично для остальных...
-    
+    self.player_strength_node = gui.get_node(template_id .. "/player_strength_text")
         
     self:update_display()
     print("CharacterStats initialized")
 end
 
 function CharacterStats:update_display()
+  print("DEBUG: CharacterStats updating visual!")
     local player = character_data.player
     
     gui.set_text(self.player_name_node, player.name)
     gui.set_text(self.player_race_node, player.race)
     gui.set_text(self.player_class_node, player.class)
     gui.set_text(self.player_level_node, player.level)
-    
+    gui.set_text(self.player_health_node, player.health)
+
+    gui.set_text(self.player_health_node, player.health .. " / " .. player.max_health)
     -- -- Характеристики
-    -- for stat_id, value in pairs(player.stats) do
-    --     local stat_name = strings.get(config.stats[stat_id].name_key)
-    --     gui.set_text(self.root .. "/stat_" .. stat_id .. "_name", stat_name)
-    --     gui.set_text(self.root .. "/stat_" .. stat_id .. "_value", tostring(value))
-    -- end
+    
+     for stat_id, value in pairs(player.current_stats) do
+        local path = self.template_id .. "/player_" .. stat_id .. "_text"
+        print("DEBUG STAT:", stat_id, "VALUE:", value, "PATH:", path)
+        
+        -- Попытаемся получить ноду через pcall, чтобы увидеть ошибку, если она есть
+        local ok, node = pcall(gui.get_node, path)
+        if ok then
+            print("NODE FOUND!")
+            local base = player.stats[stat_id] or 0
+            local bonus = value - base
+            if bonus > 0 then
+                gui.set_text(node, value .. " (" .. base .. "+" .. bonus .. ")")
+            else
+                gui.set_text(node, tostring(value))
+            end
+        else
+            print("NODE NOT FOUND:", path)
+        end
+    end    
 end
 
 function CharacterStats:set_visible(visible)
