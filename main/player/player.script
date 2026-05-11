@@ -1,6 +1,6 @@
 local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
-local settings = require("main.modules.settings")
+local settings = require("main.modules.data.settings")
 
 function init(self)
     print("Player initialized at position:", go.get_position())
@@ -145,10 +145,11 @@ function on_input(self, action_id, action)
         take_damage(self, 10)
     elseif action_id == hash("heal") and action.pressed then
         heal(self, 10)
-    elseif action_id == hash("toggle_inventory") and action.pressed then
-        msg.post("/gui_manager", "toggle_inventory")
+    elseif action_id == hash("toggle_inventory_window") and action.pressed then
+        print('Toggle inventory window(from player.script)')
+        msg.post("main:/inventory_window#gui", "toggle_inventory_window")
     elseif action_id == hash("toggle_character_window") and action.pressed then
-        print('TOGGLE FROM PLAYER')
+        print('Toggle character window(from player.script)')
         msg.post("main:/character_window#gui", "toggle_character_window")
     end    
 

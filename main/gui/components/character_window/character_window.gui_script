@@ -1,14 +1,14 @@
 local druid = require("druid.druid")
-local CharacterWindow = require("main.gui.components.character_window.character_window")
+local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
 local CharacterLogic = require("main.modules.character.character_logic")
-local player_inv = require("main.modules.player_inventory")
-local drag_manager = require("main.gui.drag_manager")
-local window_manager = require("main.modules.gui.window_manager")
-local tooltip_manager = require("main.modules.gui.tooltip_manager")
+local player_inv = require("main.modules.player.player_inventory")
+local drag_manager = require("main.gui.components.managers.drag_manager")
+local window_manager = require("main.gui.components.managers.window_manager")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local h_touch = hash("touch")
 
 function init(self)
-  print("DEBUG: Character Window Address is:", msg.url())
+    print("DEBUG: Character Window Address is:", msg.url())
     msg.post(".", "acquire_input_focus")
     -- 1. Создаем Druid для этого конкретного GUI
     self.druid = druid.new(self)
@@ -140,6 +140,11 @@ end
 -- end
 
 function on_input(self, action_id, action)
+    -- Если окно закрыто, оно ВООБЩЕ не должно участвовать в логике драга
+    if not self.character_window:is_visible() then
+        return self.druid:on_input(action_id, action)
+    end
+
     local handled = self.druid:on_input(action_id, action)
 
     if not action_id then

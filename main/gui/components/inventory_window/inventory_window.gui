@@ -1,47 +1,47 @@
-script: "/main/gui/components/container_window/container_window.gui_script"
+script: "/main/gui/components/inventory_window/inventory_window.gui_script"
 fonts {
   name: "gui_title"
   font: "/assets/fonts/gui_title.font"
 }
+textures {
+  name: "items_project_utumno"
+  texture: "/assets/items/items_project_utumno.tilesource"
+}
 nodes {
   size {
-    x: 300.0
-    y: 240.0
-  }
-  color {
-    x: 0.0
-    y: 0.0
-    z: 0.0
+    x: 264.0
+    y: 220.0
   }
   type: TYPE_BOX
   id: "root"
-  alpha: 0.72
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  size {
-    x: 300.0
-    y: 260.0
-  }
-  type: TYPE_BOX
-  id: "body"
-  parent: "root"
   inherit_alpha: true
   alpha: 0.0
-  size_mode: SIZE_MODE_AUTO
+  enabled: false
 }
 nodes {
   position {
-    y: 108.0
+    z: -1.0
   }
   size {
-    x: 300.0
+    x: 264.0
+    y: 220.0
+  }
+  type: TYPE_BOX
+  id: "background"
+  parent: "root"
+}
+nodes {
+  position {
+    y: 98.0
+  }
+  size {
+    x: 264.0
     y: 24.0
   }
   color {
-    x: 0.2
-    y: 0.2
-    z: 0.2
+    x: 0.3019608
+    y: 0.3019608
+    z: 0.3019608
   }
   type: TYPE_BOX
   id: "header"
@@ -49,10 +49,10 @@ nodes {
 }
 nodes {
   position {
-    x: 138.0
+    x: 119.0
   }
   size {
-    x: 24.0
+    x: 26.0
     y: 24.0
   }
   color {
@@ -62,45 +62,76 @@ nodes {
   type: TYPE_BOX
   id: "btn_close"
   parent: "header"
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 24.0
-    y: 24.0
+    x: 20.0
+    y: 20.0
   }
   type: TYPE_TEXT
   text: "X"
   font: "gui_title"
-  id: "text"
+  id: "icon"
   parent: "btn_close"
-  inherit_alpha: true
 }
 nodes {
+  position {
+    x: -130.0
+  }
   size {
-    x: 200.0
+    x: 236.0
     y: 24.0
   }
   color {
-    x: 0.6
-    y: 0.6
-    z: 0.6
+    x: 0.7019608
+    y: 0.7019608
+    z: 0.101960786
   }
   type: TYPE_TEXT
-  text: "\320\232\320\276\320\275\321\202\320\265\320\271\320\275\320\265\321\200\n"
-  ""
   font: "gui_title"
   id: "title"
+  pivot: PIVOT_W
   parent: "header"
   inherit_alpha: true
 }
 nodes {
   position {
-    y: 96.0
+    y: -98.0
   }
+  size {
+    x: 264.0
+    y: 24.0
+  }
+  color {
+    x: 0.4
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_BOX
+  id: "footer"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 264.0
+    y: 172.0
+  }
+  color {
+    x: 0.6
+    y: 0.6
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "container"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "inventory_grid"
-  parent: "root"
+  parent: "container"
+  inherit_alpha: true
   template: "/main/gui/components/inventory_grid/inventory_grid.gui"
 }
 nodes {
@@ -144,40 +175,6 @@ nodes {
   id: "inventory_grid/drag_icon"
   parent: "inventory_grid"
   template_node_child: true
-}
-nodes {
-  position {
-    y: -106.0
-  }
-  size {
-    x: 200.0
-    y: 42.0
-  }
-  color {
-    x: 0.101960786
-    y: 0.3019608
-    z: 0.3019608
-  }
-  type: TYPE_BOX
-  id: "footer"
-  parent: "root"
-  alpha: 0.0
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  size {
-    x: 200.0
-    y: 42.0
-  }
-  color {
-    x: 0.0
-    y: 0.2
-    z: 0.2
-  }
-  type: TYPE_BOX
-  id: "btn_take_all"
-  parent: "footer"
-  size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

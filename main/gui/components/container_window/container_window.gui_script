@@ -1,8 +1,8 @@
 local druid = require("druid.druid")
-local ContainerWindow = require("main.gui.components.container_window.container_window")
-local drag_manager = require("main.gui.drag_manager")
-local tooltip_manager = require("main.modules.gui.tooltip_manager")
-local window_manager = require("main.modules.gui.window_manager")
+local ContainerWindow = require("main.gui.components.container_window.ContainerWindow")
+local drag_manager = require("main.gui.components.managers.drag_manager")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local window_manager = require("main.gui.components.managers.window_manager")
 local h_touch = hash("touch")
 
 function init(self)
@@ -21,9 +21,7 @@ function init(self)
 end
 
 function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	
 end
 
 function update(self, dt)
@@ -73,6 +71,12 @@ function on_message(self, message_id, message, sender)
             window_manager.pop(msg.url())
         end
     end
+
+    
+    if message_id == hash("refresh") then
+        self.container_window.inventory_grid:refresh()
+    end
+  
    
 
     -- elseif message_id == hash("close_container_window") then
@@ -89,25 +93,42 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
+    -- 1. Игнорим закрытое окно
+    if not self.container_window:is_visible() then
+        return self.druid:on_input(action_id, action)
+    end
+
+    local handled = self.druid:on_input(action_id, action)
+
+    -- 2. Обновляем координаты для плавности (когда просто водим или тащим)
     if drag_manager.is_dragging() then
-        -- Обновление позиции
-        if action_id == nil or action_id == h_touch then
+        if not action_id or action_id == h_touch then
             drag_manager.update(action.x, action.y)
         end
+        
+        if gui.pick_node(self.container_window.root, action.x, action.y) then
+            drag_manager.set_over_gui(true)
+        end
 
-        -- Попытка дропа
+        -- 3. Логика отпускания (DROP)
         if action_id == h_touch and action.released then
-            if self.container_window.inventory_grid:on_drop(action.x, action.y) then
+            -- Пробуем в слоты сундука
+            if self.container_window.inventory_grid:on_drop(action.x, action.y) then 
+                return true 
+            end
+
+            -- ЗАЩИТА: Промахнулись мимо слота, но попали в окно сундука
+            if gui.pick_node(self.container_window.root, action.x, action.y) then
+                print("CONTAINER: Cancel drop")
+                drag_manager.finish(nil, nil)
                 return true
             end
         end
     end
 
-    return self.druid:on_input(action_id, action) -- Можно вернуть return обратно
+    return handled
 end
 
 function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
+
 end

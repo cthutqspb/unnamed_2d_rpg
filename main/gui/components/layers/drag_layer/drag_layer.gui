@@ -1,0 +1,14 @@
+script: "/main/gui/components/layers/drag_layer/drag_layer.gui_script"
+textures {
+  name: "items_project_utumno"
+  texture: "/assets/items/items_project_utumno.tilesource"
+}
+nodes {
+  type: TYPE_BOX
+  texture: "items_project_utumno/anim"
+  id: "icon"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

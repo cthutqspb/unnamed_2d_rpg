@@ -1,7 +1,7 @@
 local config = require("main.modules.character.character_config")
 local data = require("main.modules.character.character_data")
-local paperdoll = require("main.modules.player_paperdoll") -- Добавь это
-local items_db = require("main.modules.items_db")
+local paperdoll = require("main.modules.player.player_paperdoll") -- Добавь это
+local items_db = require("main.modules.data.items_db")
 
 local M = {}
 

@@ -84,7 +84,6 @@ nodes {
 nodes {
   position {
     y: 12.0
-    z: -1.0
   }
   size {
     x: 960.0
@@ -497,10 +496,8 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
-  texture: "items_project_utumno/slot_head_background"
   id: "character_paperdoll/slot_head/root"
   parent: "character_paperdoll/slot_head"
-  overridden_fields: 9
   template_node_child: true
 }
 nodes {
@@ -639,7 +636,7 @@ nodes {
   id: "inventory_grid"
   parent: "inventory_anchor"
   inherit_alpha: true
-  template: "/main/gui/components/inventory/inventory_grid.gui"
+  template: "/main/gui/components/inventory_grid/inventory_grid.gui"
 }
 nodes {
   type: TYPE_BOX

@@ -1,0 +1,64 @@
+fonts {
+  name: "druid_text_regular"
+  font: "/druid/fonts/druid_text_regular.font"
+}
+textures {
+  name: "items_project_utumno"
+  texture: "/assets/items/items_project_utumno.tilesource"
+}
+nodes {
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "root"
+}
+nodes {
+  size {
+    x: 36.0
+    y: 36.0
+  }
+  color {
+    x: 0.3019608
+    y: 0.101960786
+    z: 0.3019608
+  }
+  type: TYPE_BOX
+  texture: "items_project_utumno/anim"
+  id: "icon"
+  parent: "root"
+}
+nodes {
+  position {
+    x: 9.0
+    y: -18.0
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+  }
+  size {
+    x: 36.0
+    y: 36.0
+  }
+  color {
+    x: 0.4
+    y: 0.4
+    z: 0.4
+  }
+  type: TYPE_TEXT
+  text: "0\n"
+  "\n"
+  ""
+  font: "druid_text_regular"
+  id: "count"
+  parent: "root"
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

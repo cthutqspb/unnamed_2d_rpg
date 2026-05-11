@@ -40,7 +40,7 @@ key_trigger {
 }
 key_trigger {
   input: KEY_I
-  action: "toggle_inventory"
+  action: "toggle_inventory_window"
 }
 key_trigger {
   input: KEY_LALT

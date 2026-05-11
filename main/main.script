@@ -1,4 +1,4 @@
-local items_db = require("main.modules.items_db")
+local items_db = require("main.modules.data.items_db")
 
 function init(self)
     print("Main initialized")

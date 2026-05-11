@@ -1,4 +1,4 @@
-local settings = require("main.modules.settings")
+local settings = require("main.modules.data.settings")
 
 function init(self)
 	  msg.post(".", "acquire_input_focus")

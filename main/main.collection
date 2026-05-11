@@ -16,7 +16,7 @@ embedded_instances {
   "embedded_components {\n"
   "  id: \"pickup_factory\"\n"
   "  type: \"factory\"\n"
-  "  data: \"prototype: \\\"/main/objects/items/lootable_item.go\\\"\\n"
+  "  data: \"prototype: \\\"/main/game_objects/world_item/world_item.go\\\"\\n"
   "\"\n"
   "}\n"
   "embedded_components {\n"
@@ -35,6 +35,7 @@ embedded_instances {
   children: "character_window"
   children: "container_window"
   children: "drag_layer"
+  children: "inventory_window"
   children: "tooltip_layer"
   data: "components {\n"
   "  id: \"hud\"\n"
@@ -101,12 +102,16 @@ embedded_instances {
   "  component: \"/main/gui/components/container_window/container_window.gui\"\n"
   "}\n"
   ""
+  position {
+    x: 2437.0
+    y: 931.0
+  }
 }
 embedded_instances {
   id: "drag_layer"
   data: "components {\n"
   "  id: \"drag_layer\"\n"
-  "  component: \"/main/gui/components/layers/drag_layer.gui\"\n"
+  "  component: \"/main/gui/components/layers/drag_layer/drag_layer.gui\"\n"
   "}\n"
   ""
 }
@@ -114,7 +119,15 @@ embedded_instances {
   id: "tooltip_layer"
   data: "components {\n"
   "  id: \"gui\"\n"
-  "  component: \"/main/gui/components/tooltips/tooltip_layer.gui\"\n"
+  "  component: \"/main/gui/components/layers/tooltip_layer/tooltip_layer.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "inventory_window"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/inventory_window/inventory_window.gui\"\n"
   "}\n"
   ""
 }

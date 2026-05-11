@@ -1,13 +1,13 @@
 local druid = require("druid.druid")
+local broadcast = require("main.modules.system.broadcast")
 local HealthBar = require("main.gui.components.health_bar.health_bar")
 local ActionBar = require("main.gui.action_bar.action_bar")
-local player_inv = require("main.modules.player_inventory")
-local InventoryGrid = require("main.gui.components.inventory.inventory_grid")
-local Inventory = require("main.gui.components.inventory.inventory")
+local player_inv = require("main.modules.player.player_inventory")
+local InventoryGrid = require("main.gui.components.inventory_grid.inventory_grid")
 local gui_utils = require("main.gui.gui_utils")
-local drag_manager = require("main.gui.drag_manager")
-local window_manager = require("main.modules.gui.window_manager")
-local tooltip_manager = require("main.modules.gui.tooltip_manager")
+local drag_manager = require("main.gui.components.managers.drag_manager")
+local window_manager = require("main.gui.components.managers.window_manager")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local h_touch = hash("touch")
 
 
@@ -22,31 +22,46 @@ function init(self)
     player_inv.add_item("iron_sword", 1)
     player_inv.add_item("lesser_mana_potion", 10)
     player_inv.add_item("leather_helmet", 1)
-
-    self.inventory = self.druid:new(Inventory, "inventory", {
-        data_source = player_inv,
-        columns = 6,
-        rows = 4,
-        item_size = 40,
-        spacing = 2
-    }) 
+    --
+    -- self.inventory = self.druid:new(Inventory, "inventory", {
+    --     data_source = player_inv,
+    --     columns = 6,
+    --     rows = 4,
+    --     item_size = 40,
+    --     spacing = 2
+    -- }) 
 
     self.msg_handlers = {
         [hash("update_health")] = function(self, message) 
             self.hp_bar:update_health(message.percentage) 
-        end,
+        end
         
-        [hash("toggle_inventory")] = function(self) 
-            self.inventory:toggle() 
-        end,
-
+        -- [hash("toggle_inventory")] = function(self) 
+        --     self.inventory:toggle() 
+        -- end,
+        --
     }
 
     self.input_handlers = {
-        [hash("toggle_inventory")] = function(self) self.inventory:toggle() end,
-        msg.post("main:/character_window#gui", "toggle_character_window")
+        -- [hash("toggle_inventory")] = function(self) self.inventory:toggle() end,
+        msg.post("main:/character_window#gui", "toggle_character_window"),
+        msg.post("main:/inventory_window#gui", "toggle_inventory_window")
     }
-    
+
+    self.on_inventory_event = function(data)
+        if data.message_id == hash("add_item") then
+            local success = player_inv.add_item(data.item_id, data.amount)
+            if success then
+                -- Обновляем все заинтересованные окна
+                msg.post("main:/character_window#gui", "refresh")
+                msg.post("main:/inventory_window#gui", "refresh")
+                -- Если нужно обновить что-то в самом HUD
+                if self.inventory_grid then self.inventory_grid:refresh() end
+            end
+        end
+    end
+
+    broadcast.subscribe("inventory_events", self.on_inventory_event)
     print("HUD initialized")
 end
 
@@ -56,21 +71,23 @@ function on_message(self, message_id, message, sender)
         handler(self, message)
     end
 
-    if message_id == hash("add_to_inv") then
-        local success = player_inv.add_item(message.item_id, message.amount)
-        if success then
-            msg.post("main:/character_window#gui", "refresh")
-            if self.inventory and self.inventory.refresh then
-                self.inventory:refresh()
-            end
-        end
-    end
+    -- if message_id == hash("add_to_inv") then
+    --     local success = player_inv.add_item(message.item_id, message.amount)
+    --     if success then
+    --         msg.post("main:/character_window#gui", "refresh")
+    --         msg.post("main:/inventory_window#gui", "refresh")
+    --         -- if self.inventory and self.inventory.refresh then
+    --         --     self.inventory:refresh()
+    --         -- end
+    --     end
+    -- end
 
     if message_id == hash("refresh_inventories") then
         msg.post("main:/character_window#gui", "refresh")
-        if self.inventory and self.inventory.refresh then
-            self.inventory:refresh()
-        end
+        msg.post("main:/inventory_window#gui", "refresh")
+        -- if self.inventory and self.inventory.refresh then
+        --     self.inventory:refresh()
+        -- end
     end
 
 end
@@ -82,9 +99,9 @@ function clear_slot_highlights(self)
     -- if self.character_window and self.character_window.inventory_grid then
     --     self.character_window.inventory_grid:highlight_slot(nil)
     -- end
-    if self.inventory and self.inventory.inventory_grid then
-        self.inventory.inventory_grid:highlight_slot(nil)
-    end
+    -- if self.inventory and self.inventory.inventory_grid then
+    --     self.inventory.inventory_grid:highlight_slot(nil)
+    -- end
 end
 
 function on_input(self, action_id, action)
@@ -132,10 +149,10 @@ function on_input(self, action_id, action)
         -- end
 
         -- Потом проверяем Сумку (Inventory)
-        if self.inventory and self.inventory.inventory_grid:on_drop(action.x, action.y) then
-            print("HUD: Dropped into Bag")
-            return true
-        end
+        -- if self.inventory and self.inventory.inventory_grid:on_drop(action.x, action.y) then
+        --     print("HUD: Dropped into Bag")
+        --     return true
+        -- end
 
         -- Если мы дошли сюда, значит мы НЕ над окнами в HUD.
         -- И раз этот код вообще выполняется, значит Character Window тоже промахнулось.
@@ -148,6 +165,7 @@ function on_input(self, action_id, action)
 end
 
 function final(self)
+    broadcast.unsubscribe("inventory_events", self.on_inventory_event)
 end
 
 function update(self, dt)

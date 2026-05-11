@@ -1,0 +1,46 @@
+components {
+  id: "pine_tree"
+  component: "/main/game_objects/pine_tree.script"
+}
+embedded_components {
+  id: "sprite"
+  type: "sprite"
+  data: "default_animation: \"anim\"\n"
+  "material: \"/builtins/materials/sprite.material\"\n"
+  "textures {\n"
+  "  sampler: \"texture_sampler\"\n"
+  "  texture: \"/assets/trees/pine/pine.tilesource\"\n"
+  "}\n"
+  ""
+  position {
+    z: 1.1
+  }
+}
+embedded_components {
+  id: "collisionobject"
+  type: "collisionobject"
+  data: "type: COLLISION_OBJECT_TYPE_STATIC\n"
+  "mass: 0.0\n"
+  "friction: 0.1\n"
+  "restitution: 0.5\n"
+  "group: \"default\"\n"
+  "mask: \"default\"\n"
+  "embedded_collision_shape {\n"
+  "  shapes {\n"
+  "    shape_type: TYPE_BOX\n"
+  "    position {\n"
+  "      x: -2.0\n"
+  "      y: -115.0\n"
+  "    }\n"
+  "    rotation {\n"
+  "    }\n"
+  "    index: 0\n"
+  "    count: 3\n"
+  "    id: \"pine_tree_collision\"\n"
+  "  }\n"
+  "  data: 10.0\n"
+  "  data: 12.5\n"
+  "  data: 10.0\n"
+  "}\n"
+  ""
+}

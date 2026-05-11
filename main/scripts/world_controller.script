@@ -45,8 +45,8 @@ function update(self, dt)
         -- УДАЛЕНИЕ
         elseif not is_inside and chunk.root_id then
             -- Удаляем корневой объект, это автоматически удалит всё внутри него (тайлмап и т.д.)
-            if object_id then
-                go.delete(object_id)
+            if chunk.root_id then
+                go.delete(chunk.root_id)
             else
                 print("Warning: trying to delete nil object")
             end

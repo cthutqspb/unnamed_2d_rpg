@@ -1,0 +1,124 @@
+local druid = require("druid.druid")
+local InventoryWindow = require("main.gui.components.inventory_window.inventory_window")
+local player_inv = require("main.modules.player.player_inventory")
+local drag_manager = require("main.gui.components.managers.drag_manager")
+local window_manager = require("main.gui.components.managers.window_manager")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local h_touch = hash("touch")
+
+function init(self)
+    print("DEBUG: Inventory Window Address is:", msg.url())
+    msg.post(".", "acquire_input_focus")
+    self.druid = druid.new(self)
+    self.inventory_window = InventoryWindow.new(self.druid, "", player_inv)
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+    -- Если объект окна еще не создан или не проинициализирован
+    if not self.inventory_window or not self.inventory_window.inventory_grid then
+        return
+    end
+    
+    -- Берем координаты из менеджера (которые обновляет world.script)
+    local mx = tooltip_manager.mouse_x
+    local my = tooltip_manager.mouse_y
+    
+    local hovered = false
+    -- Проверяем инвентарь (если окно открыто)
+    if self.inventory_window:is_visible() then
+        if self.inventory_window.inventory_grid:update_hover(mx, my) then
+            hovered = true
+        end
+    end
+    
+    -- Если ни один слот ни в одном модуле не поймал мышь
+    if not hovered then
+        -- Важно: прячем только если мышь была над этим окном
+        if gui.pick_node(self.inventory_window.root, mx, my) then
+            tooltip_manager.hide()
+        end
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    -- ГОЛОЕ ЗАКРЫТИЕ (от менеджера или кнопки Esc)
+    if message_id == hash("close_window") then
+        if self.inventory_window:is_visible() then
+            self.inventory_window:close() -- Твой метод модуля
+            gui.set_render_order(0)
+            window_manager.pop(msg.url())
+        end
+
+    -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
+    elseif message_id == hash("toggle_inventory_window") then
+        print('InventoryWindow', self.inventory_window)
+        self.inventory_window:toggle()
+        
+        if self.inventory_window:is_visible() then
+            gui.set_render_order(10)
+            window_manager.push(msg.url(), hash("close_window")) 
+        else
+            gui.set_render_order(0)
+            window_manager.pop(msg.url())
+        end
+
+    elseif message_id == hash("refresh") then
+        if self.inventory_window and self.inventory_window:is_visible() then
+            self.inventory_window.inventory_grid:refresh()
+        end 
+    end
+end
+
+
+function on_input(self, action_id, action)
+    local handled = self.druid:on_input(action_id, action)
+
+    if not action_id then
+        -- Обновляем драг и НЕ возвращаем true
+        if drag_manager.is_dragging() then
+            drag_manager.update(action.x, action.y)
+            if gui.pick_node(self.inventory_window.root, action.x, action.y) then
+                drag_manager.set_over_gui(true)
+            end
+        end
+        return handled -- Скорее всего false
+    end
+
+    -- 2. КЛИКИ И ДРАГ (action_id ~= nil)
+    if action_id == h_touch then
+        if drag_manager.is_dragging() then
+            -- Обновляем позицию иконки при зажатой кнопке
+            drag_manager.update(action.x, action.y)
+            
+            -- Проставляем флаг GUI
+            if gui.pick_node(self.inventory_window.root, action.x, action.y) then
+                drag_manager.set_over_gui(true)
+            end
+
+            -- ЛОГИКА ОТПУСКАНИЯ (DROP)
+            if action.released then
+                print("CHAR: Released")
+                if self.inventory_window.inventory_grid:on_drop(action.x, action.y) then return true end
+
+                if gui.pick_node(self.inventory_window.root, action.x, action.y) then
+                    drag_manager.finish(nil, nil)
+                    return true
+                end
+            end
+        end
+    end
+
+    return handled
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end
