@@ -102,10 +102,6 @@ embedded_instances {
   "  component: \"/main/gui/components/container_window/container_window.gui\"\n"
   "}\n"
   ""
-  position {
-    x: 2437.0
-    y: 931.0
-  }
 }
 embedded_instances {
   id: "drag_layer"
@@ -130,4 +126,15 @@ embedded_instances {
   "  component: \"/main/gui/components/inventory_window/inventory_window.gui\"\n"
   "}\n"
   ""
+}
+embedded_instances {
+  id: "main_menu"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/main_menu/main_menu.gui\"\n"
+  "}\n"
+  ""
+  position {
+    z: 30.0
+  }
 }

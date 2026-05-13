@@ -1,11 +1,11 @@
 components {
-  id: "lootable_item"
+  id: "world_item"
   component: "/main/game_objects/world_item/world_item.script"
 }
 embedded_components {
   id: "sprite"
   type: "sprite"
-  data: "default_animation: \"crystal_sword\"\n"
+  data: "default_animation: \"leather_helmet\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "textures {\n"
   "  sampler: \"texture_sampler\"\n"

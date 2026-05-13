@@ -3,7 +3,7 @@ instances {
   id: "lootable_item"
   prototype: "/main/game_objects/world_item/world_item.go"
   component_properties {
-    id: "lootable_item"
+    id: "world_item"
     properties {
       id: "item_id"
       value: "crystal_sword"
@@ -58,12 +58,25 @@ instances {
     }
   }
 }
+instances {
+  id: "world_item"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "item_id"
+      value: "leather_helmet"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
   children: "crystal_sword"
   children: "items_container1"
   children: "items_container2"
+  children: "leather_helmet"
   children: "lootable_item1"
   children: "testing_chest"
   data: "components {\n"
@@ -89,6 +102,16 @@ embedded_instances {
   position {
     x: 5237.0
     y: 2351.0
+    z: 1.0
+  }
+}
+embedded_instances {
+  id: "leather_helmet"
+  children: "world_item"
+  data: ""
+  position {
+    x: 5243.0
+    y: 2871.0
     z: 1.0
   }
 }

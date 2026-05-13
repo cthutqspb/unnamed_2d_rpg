@@ -1,4 +1,4 @@
-local config = require("main.modules.character.character_config")
+local character_config = require("main.modules.character.character_config")
 local data = require("main.modules.character.character_data")
 local paperdoll = require("main.modules.player.player_paperdoll") -- Добавь это
 local items_db = require("main.modules.data.items_db")
@@ -39,11 +39,11 @@ function M.update_derived_stats()
     data.player.current_stats.agility = M.get_total_stat("agility")
     data.player.current_stats.intellect = M.get_total_stat("intellect")
     data.player.current_stats.stamina = M.get_total_stat("stamina")
-    
+
     data.player.max_health = M.calculate_max_health()
     data.player.max_mana = M.calculate_max_mana()
-    
-    msg.post("/gui_manager#hud", "update_health", { percentage = hp_percent })
+
+    msg.post("/gui_manager#hud", "update_health", { percentage = data.player.health / data.player.max_health })
     msg.post("/player", "stats_changed")
 end
 

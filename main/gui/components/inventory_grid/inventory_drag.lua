@@ -130,8 +130,7 @@ function M.on_item_drag_start(self, index)
 
     -- 2. Просто уведомляем менеджер, ЧТО мы тащим
     -- Нам не нужно создавать ноды, менеджер скажет drag_layer.gui, что отрисовать
-    print('DRAG START', data.texture, data.animation)
-    drag_manager.start(self, index, item_data, data.texture, hash(data.animation))
+    drag_manager.start(self, index, item_data, data)
 
     -- 3. Скрываем оригинал в слоте
     gui.set_enabled(self.slots[index].icon, false)

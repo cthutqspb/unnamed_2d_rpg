@@ -1,5 +1,5 @@
 local gui_utils = require("main.gui.gui_utils")
-local InventoryGrid = require("main.gui.components.inventory_grid.inventory_grid")
+local InventoryGrid = require("main.gui.components.inventory_grid.InventoryGrid")
 local containers_state = require("main.modules.game_state.containers_state")
 
 local M = {}

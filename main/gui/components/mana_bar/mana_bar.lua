@@ -8,7 +8,7 @@ function ManaBar:init()
     self.max_width = 240  -- или можно получить из размера fill или bg
     
     -- Устанавливаем начальное значение
-    self:update_health(1.0)
+    self:update_mana(1.0)
 end
 
 function ManaBar:update_mana(percentage)

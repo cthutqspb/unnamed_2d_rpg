@@ -22,14 +22,21 @@ end
 
 function update(self, dt)
     local data = tooltip_manager.get_current()
-    
+
     -- Если драга нет и есть данные для тултипа
     if data and not drag_manager.is_dragging() then
         gui.set_enabled(self.root, true)
-        
+
         -- 1. НАПОЛНЕНИЕ ДАННЫМИ
         if data.type == "item" then
             local item = items_db.get_item(data.id)
+
+            if not item then
+                -- Если предмета нет в базе, просто тихо прячемся
+                gui.set_enabled(self.root, false)
+                return
+            end
+
             gui.set_text(self.title, item.name or "Unknown Item")
             gui.set_text(self.description, item.description or "")
             -- Если есть статы — собираем их в строку
@@ -40,7 +47,7 @@ function update(self, dt)
                 end
             end
             gui.set_text(self.stats, stats_text)
-            
+
         elseif data.type == "unit" then
             gui.set_text(self.title, data.id) -- например, имя монстра
             gui.set_text(self.description, "Уровень: " .. (data.extra.level or "??"))
@@ -50,7 +57,7 @@ function update(self, dt)
         -- 2. ПОЗИЦИОНИРОВАНИЕ
         -- Сдвигаем на 20 пикселей от курсора, чтобы не мешать
         local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
-        
+
         -- Используем твой хелпер, чтобы тултип не улетал за экран!
         local final_pos = gui_utils.clamp_to_screen(self.root, mouse_pos, 10)
         gui.set_position(self.root, final_pos)

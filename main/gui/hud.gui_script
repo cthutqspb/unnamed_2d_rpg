@@ -3,43 +3,26 @@ local broadcast = require("main.modules.system.broadcast")
 local HealthBar = require("main.gui.components.health_bar.health_bar")
 local ActionBar = require("main.gui.action_bar.action_bar")
 local player_inv = require("main.modules.player.player_inventory")
-local InventoryGrid = require("main.gui.components.inventory_grid.inventory_grid")
-local gui_utils = require("main.gui.gui_utils")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
-local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local h_touch = hash("touch")
-
 
 function init(self)
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
-    
+
     self.action_bar = self.druid:new(ActionBar, "action_bar", self.druid)
-    self.hp_bar = self.druid:new(HealthBar, "health_bar")
-   
-    player_inv.init() 
-    player_inv.add_item("iron_sword", 1)
-    player_inv.add_item("lesser_mana_potion", 10)
-    player_inv.add_item("leather_helmet", 1)
-    --
-    -- self.inventory = self.druid:new(Inventory, "inventory", {
-    --     data_source = player_inv,
-    --     columns = 6,
-    --     rows = 4,
-    --     item_size = 40,
-    --     spacing = 2
-    -- }) 
+    self.health_bar = self.druid:new(HealthBar, "health_bar")
+
+    -- player_inv.init()
+    -- player_inv.add_item("iron_sword", 1)
+    -- player_inv.add_item("lesser_mana_potion", 10)
+    -- player_inv.add_item("leather_helmet", 1)
 
     self.msg_handlers = {
-        [hash("update_health")] = function(self, message) 
-            self.hp_bar:update_health(message.percentage) 
-        end
-        
-        -- [hash("toggle_inventory")] = function(self) 
-        --     self.inventory:toggle() 
-        -- end,
-        --
+        [hash("update_health")] = function(self, message)
+            self.health_bar:update_health(message.percentage)
+        end,
     }
 
     self.input_handlers = {
@@ -61,7 +44,19 @@ function init(self)
         end
     end
 
+    self.on_player_event = function(data)
+        if data.message_id == hash("update_health") then
+            self.health_bar:update_health(data.percentage)
+        elseif data.message_id == hash("player_data_loaded") then
+            -- Сюда прилетит сигнал из SaveManager при загрузке игры
+            -- Пересчитываем полоски ХП и Маны под новые загруженные цифры
+            print('DATA', data.health_percentage)
+            self.health_bar:update_health(data.health_percentage)
+        end
+    end
+
     broadcast.subscribe("inventory_events", self.on_inventory_event)
+    broadcast.subscribe("player_events", self.on_player_event)
     print("HUD initialized")
 end
 
@@ -71,23 +66,9 @@ function on_message(self, message_id, message, sender)
         handler(self, message)
     end
 
-    -- if message_id == hash("add_to_inv") then
-    --     local success = player_inv.add_item(message.item_id, message.amount)
-    --     if success then
-    --         msg.post("main:/character_window#gui", "refresh")
-    --         msg.post("main:/inventory_window#gui", "refresh")
-    --         -- if self.inventory and self.inventory.refresh then
-    --         --     self.inventory:refresh()
-    --         -- end
-    --     end
-    -- end
-
     if message_id == hash("refresh_inventories") then
         msg.post("main:/character_window#gui", "refresh")
         msg.post("main:/inventory_window#gui", "refresh")
-        -- if self.inventory and self.inventory.refresh then
-        --     self.inventory:refresh()
-        -- end
     end
 
 end
@@ -116,19 +97,19 @@ function on_input(self, action_id, action)
     -- 2. В остальном - Druid первый
     local handled = self.druid:on_input(action_id, action)
     if handled then return true end
-    
+
     if action_id == hash("key_esc") and action.pressed then
         -- Пытаемся закрыть верхнее окно
-        local handled = window_manager.close_top()
-        
+        handled = window_manager.close_top()
+
         if not handled then
             -- Если окон в стеке нет, открываем общее меню игры (Settings/Exit)
-            print("No windows to close. Open Main Menu?")
-            -- self.main_menu:toggle()
+            print("HUD: No windows to close. Toggling Main Menu.")
+            msg.post("main:/main_menu#gui", "toggle_main_menu")
         end
         return true -- Поглощаем ESC, чтобы игра не закрылась сразу
     end
-    
+
     if not action.x or not action.y then
         return self.druid:on_input(action_id, action)
     end
@@ -166,6 +147,8 @@ end
 
 function final(self)
     broadcast.unsubscribe("inventory_events", self.on_inventory_event)
+    broadcast.unsubscribe("player_events", self.on_player_event)
+    print("HUD final: unsubscribed from all events")
 end
 
 function update(self, dt)

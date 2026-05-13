@@ -35,14 +35,14 @@ function init(self)
     msg.post(".", "acquire_input_focus")
 
     -- СОХРАНЯЕМ ID этого конкретного предмета в self
-    self.go_id = go.get_id() 
+    self.go_id = go.get_id()
     -- self.amount = 1
     self.is_interactable = true
-    
+
     if self.item_id ~= hash("unknown") then
         apply_item_visual(self)
     end
-    
+
     -- Скрываем имя по умолчанию
     msg.post("#item_name", "disable")
 
@@ -57,7 +57,7 @@ function init(self)
             end
         end
     end
-    
+
     broadcast.subscribe("world_events", self.broadcast_handler)
 
     print("Lootable item type:", self.type)
@@ -70,45 +70,46 @@ function final(self)
 end
 
 function update(self, dt)
-	
+
 end
 
 function late_update(self, dt)
-	
+
 end
 
 function fixed_update(self, dt)
-	
+
 end
 
 function on_message(self, message_id, message, sender)
-    if message_id == hash("pickup_item") then
-        -- Пересылаем в GUI. message содержит item_id и amount
-        msg.post("hud#gui", "add_to_inv", message)
-        -- Удаляем предмет из мира
-        go.delete(sender) 
-    end
+    -- if message_id == hash("pickup_item") then
+    --     -- Пересылаем в GUI. message содержит item_id и amount
+    --     msg.post("hud#gui", "add_to_inv", message)
+    --     -- Удаляем предмет из мира
+    --     go.delete(sender)
+    -- end
 
     if message_id == hash("set_item_id") then
         self.item_id = message.item_id
-        print('AMOUTN', message.amount)
         self.amount = message.amount or 1
-        
-        -- Получаем данные (уже с переводом внутри!)
+        self.uid = message.uid -- СОХРАНЯЕМ UID!
+
         local data = items_db.get_item(self.item_id)
         if data then
-            -- Устанавливаем текст в Label
             label.set_text("#item_name", data.name)
             if self.amount > 1 then
                 label.set_text("#amount", self.amount)
             end
         end
     end
+
     if message_id == hash("click") then
         interaction.handle_click(self, 50, function()
+            -- ПЕРЕДАЕМ UID в мир, чтобы вычеркнуть его из базы сохранений
             msg.post("/world#world", "pickup_item", {
                 item_id = self.item_id,
-                amount = self.amount
+                amount = self.amount,
+                uid = self.uid -- ВАЖНО!
             })
         end)
     end

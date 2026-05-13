@@ -1,6 +1,8 @@
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
+local world_items_state = require("main.modules.game_state.world_items_state")
+local settings = require("main.modules.data.settings")
 
 local GRID_SIZE = 32
 local DROP_OFFSETS = {
@@ -9,6 +11,31 @@ local DROP_OFFSETS = {
     [2] = { 0, GRID_SIZE },   -- вверх
     [-2] = { 0, -GRID_SIZE }  -- вниз
 }
+
+local function spawn_saved_items(self)
+    local saved_items = world_items_state.get_all()
+    
+    for uid, data in pairs(saved_items) do
+        local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
+        local item_id = data.item_id
+        
+        local item_cfg = items_db.get_item(item_id)
+        if item_cfg then
+            local item_go = factory.create("#pickup_factory", pos)
+            
+            -- Передаем данные в скрипт предмета, включая его сохраненный UID
+            msg.post(item_go, "set_item_id", {
+                item_id = item_id,
+                amount = data.amount,
+                uid = uid
+            })
+            
+            -- Ставим спрайт
+            local sprite_url = msg.url(nil, item_go, "sprite")
+            sprite.play_flipbook(sprite_url, hash(item_cfg.animation or item_cfg.icon))
+        end
+    end
+end
 
 function init(self)
 	  math.randomseed(os.time())
@@ -31,7 +58,7 @@ function late_update(self, dt)
 end
 
 function fixed_update(self, dt)
-	
+
 end
 
 function on_message(self, message_id, message, sender)
@@ -42,68 +69,82 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("player_direction") then
         self.player_direction = message.direction
-    
+
     elseif message_id == hash("spawn_dropped_item") then
         local player_pos = go.get_position("player")
-        
+
         -- Получаем экранные координаты мыши
         local mouse_x = message.mouse_x
         local mouse_y = message.mouse_y
-        
-        -- Преобразуем экранные координаты в мировые
-        local w = sys.get_config("display.width")
-        local h = sys.get_config("display.height")
-        
-        local world_mouse_x = player_pos.x + (mouse_x - w / 2)
-        local world_mouse_y = player_pos.y + (mouse_y - h / 2)
-        
+
+ --        -- Преобразуем экранные координаты в мировые
+ --        local w = sys.get_config("display.width")
+ --        local h = sys.get_config("display.height")
+ --
+ -- 
+ --        local world_mouse_x = player_pos.x + (mouse_x - w / 2)
+ --        local world_mouse_y = player_pos.y + (mouse_y - h / 2)
+        local screen = settings.resolution
+        local world_mouse_x = player_pos.x + (mouse_x - screen.width / 2)
+        local world_mouse_y = player_pos.y + (mouse_y - screen.height / 2)
+
         -- Вектор от игрока к курсору
         local dir = vmath.vector3(world_mouse_x - player_pos.x, world_mouse_y - player_pos.y, 1)
         local dir_norm = vmath.normalize(dir)
-        
+
         -- Расстояние выпадения (40 пикселей от игрока)
         local drop_distance = 40
         local drop_pos = player_pos + dir_norm * drop_distance
-        
+
         -- Создаём предмет
         local data = items_db.get_item(message.item_id)
         if data then
             local item_go = factory.create("#pickup_factory", drop_pos)
-            msg.post(item_go, "set_item_id", { 
+
+            local item_id = message.item_id
+            local uid = world_items_state.add(item_id, drop_pos, message.amount)
+
+            msg.post(item_go, "set_item_id", {
                 item_id = message.item_id,
-                amount = message.amount
+                amount = message.amount,
+                uid = uid
             })
             local sprite_url = msg.url(nil, item_go, "sprite")
             sprite.play_flipbook(sprite_url, hash(data.animation or data.icon))
-            
+
             if data.scale then
                 go.set_scale(vmath.vector3(data.scale, data.scale, 1), item_go)
             end
         end
     end
-    
+
     if message_id == hash("pickup_item") then
-        -- print("World: sending to HUD...")
-        print("WORLD: Broadcating pickup for " .. tostring(message.item_id))
-        -- Попробуй указать полный путь, если не доходит
-        -- msg.post("main:/character_window#gui", "add_to_inv", message) 
-        -- msg.post("main:/gui_manager", "add_to_inv", message) 
-        broadcast.send("inventory_events", { 
-            message_id = hash("add_item"), 
-            item_id = message.item_id, 
-            amount = message.amount 
+        -- Удаляем запись из таблицы мировых предметов, чтобы не "дюпалось" при загрузке
+        if message.uid then
+            world_items_state.remove(message.uid)
+        end
+
+        print("WORLD: Picking up " .. tostring(message.item_id))
+        broadcast.send("inventory_events", {
+            message_id = hash("add_item"),
+            item_id = message.item_id,
+            amount = message.amount
         })
         go.delete(sender)
     end
 
-    if message_id == hash("toggle_interactable_highlight") then        
+    if message_id == hash("toggle_interactable_highlight") then
         print("World broadcasting via MODULE: " .. tostring(message.show))
-        
+
         -- ВМЕСТО msg.post вызываем функцию модуля
         broadcast.send("world_events", {
             message_id = hash("toggle_interactable_highlight"),
             show = message.show
         })
+    end
+
+    if message_id == hash("spawn_all_saved_items") then
+        spawn_saved_items(self)
     end
 end
 

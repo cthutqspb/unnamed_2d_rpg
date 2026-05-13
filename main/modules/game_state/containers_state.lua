@@ -1,21 +1,31 @@
 local M = {}
 
-local containers = {}
+M.registry = {} -- Назовем так для ясности
 
 function M.init(id, data)
-    containers[id] = data
+    M.registry[id] = data
 end
 
 function M.get(id)
-    return containers[id]
+    return M.registry[id]
 end
 
 function M.remove(id)
-    containers[id] = nil
+    M.registry[id] = nil
 end
 
 function M.clear()
-    containers = {}
+    M.registry = {}
+end
+
+-- Для сохранения: просто отдаем всю таблицу
+function M.get_all()
+    return M.registry
+end
+
+-- Для загрузки: заменяем текущую таблицу той, что пришла из файла
+function M.restore_all(data)
+    M.registry = data or {}
 end
 
 return M

@@ -5,7 +5,7 @@ M.items_raw = {
     ["iron_sword"] = {
         name_key = "item_iron_sword_name",
         desc_key = "item_iron_sword_desc",
-        animation = "iron_sword",        
+        animation = "iron_sword",
         tile_index = 2976,
         color = vmath.vector4(0.8, 0.8, 1, 1),
         texture = "items_project_utumno",
@@ -30,7 +30,6 @@ M.items_raw = {
     ["leather_helmet"] = {
         name_key = "item_leather_helmet_name",
         animation = "leather_helmet",
-        texture = "items_project_utumno",        
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2345,
         texture = "items_project_utumno",
@@ -68,13 +67,30 @@ function M.get_item(id)
     -- Если id — это хеш (из go.property), берем из таблицы хешей
     -- Если id — это строка, берем из основной таблицы
     local item = items_by_hash[id] or M.items_raw[id]
-    
+
     if item then
         item.name = strings.get(item.name_key)
         item.description = strings.get(item.desc_key)
         item.icon = tostring(item.tile_index)
     end
     return item
+end
+
+function M.get_save_data()
+    -- Просто возвращаем таблицу. sys.save отлично сохранит строки и числа.
+    return M.items
+end
+
+function M.load_save_data(data)
+    -- Заменяем текущие предметы загруженными
+    M.items = data or {}
+end
+
+-- Не забудь функцию очистки для "Новой игры"
+function M.clear()
+    M.items = {}
+    -- Если у тебя фиксированный размер, можно заполнить пустышками:
+    -- for i=1, 24 do M.items[i] = {item_id = nil, amount = 0} end
 end
 
 return M

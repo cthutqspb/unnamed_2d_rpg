@@ -1,0 +1,46 @@
+local druid = require("druid.druid")
+local SaveManager = require("main.modules.system.SaveManager")
+local MainMenu = require("main.gui.main_menu.MainMenu")
+
+function init(self)
+	  if not SaveManager.exists() then
+        gui.set_color(gui.get_node("btn_continue_game"), vmath.vector4(0.5, 0.5, 0.5, 1))
+    end
+    
+    local root = gui.get_node("root")
+    print("Root pos:", gui.get_position(root))
+    print("Root visible:", gui.get_visible(root))
+    self.druid = druid.new(self)
+    self.main_menu = MainMenu.new(self.druid)
+    -- По умолчанию показываем меню при старте
+    gui.set_position(root, vmath.vector3(960, 540, 0))
+    self.main_menu:set_visible(true)
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("toggle_main_menu") then
+        self.main_menu:toggle()
+    end
+end
+
+function on_input(self, action_id, action)
+   return self.druid:on_input(action_id, action)
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

@@ -97,7 +97,7 @@ function init(self)
     -- Теперь 'data' — это таблица, которую мы послали через broadcast.send
         if data.message_id == hash("toggle_interactable_highlight") then
             print('TEST PRINT: Highlight toggled!')
-            
+
             if data.show then
                 go.set_scale(vmath.vector3(1.2, 1.2, 1), self.go_id)
                 msg.post(msg.url(nil, self.go_id, "container_name"), "enable")
@@ -114,7 +114,7 @@ end
 function final(self)
 	  -- broadcast.unsubscribe(self.broadcast_handler)
     broadcast.unsubscribe("world_events", self.broadcast_handler)
-    containers_state.remove(self.container_id)
+    -- containers_state.remove(self.container_id)
 end
 
 function update(self, dt)
@@ -126,7 +126,7 @@ function late_update(self, dt)
 end
 
 function fixed_update(self, dt)
-	
+
 end
 
 function on_message(self, message_id, message, sender)
@@ -135,7 +135,7 @@ function on_message(self, message_id, message, sender)
             open_container(self)
         end)
     end
-    
+
     if message_id == hash("close_window") then
         self:close_container()
     end
@@ -172,7 +172,7 @@ function open_container(self)
         -- обновляем реестр
         containers_state.init(self.container_id, state)
     end
-    
+
     -- Передаём в GUI ссылку на state.items
     msg.post("main:/container_window#gui", "open_container_window", {
         container_id = self.container_id,

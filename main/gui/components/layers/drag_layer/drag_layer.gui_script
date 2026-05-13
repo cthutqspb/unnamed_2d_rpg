@@ -20,9 +20,9 @@ function update(self, dt)
         
         -- Устанавливаем визуал из данных менеджера
         print('texture', d.texture, 'anim', d.anim)
-        if d.texture and d.anim then
+        if d.texture and d.animation then
             gui.set_texture(self.icon, d.texture)
-            gui.play_flipbook(self.icon, d.anim)
+            gui.play_flipbook(self.icon, d.animation)
         end
         
         -- Позиция напрямую по координатам мыши

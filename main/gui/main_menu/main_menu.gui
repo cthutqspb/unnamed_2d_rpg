@@ -1,0 +1,218 @@
+script: "/main/gui/main_menu/main_menu.gui_script"
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+nodes {
+  size {
+    x: 240.0
+    y: 320.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  alpha: 0.72
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 80.0
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_new_game"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.75
+    y: 0.75
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.5019608
+    z: 0.2
+  }
+  type: TYPE_TEXT
+  font: "gui_title"
+  id: "btn_new_game_title"
+  parent: "btn_new_game"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    y: 40.0
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_continue_game"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.75
+    y: 0.75
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.5019608
+    z: 0.2
+  }
+  type: TYPE_TEXT
+  font: "gui_title"
+  id: "btn_continue_game_title"
+  parent: "btn_continue_game"
+  inherit_alpha: true
+}
+nodes {
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_save_game"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.75
+    y: 0.75
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.5019608
+    z: 0.2
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "gui_title"
+  id: "btn_save_game_title"
+  parent: "btn_save_game"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    y: -40.0
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_load_game"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.75
+    y: 0.75
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.5019608
+    z: 0.2
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "gui_title"
+  id: "btn_load_game_title"
+  parent: "btn_load_game"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    y: -80.0
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_exit_game"
+  parent: "root"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.75
+    y: 0.75
+  }
+  size {
+    x: 200.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.5019608
+    z: 0.2
+  }
+  type: TYPE_TEXT
+  font: "gui_title"
+  id: "btn_exit_game_title"
+  parent: "btn_exit_game"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"

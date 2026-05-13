@@ -13,10 +13,10 @@ M.data = {
 
         ["item_lesser_mana_potion_name"] = "Малое зелье маны",
         ["item_lesser_mana_potion_desk"] = "Это зелье восстанавливает немного маны.",
-        
+
         ["container_chest"] = "Сундук",
         ["container_status_empty"] = "Пусто",
-        
+
 
 
         ["item_potion_name"] = "Зелье здоровья",
@@ -36,13 +36,21 @@ M.data = {
         ["stat_agility"] = "Ловкость",
         ["stat_intellect"] = "Интеллект",
         ["stat_stamina"] = "Выносливость",
+
+        -- Menu
+        ["btn_main_menu"] = "Главное меню",
+        ["btn_new_game"] = "Новая игра",
+        ["btn_continue_game"] = "Продолжить игру",
+        ["btn_save_game"] = "Сохранить игру",
+        ["btn_load_game"] = "Загрузить игру",
+        ["btn_exit_game"] = "Выйти из игры",
     },
     ["en"] = {
         ["item_iron_sword_name"] = "Iron Sword",
         ["item_iron_sword_desc"] = "A simple steel blade. Good for training.",
         ["item_crystal_sword_name"] = "Crystal Sword",
         ["item_crystal_sword_desc"] = "Everything looks funnier through it. Who even thought of making a sword out of glass?.",
-        
+
 
         ["item_leather_helmet_name"] = "Leather helmet",
         ["item_lesser_mana_potion_name"] = "Lesser mana potion" ,
@@ -68,6 +76,14 @@ M.data = {
         ["stat_agility"] = "Aglitity",
         ["stat_intellect"] = "Intellect",
         ["stat_stamina"] = "Stamina",
+
+        -- Menu
+        ["btn_main_menu"] = "Main menu",
+        ["btn_new_game"] = "New game",
+        ["btn_continue_game"] = "Continie game",
+        ["btn_save_game"] = "Save game",
+        ["btn_load_game"] = "Load game",
+        ["btn_exit_game"] = "Exit game",
     }
 }
 

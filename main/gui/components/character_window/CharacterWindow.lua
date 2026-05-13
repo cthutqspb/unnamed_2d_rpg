@@ -3,7 +3,7 @@ local gui_utils = require("main.gui.gui_utils")
 local strings = require("main.modules.data.strings")
 local CharacterStats = require("main.gui.components.character_window.CharacterStats")
 local CharacterPaperdoll = require("main.gui.components.character_window.CharacterPaperdoll")
-local CharacterInventory = require("main.gui.components.inventory_grid.inventory_grid")
+local CharacterInventory = require("main.gui.components.inventory_grid.InventoryGrid")
 local CharacterJournal = require("main.gui.components.character_window.CharacterJournal")
 local CharacterTalents = require("main.gui.components.character_window.CharacterTalents")
 
@@ -62,7 +62,7 @@ function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
     if visible then
         -- Как только окно становится видимым — принудительно обновляем данные
-        self.inventory_grid:refresh() 
+        self:refresh_all()
     end
 end
 
@@ -108,23 +108,24 @@ function M.new(druid, template_id, player_inventory)
     self.set_visible = M.set_visible
     self.toggle = M.toggle
     self.switch_tab = M.switch_tab
+    self.refresh_all = M.refresh_all
     self.close = M.close
     self.get_slot_at_position = M.get_slot_at_position
     self.is_visible = M.is_visible -- ВОТ ЭТОЙ СТРОКИ НЕ ХВАТАЛО
     self.on_input = M.on_input
-    
+
     self.drag = druid:new_drag(self.header, function(_, dx, dy)
         local pos = gui.get_position(self.root)
         local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
-        
+
         -- Ограничиваем target_pos по размерам ноды body
         local final_pos = gui_utils.clamp_to_screen(self.body, target_pos, 0, 40)
-        
+
         gui.set_position(self.root, final_pos)
     end)
     -- Чтобы драг не конфликтовал с кнопками на хедере
     self.drag.is_touch_threshold = true
-    
+
     druid:new_button(self.btn_close, function()
         self:close()
     end)
@@ -145,20 +146,22 @@ function M.new(druid, template_id, player_inventory)
             for _, sub in ipairs(cfg.sub_components) do
                 local full_path = sub.template
                 local sub_config = sub.config or {}
-            
+
                 -- Если это инвентарь - добавляем в config data_source
                 if sub.template == "inventory_grid" then
                     sub_config.data_source = player_inventory
-                end      
-            
+                end
+
                 local instance = druid:new(sub.class, full_path, sub_config)
                 instance.character_window = self
                 table.insert(self.tabs[name].modules, instance)
 
-                if sub.template == "inventory_grid" then 
+                if sub.template == "inventory_grid" then
                     self.inventory_grid = instance
                 elseif sub.template == "character_paperdoll" then
                     self.paperdoll = instance
+                elseif sub.template == "character_stats" then -- ДОБАВЬ ЭТОТ БЛОК
+                    self.character_stats = instance
                 end
             end
         elseif cfg.component then
@@ -179,7 +182,7 @@ function M.new(druid, template_id, player_inventory)
     if self.paperdoll then
         self.paperdoll:refresh()
     end
-    
+
     self:switch_tab("character")
     return self
 end
@@ -206,6 +209,14 @@ function M:switch_tab(tab_name)
     end
     
     self.active_tab = tab_name
+end
+
+function M:refresh_all()
+    -- Просто вызываем рефреш у всех внутренних частей
+    if self.inventory_grid then self.inventory_grid:refresh() end
+    if self.paperdoll then self.paperdoll:refresh() end
+    if self.character_stats then self.character_stats:update_display() end
+    print("CharacterWindow: All components refreshed from data")
 end
 
 function M:get_slot_at_position(x, y)

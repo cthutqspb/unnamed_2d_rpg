@@ -14,13 +14,13 @@ function init(self)
     self.base_speed = 300  -- пикселей в секунду
     self.move_input = vmath.vector3(0, 0, 0)  -- запоминаем зажатые клавиши
     self.direction = 1
-    
+
     -- Позиция игрока (будем хранить отдельно для плавности)
     self.position = vmath.vector3(0, 0, 0)
 
     self.correction = vmath.vector3()
     self.move_target = nil  -- цель для движения мышью
-  
+
     self.show_interactable = false
     self.world_bounds = settings.world_bounds
 end
@@ -67,7 +67,10 @@ end
 
 function update(self, dt)
     local player = character_data.player
-    
+    local pos = go.get_position()
+    -- Записываем в модуль character_data, чтобы SaveManager мог это забрать
+    character_data.player.last_pos = { x = pos.x, y = pos.y }
+
     -- Считаем модификатор скорости от ХП
     local hp_mod = (player.health < 20) and 0.50 or 1.0
     -- Итоговая скорость для этого кадра
@@ -164,7 +167,7 @@ function on_input(self, action_id, action)
             print('ALT RELEASED')
             msg.post("world", "toggle_interactable_highlight", { show = false })
         end
-    end    
+    end
 end
 
 function on_message(self, message_id, message, sender)
@@ -178,6 +181,13 @@ function on_message(self, message_id, message, sender)
     --         end
     --     end
     -- end
+
+    if message_id == hash("teleport_to") then
+        go.set_position(message.position)
+        print("Player teleported to:", message.position)
+    end
+
+    -- if message
 
     if message_id == hash("move_to_item") then
         self.move_target = go.get_world_position(message.item_id)

@@ -25,4 +25,53 @@ function M.equip(slot_type, item_data)
     return old_item -- возвращаем старую шмотку, чтобы положить её обратно в инвентарь
 end
 
+-- function M.clear()
+--     print('Сбросили папердолл')
+-- end
+
+-- function M.get_save_data()
+--     local data = {}
+--     -- Используем pairs для словаря (HEAD, CHEST...)
+--     for slot_name, item in pairs(M.slots) do
+--         if item.item_id then
+--             data[slot_name] = {
+--                 id = tostring(item.item_id), -- хеш "[hash: sword]" -> "sword" (если это был hash("sword"))
+--                 amount = item.amount
+--             }
+--         else
+--             data[slot_name] = { id = nil, amount = 0 }
+--         end
+--     end
+--     return data
+-- end
+--
+-- function M.load_save_data(data)
+--     -- Важно: чистим текущие слоты перед загрузкой
+--     for slot_name, _ in pairs(M.slots) do
+--         local saved_item = data[slot_name]
+--         if saved_item and saved_item.id then
+--             M.slots[slot_name] = {
+--                 item_id = hash(saved_item.id),
+--                 amount = saved_item.amount
+--             }
+--         else
+--             M.slots[slot_name] = { item_id = nil, amount = 0 }
+--         end
+--     end
+-- end
+
+function M.get_save_data()
+    return M.slots
+end
+
+function M.load_save_data(data)
+    M.slots = data or {}
+end
+
+function M.clear()
+    for slot_type, _ in pairs(M.slots) do
+        M.slots[slot_type] = { item_id = nil, amount = 0 }
+    end
+end
+
 return M

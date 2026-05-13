@@ -1,4 +1,3 @@
-local items_db = require("main.modules.data.items_db")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local component = require("druid.component")
@@ -6,52 +5,57 @@ local static_grid = require("druid.base.static_grid")
 -- Модуль драга теперь один для всех инвентарей
 local DragModule = require("main.gui.components.inventory_grid.inventory_drag")
 
-local InventoryGrid = component.create("InventoryGrid")
+---@class InventoryGrid : druid.component
+---@field slots table
+local M = component.create("InventoryGrid")
 
-function InventoryGrid:init(template_id, config)
-    self.template_id = template_id
+function M:init(template_id, config)
     config = config or {}
     local d = self:get_druid()
-      
+
+    -- Группа: Базовые настройки
+    self.template_id = template_id
     self.data_source = config.data_source
-    -- Ищем стандартные ноды внутри любого переданного шаблона
-    self.root = gui.get_node(template_id .. "/root")
-    self.container = gui.get_node(template_id .. "/container")
+    self.columns     = config.columns or 6
+    self.rows        = config.rows or 4
+
+    -- Группа: Визуал
+    self.item_size   = config.item_size or 40
+    self.spacing     = config.spacing or 4
+    self.root        = gui.get_node(template_id .. "/root")
+    self.container   = gui.get_node(template_id .. "/container")
+
+    -- Группа: Состояние
+    self.slots       = {}
+    self.mouse_x     = 0
+    self.mouse_y     = 0
+
+    self.items_data  = {}
     self.drag_template = gui.get_node(template_id .. "/drag_icon")
-    
-    -- Конфигурация сетки
-    self.columns = config.columns or 6
-    self.rows = config.rows or 4
-    self.item_size = config.item_size or 40
-    self.spacing = config.spacing or 4
 
-    -- Инициализация Druid Grid
-    -- Использует слот-префаб, который ДОЛЖЕН быть в каждом .gui файле инвентаря
-    self.grid = d:new(static_grid, self.container, template_id .. "/slot_prefab/root", self.columns)
-    self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing)
-    self.grid:set_anchor(vmath.vector3(0, 1, 0))
+    -- Инициализация сложных систем
+    self:init_grid(d, template_id)
 
-    self.items_data = {}
-    self.mouse_x = 0
-    self.mouse_y = 0
-
-    -- Оживляем слоты через твой DragModule
-    -- Мы передаем "self", чтобы модуль знал, в какой именно инвентарь (этот или сундука) мы кликаем
     DragModule.create_slots(self)
     DragModule.init(self, d)
 
     if self.drag_template then
         gui.set_enabled(self.drag_template, false)
     end
-
 end
 
-function InventoryGrid:set_data_source(data_source)
+function M:init_grid(d, template_id)
+    self.grid = d:new(static_grid, self.container, template_id .. "/slot_prefab/root", self.columns)
+    self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing)
+    self.grid:set_anchor(vmath.vector3(0, 1, 0))
+end
+
+function M:set_data_source(data_source)
     self.data_source = data_source
     self:refresh()
 end
 
-function InventoryGrid:get_data_source()
+function M:get_data_source()
     if self.data_source then
         return self.data_source
     end
@@ -59,11 +63,11 @@ function InventoryGrid:get_data_source()
     return require("main.modules.player.player_inventory")
 end
 
-function InventoryGrid:get_slot_at_position(x, y)
+function M:get_slot_at_position(x, y)
     return DragModule.get_slot_at_position(self, x, y)
 end
 
-function InventoryGrid:on_input(action_id, action)
+function M:on_input(action_id, action)
     if action and action.x and action.y then
         self.mouse_x = action.x
         self.mouse_y = action.y
@@ -72,17 +76,17 @@ function InventoryGrid:on_input(action_id, action)
     end
 end
 
-function InventoryGrid:is_mouse_over_any_gui(x, y)
+function M:is_mouse_over_any_gui(x, y)
     return DragModule.is_mouse_over_any_gui(self, x, y)
 end
 
-function InventoryGrid:refresh()
+function M:refresh()
     local data_source = self:get_data_source()
-    if not data_source or not data_source.items then 
+    if not data_source or not data_source.items then
         print("Warning: InventoryGrid has no data_source during refresh")
-        return 
+        return
     end
-    
+
     for i = 1, #self.slots do
         local data = data_source.items[i]
         if data and data.item_id then
@@ -91,32 +95,37 @@ function InventoryGrid:refresh()
             -- Если предмет выкинули, мы должны попасть сюда
             DragModule.clear_slot_visual(self, i)
         end
-    end 
+    end
 end
 
-function InventoryGrid:set_visible(visible)
+function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
 end
 
-function InventoryGrid:on_drop(x, y)
+function M:on_drop(x, y)
+    if not gui.is_enabled(self.root) then
+        return false
+    end
+
     -- Ищем слот через DragModule
     local slot_index = self:get_slot_at_position(x, y)
-    
+
     if slot_index then
-        local drag_manager = require("main.gui.components.managers.drag_manager")
         print("InventoryGrid [" .. self.template_id .. "]: Drop into slot", slot_index)
         drag_manager.finish(self, slot_index)
         return true -- Мы обработали дроп
     end
-    
+
     return false -- Мышь была не над этой сеткой
 end
 
-function InventoryGrid:update_hover(mx, my)
+function M:update_hover(mx, my)
     -- 1. Жесткая проверка: готов ли компонент
-    if not self.slots then return false end
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return false
+    end
 
-    if drag_manager.is_dragging() then 
+    if drag_manager.is_dragging() then
         tooltip_manager.hide()
         return false
     end
@@ -126,7 +135,7 @@ function InventoryGrid:update_hover(mx, my)
     for i, slot_nodes in ipairs(self.slots) do
         if gui.pick_node(slot_nodes.root, mx, my) then
             local item_data = self:get_data_source().items[i]
-            
+
             -- Если слот пустой (item_id == nil), просто прячем тултип
             if item_data and item_data.item_id then
                 tooltip_manager.show("item", item_data.item_id)
@@ -140,6 +149,6 @@ function InventoryGrid:update_hover(mx, my)
     return over_any_slot
 end
 
-return InventoryGrid
+return M
 
 

@@ -51,6 +51,46 @@ function M.swap_slots(from_idx, to_idx)
     M.items[from_idx], M.items[to_idx] = M.items[to_idx], M.items[from_idx]
 end
 
+function M.clear()
+    print('Сбросили инвентарь')
+    M.init()
+end
+
+function M.get_save_data()
+    local data = {}
+    for i = 1, M.max_slots do
+        local item = M.items[i]
+        if item and item.item_id then
+            -- Очищаем строку от "hash: [...]"
+            local id_str = tostring(item.item_id)
+            id_str = id_str:match("%[(.-)%]") or id_str
+
+            data[i] = {
+                id = id_str,
+                amount = item.amount
+            }
+        else
+            data[i] = { id = nil, amount = 0 }
+        end
+    end
+    return data
+end
+
+function M.load_save_data(data)
+    M.init() -- Сначала очищаем всё
+    if not data then return end
+
+    for index, saved in pairs(data) do
+        local i = tonumber(index) -- Гарантируем, что индекс — число
+        if i and saved and saved.id then
+            M.items[i] = {
+                item_id = hash(saved.id), -- Теперь тут чистая строка, хеш будет верным
+                amount = saved.amount
+            }
+        end
+    end
+end
+
 M.init()
 return M
 

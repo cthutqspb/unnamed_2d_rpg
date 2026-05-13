@@ -62,7 +62,7 @@ function on_message(self, message_id, message, sender)
         
         if self.inventory_window:is_visible() then
             gui.set_render_order(10)
-            window_manager.push(msg.url(), hash("close_window")) 
+            window_manager.push(msg.url(), hash("close_window"))
         else
             gui.set_render_order(0)
             window_manager.pop(msg.url())
@@ -71,7 +71,7 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("refresh") then
         if self.inventory_window and self.inventory_window:is_visible() then
             self.inventory_window.inventory_grid:refresh()
-        end 
+        end
     end
 end
 
@@ -95,7 +95,7 @@ function on_input(self, action_id, action)
         if drag_manager.is_dragging() then
             -- Обновляем позицию иконки при зажатой кнопке
             drag_manager.update(action.x, action.y)
-            
+
             -- Проставляем флаг GUI
             if gui.pick_node(self.inventory_window.root, action.x, action.y) then
                 drag_manager.set_over_gui(true)
