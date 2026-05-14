@@ -1,0 +1,128 @@
+local druid = require("druid.druid")
+local window_manager = require("main.gui.components.managers.window_manager")
+local items_db = require("main.modules.data.items_db")
+
+-- 1. Объявляем функции локально, чтобы скрипт их видел
+local function update_ui(self) 
+    gui.set_text(self.text_count, tostring(self.current_amount))
+end
+
+local function close(self)
+    msg.post(".", "release_input_focus")
+    gui.set_enabled(self.root, false)
+    self.sender_url = nil
+    self.source_slot = nil
+end
+
+local function confirm(self)
+    if self.sender_url then
+      print('aself.current_amoun',  self.current_amount)
+
+        msg.post(self.sender_url, "split_confirmed", {
+            slot_index = self.source_slot,
+            current_amount = self.current_amount
+        })
+    end
+    close(self)
+end
+
+local function change_amount(self, delta)
+    self.current_amount = self.current_amount + delta
+    if self.current_amount < 1 then self.current_amount = 1 end
+    if self.current_amount > self.max_amount then self.current_amount = self.max_amount end
+    update_ui(self)
+end
+
+
+function init(self)
+    gui.set_render_order(20)
+    msg.post(".", "acquire_input_focus") -- запрашиваем фокус, чтобы ловить клики кнопок
+    self.druid = druid.new(self)
+
+    self.root = gui.get_node("root")
+    self.icon_from = gui.get_node("icon_from")
+    self.icon_to = gui.get_node("icon_to")
+    self.text_count = gui.get_node("text_count")
+
+    -- 2. Передаем self внутрь анонимных функций кнопок
+    self.btn_plus = self.druid:new_button("btn_plus", function() change_amount(self, 1) end)
+    self.btn_minus = self.druid:new_button("btn_minus", function() change_amount(self, -1) end)
+    self.btn_confirm = self.druid:new_button("btn_confirm", function() confirm(self) end)
+    self.btn_cancel = self.druid:new_button("btn_cancel", function() close(self) end)
+
+    self.current_amount = 1
+    self.max_amount = 1
+    self.sender_url = nil
+    self.source_slot = nil
+
+    gui.set_enabled(self.root, false)
+end
+
+function final(self)
+    self.druid:final()
+end
+
+function update(self, dt)
+    self.druid:update(dt)
+end
+
+-- В split_window.gui_script внутри on_message
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("close_window") then
+        close(self) -- Твой метод модуля
+        gui.set_render_order(0)
+        window_manager.pop(msg.url())
+    end
+
+    if message_id == hash("open_split_window") then
+        print('ON MESSAGE IN SPLIT_WINDOW: ACTIVE!')
+        window_manager.push(msg.url(), hash("close_window"))
+        msg.post(".", "acquire_input_focus")
+        
+        self.sender_url = sender
+        self.source_slot = message.slot_index
+        self.max_amount = message.item_data.amount or 1
+        
+        -- По классике открываемся ровно на половине стака
+        self.current_amount = math.floor(self.max_amount / 2)
+        if self.current_amount < 1 then self.current_amount = 1 end
+
+        -- --- ЛОГИКА ПОЗИЦИОНИРОВАНИЯ ---
+        if message.position then
+            gui.set_position(self.root, message.position)
+        else
+            -- Дефолтный бэкап: центр экрана, если позиция почему-то не прилетела
+            local w = sys.get_config_number("display.width", 960)
+            local h = sys.get_config_number("display.height", 540)
+            gui.set_position(self.root, vmath.vector3(w / 2, h / 2, 0))
+        end
+
+        -- Отрисовка иконок предмета из базы данных
+        local item_cfg = items_db.get_item(message.item_data.item_id)
+        if item_cfg and item_cfg.texture then
+            local anim = item_cfg.animation or item_cfg.icon
+            gui.set_texture(self.icon_from, item_cfg.texture)
+            gui.play_flipbook(self.icon_from, hash(anim))
+            
+            gui.set_texture(self.icon_to, item_cfg.texture)
+            gui.play_flipbook(self.icon_to, hash(anim))
+        end
+
+        update_ui(self)
+        gui.set_enabled(self.root, true)
+    end
+end
+
+function on_input(self, action_id, action)
+    if gui.is_enabled(self.root) then
+        return self.druid:on_input(action_id, action)
+    end
+    return false
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

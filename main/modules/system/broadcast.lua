@@ -1,4 +1,6 @@
 -- Улучшенный broadcast.lua
+local errored_callbacks = {} -- Запоминаем, кто уже ломался, чтобы не спамить
+
 local M = {}
 local events = {} -- { ["stats_updated"] = {callback1, callback2}, ... }
 
@@ -15,9 +17,19 @@ end
 
 function M.send(event_name, message)
     if not events[event_name] then return end
+    
     for callback, _ in pairs(events[event_name]) do
         local ok, err = pcall(callback, message)
-        if not ok then events[event_name][callback] = nil end
+        if not ok then 
+            -- Выводим ошибку в консоль ТОЛЬКО ОДИН РАЗ
+            if not errored_callbacks[callback] then
+                print("WARNING: Broadcast error in [" .. tostring(event_name) .. "]:", err)
+                errored_callbacks[callback] = true
+            end
+        else
+            -- Если компонент исправился и отработал успешно, сбрасываем флаг ошибки
+            errored_callbacks[callback] = nil
+        end
     end
 end
 

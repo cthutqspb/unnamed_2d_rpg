@@ -1,6 +1,7 @@
 -- main.gui.components.managers.drag_manager.lua
 local broadcast = require("main.modules.system.broadcast")
 local gui_utils = require("main.gui.gui_utils")
+local item_transfer_manager = require("main.modules.item_transfer_manager")
 
 local M = {}
 
@@ -63,128 +64,164 @@ function M.set_over_gui(value)
     is_over_any_gui = value
 end
 
+-- В drag_manager.lua
 
 function M.finish(target_component, target_slot)
     if not active_drag then return end
 
-    local d = active_drag 
-    active_drag = nil 
+    local d = active_drag
+    active_drag = nil
 
     local source = d.source
     local source_slot = d.slot
-    local item = d.item -- Тащимый предмет {item_id, amount}
-    local item_cfg = d.item_cfg -- Весь конфиг из базы данных
-    local source_items = get_items_table(source)
+    local item = d.item 
+    local item_cfg = d.item_cfg
 
-    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но не в слоте)
+    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но мимо слотов)
     if not target_component and is_over_any_gui then
         print("Cancel drag: mouse over GUI but no slot")
-        pcall(function() source:refresh() end)
+        item_transfer_manager.cancel_transfer(source)
 
-    -- 2. СЛУЧАЙ: СВАП И СТАК ВНУТРИ ОДНОГО ОКНА
-    elseif source == target_component then
-        local target_items = get_items_table(target_component)
-        local target_item = target_items[target_slot]
-        local is_stacked = false
-
-        -- Проверяем стак внутри одного инвентаря
-        if target_item and target_item.item_id and item_cfg and item_cfg.stackable then
-            local id1 = type(item.item_id) == "userdata" and tostring(item.item_id):match("%[(.-)%]") or item.item_id
-            local id2 = type(target_item.item_id) == "userdata" and tostring(target_item.item_id):match("%[(.-)%]") or target_item.item_id
-
-            if id1 == id2 then
-                local max_stack = item_cfg.max_stack or 64
-                local space_left = max_stack - target_item.amount
-
-                if space_left > 0 then
-                    local to_add = math.min(item.amount, space_left)
-                    target_item.amount = target_item.amount + to_add
-                    item.amount = item.amount - to_add
-
-                    if item.amount <= 0 then
-                        source_items[source_slot] = {item_id = nil, amount = 0}
-                    else
-                        source_items[source_slot] = item
-                    end
-                    is_stacked = true
-                end
-            end
-        end
-
-        -- Если стак не произошел, делаем обычный свап мест
-        if not is_stacked then
-            local temp = source_items[source_slot]
-            source_items[source_slot] = source_items[target_slot]
-            source_items[target_slot] = temp
-        end
-        pcall(function() source:refresh() end)
-        
-    -- 3. СЛУЧАЙ: ПЕРЕНОС И СТАК МЕЖДУ РАЗНЫМИ ОКНАМИ (Инвентарь <-> Кукла <-> Сундук)
+    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Внутри одного окна или между разными)
     elseif target_component then
-        local target_items = get_items_table(target_component)
-        local target_item = target_items[target_slot]
-        local is_stacked = false
+        item_transfer_manager.execute_transfer(source, source_slot, target_component, target_slot, item, item_cfg)
 
-        -- Проверяем стак между разными окнами
-        if target_item and target_item.item_id and item_cfg and item_cfg.stackable then
-            local id1 = type(item.item_id) == "userdata" and tostring(item.item_id):match("%[(.-)%]") or item.item_id
-            local id2 = type(target_item.item_id) == "userdata" and tostring(target_item.item_id):match("%[(.-)%]") or target_item.item_id
-
-            if id1 == id2 then
-                local max_stack = item_cfg.max_stack or 64
-                local space_left = max_stack - target_item.amount
-
-                if space_left > 0 then
-                    local to_add = math.min(item.amount, space_left)
-                    target_item.amount = target_item.amount + to_add
-                    item.amount = item.amount - to_add
-
-                    if item.amount <= 0 then
-                        source_items[source_slot] = {item_id = nil, amount = 0}
-                    else
-                        source_items[source_slot] = item
-                    end
-                    is_stacked = true
-                end
-            end
-        end
-
-        -- Если стак не произошел, делаем обычный перенос/рокировку
-        if not is_stacked then
-            local old_target_item = target_items[target_slot]
-            target_items[target_slot] = item
-            
-            if old_target_item and old_target_item.item_id then
-                source_items[source_slot] = old_target_item
-            else
-                source_items[source_slot] = {item_id = nil, amount = 0}
-            end
-        end
-
-        pcall(function() source:refresh() end)
-        pcall(function() target_component:refresh() end)
-        broadcast.send("inventory_events", { message_id = hash("data_updated") })
-    -- 4. СЛУЧАЙ: ДРОП В МИР (Не над GUI вообще)
+    -- 3. СЛУЧАЙ: ДРОП В МИР (Бросили на землю)
     else
-        print("DROP to world")
-        msg.post("world", "spawn_dropped_item", {
-            item_id = item.item_id,
-            amount = item.amount,
-            mouse_x = d.x,
-            mouse_y = d.y
-        })
-        source_items[source_slot] = {item_id = nil, amount = 0}
-        pcall(function() source:refresh() end)
+        item_transfer_manager.drop_to_world(source, source_slot, item, d.x, d.y)
     end
 
-    -- СБРОС ФЛАГА
+    -- СБРОС СИСТЕМНЫХ ФЛАГОВ И ГЛОБАЛЬНЫЙ ВИЗУАЛЬНЫЙ ОБНОВИТЕЛЬ
     is_over_any_gui = false
 
-    -- Глобальное обновление (визуал)
     msg.post("/gui_manager#hud", "refresh_inventories")
     msg.post("main:/character_window#gui", "refresh")
     msg.post("main:/container_window#gui", "refresh") 
 end
+
+
+-- function M.finish(target_component, target_slot)
+--     if not active_drag then return end
+--
+--     local d = active_drag
+--     active_drag = nil
+--
+--     local source = d.source
+--     local source_slot = d.slot
+--     local item = d.item -- Тащимый предмет {item_id, amount}
+--     local item_cfg = d.item_cfg -- Весь конфиг из базы данных
+--     local source_items = get_items_table(source)
+--
+--     -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но не в слоте)
+--     if not target_component and is_over_any_gui then
+--         print("Cancel drag: mouse over GUI but no slot")
+--         pcall(function() source:refresh() end)
+--
+--     -- 2. СЛУЧАЙ: СВАП И СТАК ВНУТРИ ОДНОГО ОКНА
+--     elseif source == target_component then
+--         local target_items = get_items_table(target_component)
+--         local target_item = target_items[target_slot]
+--         local is_stacked = false
+--
+--         -- Проверяем стак внутри одного инвентаря
+--         if target_item and target_item.item_id and item_cfg and item_cfg.stackable then
+--             local id1 = type(item.item_id) == "userdata" and tostring(item.item_id):match("%[(.-)%]") or item.item_id
+--             local id2 = type(target_item.item_id) == "userdata" and tostring(target_item.item_id):match("%[(.-)%]") or target_item.item_id
+--
+--             if id1 == id2 then
+--                 local max_stack = item_cfg.max_stack or 64
+--                 local space_left = max_stack - target_item.amount
+--
+--                 if space_left > 0 then
+--                     local to_add = math.min(item.amount, space_left)
+--                     target_item.amount = target_item.amount + to_add
+--                     item.amount = item.amount - to_add
+--
+--                     if item.amount <= 0 then
+--                         source_items[source_slot] = {item_id = nil, amount = 0}
+--                     else
+--                         source_items[source_slot] = item
+--                     end
+--                     is_stacked = true
+--                 end
+--             end
+--         end
+--
+--         -- Если стак не произошел, делаем обычный свап мест
+--         if not is_stacked then
+--             local temp = source_items[source_slot]
+--             source_items[source_slot] = source_items[target_slot]
+--             source_items[target_slot] = temp
+--         end
+--         pcall(function() source:refresh() end)
+--         
+--     -- 3. СЛУЧАЙ: ПЕРЕНОС И СТАК МЕЖДУ РАЗНЫМИ ОКНАМИ (Инвентарь <-> Кукла <-> Сундук)
+--     elseif target_component then
+--         local target_items = get_items_table(target_component)
+--         local target_item = target_items[target_slot]
+--         local is_stacked = false
+--
+--         -- Проверяем стак между разными окнами
+--         if target_item and target_item.item_id and item_cfg and item_cfg.stackable then
+--             local id1 = type(item.item_id) == "userdata" and tostring(item.item_id):match("%[(.-)%]") or item.item_id
+--             local id2 = type(target_item.item_id) == "userdata" and tostring(target_item.item_id):match("%[(.-)%]") or target_item.item_id
+--
+--             if id1 == id2 then
+--                 local max_stack = item_cfg.max_stack or 64
+--                 local space_left = max_stack - target_item.amount
+--
+--                 if space_left > 0 then
+--                     local to_add = math.min(item.amount, space_left)
+--                     target_item.amount = target_item.amount + to_add
+--                     item.amount = item.amount - to_add
+--
+--                     if item.amount <= 0 then
+--                         source_items[source_slot] = {item_id = nil, amount = 0}
+--                     else
+--                         source_items[source_slot] = item
+--                     end
+--                     is_stacked = true
+--                 end
+--             end
+--         end
+--
+--         -- Если стак не произошел, делаем обычный перенос/рокировку
+--         if not is_stacked then
+--             local old_target_item = target_items[target_slot]
+--             target_items[target_slot] = item
+--             
+--             if old_target_item and old_target_item.item_id then
+--                 source_items[source_slot] = old_target_item
+--             else
+--                 source_items[source_slot] = {item_id = nil, amount = 0}
+--             end
+--         end
+--
+--         pcall(function() source:refresh() end)
+--         pcall(function() target_component:refresh() end)
+--         print('FROM drag_manager.lua: data_updated')
+--         broadcast.send("inventory_events", { message_id = hash("data_updated") })
+--     -- 4. СЛУЧАЙ: ДРОП В МИР (Не над GUI вообще)
+--     else
+--         print("DROP to world")
+--         msg.post("world", "spawn_dropped_item", {
+--             item_id = item.item_id,
+--             amount = item.amount,
+--             mouse_x = d.x,
+--             mouse_y = d.y
+--         })
+--         source_items[source_slot] = {item_id = nil, amount = 0}
+--         pcall(function() source:refresh() end)
+--     end
+--
+--     -- СБРОС ФЛАГА
+--     is_over_any_gui = false
+--
+--     -- Глобальное обновление (визуал)
+--     msg.post("/gui_manager#hud", "refresh_inventories")
+--     msg.post("main:/character_window#gui", "refresh")
+--     msg.post("main:/container_window#gui", "refresh") 
+-- end
 
 -- function M.finish(target_component, target_slot)
 --     if not active_drag then return end

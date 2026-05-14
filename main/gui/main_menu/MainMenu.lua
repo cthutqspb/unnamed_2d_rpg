@@ -16,7 +16,7 @@ function M.new(druid, template_id)
         btn_load_game_title = gui.get_node("btn_load_game_title"),
         btn_exit_game_title = gui.get_node("btn_exit_game_title"),
     }
-    
+
     self.is_visible = M.is_visible
     self.set_visible = M.set_visible
     self.toggle = M.toggle

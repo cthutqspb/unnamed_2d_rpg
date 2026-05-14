@@ -12,17 +12,17 @@ function M.init(self, d)
     self.dragging_index = nil
     self.mouse_x = 0
     self.mouse_y = 0
-    
+
     -- msg.post("@render:", "acquire_input_focus")
 end
 
 function M.create_slots(self)
     self.slots = {}
     local prefab_path = self.template_id .. "/slot_prefab/root"
-    
+
     for i = 1, self.columns * self.rows do
         local nodes = gui.clone_tree(gui.get_node(prefab_path))
-        
+
         local root_id  = hash(self.template_id .. "/slot_prefab/root")
         local icon_id  = hash(self.template_id .. "/slot_prefab/icon")
         local count_id = hash(self.template_id .. "/slot_prefab/count")
@@ -34,38 +34,19 @@ function M.create_slots(self)
         if slot_root then
             gui.set_enabled(slot_root, true)
             gui.set_parent(slot_root, self.container)
-            
+
             local p = gui.get_position(slot_root)
             p.z = 0
             gui.set_position(slot_root, p)
 
             self.grid:add(slot_root)
-            
+
             local d = self:get_druid()
             local btn = d:new_button(slot_root, function() M.on_slot_click(self, i) end)
-              
-            -- d:new_hover(slot_root, 
-            --     -- Функция 1: МЫШЬ ЗАШЛА (OnEnter)
-            --     function()
-            --         print("ENTERED SLOT:")
-            --         local item_data = self:get_data_source().items[i]
-            --         if item_data and item_data.item_id and not drag_manager.is_dragging() then
-            --             print("TOOLTIP: SHOW for slot", i)
-            --             tooltip_manager.show("item", item_data.item_id)
-            --         end
-            --     end,
-            --     -- Функция 2: МЫШЬ УШЛА (OnLeave)
-            --     function() 
-            --         print("TOOLTIP: HIDE for slot", i)
-            --         tooltip_manager.hide()
-            --     end
-            -- )
 
-            local drag = d:new_drag(slot_root, function(ctx, dx, dy)
-          
-            end)
-            
-            drag.is_touch_threshold = false 
+            local drag = d:new_drag(slot_root, function(ctx, dx, dy) end)
+
+            drag.is_touch_threshold = false
             btn.click_zone = slot_root
 
             if drag.set_input_priority then
@@ -73,13 +54,23 @@ function M.create_slots(self)
             end
 
             drag.on_drag_start:subscribe(function()
+                -- НАШ ФИКС: Если в сетке инвентаря зажат Shift, отменяем драг и переключаемся на логику клика
+                if self.is_shift_pressed then
+                    -- Принудительно гасим внутреннее состояние драга в Druid, чтобы он не думал, что мы что-то тащим
+                    drag.is_drag = false
+                    -- Вызываем обычный клик по слоту, который и откроет наше окно сплиттера
+                    M.on_slot_click(self, i)
+                    return
+                end
+
+                -- Старая логика обычного переноса
                 M.on_item_drag_start(self, i)
             end)
-            
+
             drag.on_drag_end:subscribe(function()
                 M.on_item_drag_end(self, i)
             end)
-          
+
             table.insert(self.slots, {
                 root  = slot_root,
                 icon  = nodes[icon_id],
@@ -87,7 +78,7 @@ function M.create_slots(self)
                 button = btn,
                 drag = drag
             })
-            
+
             gui.set_enabled(slot_icon, false)
             gui.set_enabled(slot_count, false)
         end
@@ -95,6 +86,12 @@ function M.create_slots(self)
 end
 
 function M.update_slot_visual(self, slot_index, item_id, amount)
+    -- ЗАЩИТА КОНТЕКСТА: Если корневая нода сетки или сам корневой элемент выключен,
+    -- значит окно закрыто и мы в другой сцене. Трогать ноды нельзя!
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return
+    end
+
     local slot = self.slots[slot_index]
     if not slot then return end
 
@@ -125,7 +122,7 @@ function M.on_item_drag_start(self, index)
     -- 1. Получаем данные предмета
     local item_data = self:get_data_source().items[index]
     if not item_data or not item_data.item_id then return end
-    
+
     local data = items_db.get_item(item_data.item_id)
 
     -- 2. Просто уведомляем менеджер, ЧТО мы тащим
@@ -135,7 +132,7 @@ function M.on_item_drag_start(self, index)
     -- 3. Скрываем оригинал в слоте
     gui.set_enabled(self.slots[index].icon, false)
     gui.set_enabled(self.slots[index].count, false)
-    
+
     -- НИКАКИХ gui.clone_tree, gui.set_parent и gui.set_render_order здесь больше не нужно!
 end
 --
@@ -192,6 +189,12 @@ end
 
 -- ОЧИСТИТЬ ВИЗУАЛ СЛОТА
 function M.clear_slot_visual(self, slot_index)
+    -- ЗАЩИТА КОНТЕКСТА: Если корневая нода сетки или сам корневой элемент выключен,
+    -- значит окно закрыто и мы в другой сцене. Трогать ноды нельзя!
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return
+    end
+
     local slot = self.slots[slot_index]
     if slot then
         gui.set_enabled(slot.icon, false)
@@ -199,15 +202,33 @@ function M.clear_slot_visual(self, slot_index)
     end
 end
 
+-- В inventory_drag.lua в функции M.on_slot_click
+
 function M.on_slot_click(self, index)
-    local items = self:get_data_source().items
-    local item = items[index]
-    if item and item.item_id then
-        print("Click on slot:", index, "Item:", item.item_id)
-    else
-        print("Click on empty slot:", index)
+    local data_source = self:get_data_source()
+    local item_data = data_source.items[index]
+     if self.is_shift_pressed and item_data and item_data.item_id and item_data.amount > 1 then
+        print("INVENTORY: Requesting split window for slot", index)
+
+        msg.post("main:/split_window#gui", "open_split_window", {
+            item_data = item_data,
+            slot_index = index
+            -- position больше НЕ передаем, окно само встанет в центр экрана
+        })
+        return
     end
 end
+
+
+-- function M.on_slot_click(self, index)
+--     local items = self:get_data_source().items
+--     local item = items[index]
+--     if item and item.item_id then
+--         print("Click on slot:", index, "Item:", item.item_id)
+--     else
+--         print("Click on empty slot:", index)
+--     end
+-- end
 
 function M.get_slot_at_position(self, screen_x, screen_y)
     

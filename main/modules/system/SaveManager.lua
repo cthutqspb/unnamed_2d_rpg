@@ -24,17 +24,60 @@ function M.exists()
 end
 
 function M.new_game()
+    -- 1. Полностью очищаем все модули данных (чистим старый прогресс)
     player_inventory.clear()
     player_paperdoll.clear()
-    --character_data.reset() -- и так далее
+    containers_state.clear()
+    world_items_state.clear()
+    
+    -- 2. ВОТ ЗДЕСЬ выдаем начальные предметы в чистый инвентарь
+    player_inventory.init() -- заполняем ячейки пустышками
+    player_inventory.add_item("iron_sword", 1)
+    player_inventory.add_item("lesser_mana_potion", 10)
+    player_inventory.add_item("leather_helmet", 1)
 
-    -- Ставим игрока в стартовую позицию
-    local center_x, center_y = settings.get_center()
-    -- local start_pos = vmath.vector3(center_x, center_y, 1.0)
+    -- 3. Сбрасываем статы персонажа на дефолтные значения (1 уровень, полное ХП)
+    character_data.player.level = 1
+    character_data.player.experience = 0
+    character_data.player.health = 100
+    
+    -- 4. Телепортируем игрока в начальную точку мира
     local start_pos = vmath.vector3(500, 500, 1)
-    msg.post("/player", "teleport_to", { position = start_pos})
-    broadcast.send("inventory_events", { message_id = hash("refresh_all")})
+    msg.post("/player", "teleport_to", { position = start_pos })
+
+    -- 5. Принудительно пересчитываем статы (чтобы шлем сразу дал прибавку)
+    character_logic.update_derived_stats()
+
+    -- 6. Сразу ЖЕ сохраняем этот чистый старт на диск, перезаписывая старый сейв!
+    M.save_game()
+
+    -- 7. Сообщаем интерфейсу, что мир готов и нужно обновить картинки
+    broadcast.send("inventory_events", { message_id = hash("refresh_all") })
 end
+
+-- function M.new_game()
+--     player_inventory.clear()
+--     player_paperdoll.clear()
+--     containers_state.clear()
+--     world_items_state.clear()
+--
+--     player_inventory.init() -- заполняем ячейки пустышками
+--     player_inventory.add_item("iron_sword", 1)
+--     player_inventory.add_item("lesser_mana_potion", 10)
+--     player_inventory.add_item("leather_helmet", 1)
+--
+--     character_data.player.level = 1
+--     character_data.player.experience = 0
+--     character_data.player.health = 100
+--
+--     -- Ставим игрока в стартовую позицию
+--     local center_x, center_y = settings.get_center()
+--     -- local start_pos = vmath.vector3(center_x, center_y, 1.0)
+--     local start_pos = vmath.vector3(500, 500, 1)
+--     msg.post("/player", "teleport_to", { position = start_pos})
+--     M.save_game()
+--     broadcast.send("inventory_events", { message_id = hash("refresh_all")})
+-- end
 
 
 -- СОХРАНЕНИЕ

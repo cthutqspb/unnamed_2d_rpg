@@ -1,0 +1,242 @@
+script: "/main/gui/components/split_window/split_window.gui_script"
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+textures {
+  name: "items_project_utumno"
+  texture: "/assets/items/items_project_utumno.tilesource"
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "body"
+  parent: "root"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -60.0
+    y: 24.0
+  }
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  color {
+    x: 0.3019608
+    y: 0.4
+    z: 0.8
+  }
+  type: TYPE_BOX
+  id: "icon_from"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 60.0
+    y: 24.0
+  }
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  color {
+    x: 0.3019608
+    y: 0.4
+    z: 0.8
+  }
+  type: TYPE_BOX
+  id: "icon_to"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 20.0
+    y: 25.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.3019608
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "btn_plus"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "+\n"
+  ""
+  font: "gui_title"
+  id: "text3"
+  parent: "btn_plus"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: -20.0
+    y: 25.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_minus"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "-"
+  font: "gui_title"
+  id: "text2"
+  parent: "btn_minus"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: -60.0
+    y: -20.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    x: 0.8
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_cancel"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "X\n"
+  ""
+  font: "gui_title"
+  id: "text"
+  parent: "btn_cancel"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: 60.0
+    y: -20.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.3019608
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "btn_confirm"
+  parent: "body"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  scale {
+    x: 0.8
+    y: 0.8
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "ok"
+  font: "gui_title"
+  id: "text1"
+  parent: "btn_confirm"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    y: -20.0
+  }
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "count"
+  parent: "body"
+  inherit_alpha: true
+  alpha: 0.72
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 24.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  font: "gui_title"
+  id: "text_count"
+  parent: "count"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

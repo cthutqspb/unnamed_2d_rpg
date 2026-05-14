@@ -6,6 +6,7 @@ local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local items_db = require("main.modules.data.items_db")
 local h_touch = hash("touch")
 
 function init(self)
@@ -21,9 +22,10 @@ function init(self)
     self.character_window = CharacterWindow.new(self.druid, "", player_inv)
     
     self.broadcast_handler = function(data)
+        print('data_updated:')
         if data.message_id == hash("refresh_all") then
             self.character_window:refresh_all()
-
+        
         elseif data.message_id == hash("data_updated") then -- ВОТ СЮДА ПРИЛЕТИТ СИГНАЛ
             -- Твой родной блок пересчета и обновления вкладок
             character_logic.update_derived_stats()
@@ -65,7 +67,6 @@ function update(self, dt)
 
         -- Если у тебя кукла тоже в этом окне:
         if not hovered and self.character_window.paperdoll:update_hover(mx, my) then
-          print('AAAAAA')
           hovered = true
         end
     end
@@ -87,6 +88,20 @@ function on_message(self, message_id, message, sender)
             gui.set_render_order(0)
             window_manager.pop(msg.url())
         end
+
+    elseif message_id == hash("split_confirmed") then
+        local slot_index, current_amount = message.slot_index, message.current_amount
+        local data_source = self.character_window.inventory_grid:get_data_source()
+        local item = data_source.items[slot_index];
+        local item_cfg = items_db.get_item(item.item_id)
+        print('amount_to_split',  current_amount)
+        local split_item = {
+            item_id = item.item_id,
+            amount = current_amount,
+            source_split_slot = slot_index
+        }
+        drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
+      
 
     -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
     elseif message_id == hash("toggle_character_window") then

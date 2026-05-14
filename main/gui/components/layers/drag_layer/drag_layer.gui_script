@@ -17,14 +17,13 @@ function update(self, dt)
     if drag_manager.is_dragging() then
         local d = drag_manager.get_active()
         gui.set_enabled(self.icon, true)
-        
+
         -- Устанавливаем визуал из данных менеджера
-        print('texture', d.texture, 'anim', d.anim)
         if d.texture and d.animation then
             gui.set_texture(self.icon, d.texture)
             gui.play_flipbook(self.icon, d.animation)
         end
-        
+
         -- Позиция напрямую по координатам мыши
         gui.set_position(self.icon, vmath.vector3(d.x, d.y, 0))
     else

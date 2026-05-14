@@ -12,7 +12,7 @@ function M:init(template_id)
     local function get_node(name)
         return gui.get_node(template_id .. "/" .. name)
     end
-
+  
     -- Основная инфо
     self.nodes = {
         name = get_node("player_name_text"),

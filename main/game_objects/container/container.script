@@ -59,38 +59,11 @@ function init(self)
             loot_table_id = self.loot_table_id
         })
     end
-    --    -- Инициализируем контейнер
-    -- self.container_data = {
-    --     id = self.container_id,
-    --     -- name = self.container_name,
-    --     columns = self.columns,
-    --     rows = self.rows,
-    --     items = {}
-    -- }
-    --
-    -- self.is_looted = false
-    -- containers_state.init(self.container_id, {
-    --     items = self.container_data.items,
-    --     columns = self.columns,
-    --     rows = self.rows,
-    --     is_looted = self.is_looted,
-    --     loot_table_id = self.loot_table_id
-    -- })
-
-
+    
     apply_container_visual(self)
 
     msg.post("#container_name", "disable")
-    
-    -- if self.loot_table_id ~= hash("empty") then
-    --     local items = loot_tables.get_loot(self.loot_table_id)
-    --     for i, item in ipairs(items) do
-    --         self.container_data.items[i] = item
-    --     end
-    -- end
 
-    -- self.container_data.items[1] = {item_id = hash("iron_sword"), amount = 1}
-    -- self.container_data.items[2] = {item_id = hash("lesser_mana_potion"), amount = 2}
 
     -- Подписываемся на хайлайт
     self.broadcast_handler = function(data)
@@ -162,6 +135,29 @@ function open_container(self)
     local state = containers_state.get(self.container_id)
     print("container_id:", self.container_id)
     print("Opening container:", self.container_name)
+
+    ---------------------------------------------------------------------------
+    -- НАШ ФИКС: Если сундука нет в глобальной памяти (Новая игра), создаем структуру
+    ---------------------------------------------------------------------------
+    if not state then
+        state = {
+            is_looted = false,
+            items = {}
+        }
+        
+        -- Заполняем сетку сундука пустышками {item_id = nil, amount = 0} 
+        -- на основе его размеров, чтобы drag_manager не падал при обращении к слотам
+        local total_slots = self.columns * self.rows
+        for i = 1, total_slots do
+            state.items[i] = { item_id = nil, amount = 0 }
+        end
+        
+        -- Сразу регистрируем эту чистую структуру в памяти
+        containers_state.init(self.container_id, state)
+    end
+    ---------------------------------------------------------------------------
+
+    -- Твой родной рабочий код генерации лута:
     if not state.is_looted then
         -- генерируем лут в state.items
         local items = loot_tables.get_loot(self.loot_table_id)

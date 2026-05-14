@@ -8,6 +8,10 @@ textures {
   texture: "/assets/items/items_project_utumno.tilesource"
 }
 nodes {
+  position {
+    x: 1726.0
+    y: 218.0
+  }
   size {
     x: 264.0
     y: 220.0
@@ -16,7 +20,6 @@ nodes {
   id: "root"
   inherit_alpha: true
   alpha: 0.0
-  enabled: false
 }
 nodes {
   position {

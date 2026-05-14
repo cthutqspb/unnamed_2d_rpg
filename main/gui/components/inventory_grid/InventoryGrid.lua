@@ -68,6 +68,16 @@ function M:get_slot_at_position(x, y)
 end
 
 function M:on_input(action_id, action)
+    -- Ловим Shift прямо внутри компонента инвентаря
+    if action_id == hash("key_lshift") then
+        if action.pressed then
+            self.is_shift_pressed = true
+        elseif action.released then
+            self.is_shift_pressed = false
+        end
+        return false -- Возвращаем false, чтобы не блокировать инпут другим окнам
+    end
+
     if action and action.x and action.y then
         self.mouse_x = action.x
         self.mouse_y = action.y

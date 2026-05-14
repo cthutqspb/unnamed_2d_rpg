@@ -14,7 +14,7 @@ function init(self)
     self.main_menu = MainMenu.new(self.druid)
     -- По умолчанию показываем меню при старте
     gui.set_position(root, vmath.vector3(960, 540, 0))
-    self.main_menu:set_visible(true)
+    self.main_menu:set_visible(false)
 end
 
 function final(self)
