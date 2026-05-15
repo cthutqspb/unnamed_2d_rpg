@@ -52,27 +52,18 @@ function M:init(template_id)
 end
 
 function M:on_drop(x, y)
-    local d = drag_manager.get_active()
-    if not d or not d.item then return false end
+    if not gui.is_enabled(self.root, true) then return false end
 
     for slot_type, nodes in pairs(self.slots) do
         if gui.pick_node(nodes.root, x, y) then
-            local item_cfg = items_db.get_item(d.item.item_id)
-
-            -- ПРОВЕРКА: используем 'type' из items_db
-            if item_cfg and item_cfg.type == slot_type then
-                print("Paperdoll: Equipping " .. tostring(d.item.item_id) .. " to " .. slot_type)
-                drag_manager.finish(self, slot_type)
-                return true
-            else
-                local got_type = item_cfg and item_cfg.type or "nil"
-                print("Paperdoll: Invalid type! Need " .. slot_type .. ", got " .. got_type)
-                return false
-            end
+            -- Просто завершаем драг, менеджер сам вызовет can_equip_item у модели
+            drag_manager.finish(self, slot_type)
+            return true
         end
     end
     return false
 end
+
 
 function M:get_data_source()
     return player_paperdoll
@@ -86,7 +77,7 @@ function M:refresh()
             if item_cfg then
                 gui.set_enabled(slot_data.icon, true)
                 gui.set_texture(slot_data.icon, item_cfg.texture)
-                gui.play_flipbook(slot_data.icon, hash(item_cfg.animation))
+                gui.play_flipbook(slot_data.icon, hash(item_cfg.animation or item_cfg.icon))
             end
         else
             gui.set_enabled(slot_data.icon, false)

@@ -21,18 +21,6 @@ function M.start(source, slot, item, item_cfg)
     print("Drag started")
 end
 
--- function M.start(source, slot, item, texture, anim)
---     active_drag = {
---         source = source,
---         slot = slot,
---         item = item,
---         texture = texture, -- строка (атлас)
---         anim = anim,       -- хеш (анимация)
---         x = 0, y = 0
---     }
---     print("Drag started")
--- end
-
 function M.update(x, y)
     if not active_drag then return end
     active_drag.x = x
@@ -87,9 +75,7 @@ function M.finish(target_component, target_slot)
     -- СБРОС СИСТЕМНЫХ ФЛАГОВ И ГЛОБАЛЬНЫЙ ВИЗУАЛЬНЫЙ ОБНОВИТЕЛЬ
     is_over_any_gui = false
 
-    msg.post("/gui_manager#hud", "refresh_inventories")
-    msg.post("main:/character_window#gui", "refresh")
-    msg.post("main:/container_window#gui", "refresh") 
+    item_transfer_manager.finalize(source_comp, target_comp)
 end
 
 return M

@@ -3,7 +3,7 @@ local items_db = require("main.modules.data.items_db")
 local M = {}
 
 M.max_slots = 48
-M.items = {} -- Таблица вида: [1] = {item_id = hash, amount = 2}, [2] = {item_id = nil, amount = 0}
+M.items = {} 
 
 local function get_clean_id(item_id)
     if type(item_id) == "userdata" then
@@ -12,13 +12,28 @@ local function get_clean_id(item_id)
     return item_id
 end
 
+-- Вспомогательная функция для пустой ячейки
+local function empty_slot()
+    return { item_id = nil, amount = 0 }
+end
+
 function M.init()
     for i = 1, M.max_slots do
-        M.items[i] = { item_id = nil, amount = 0 }
+        M.items[i] = empty_slot()
     end
 end
 
+-- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (для InventoryGrid и TransferManager)
+function M:get_item(idx)
+    return self.items[idx]
+end
+
+function M:set_item(idx, data)
+    self.items[idx] = data or empty_slot()
+end
+
 function M.add_item(item_id, amount)
+    -- Оставляем старую логику добавления (использует M.items напрямую для игрока)
     local data = items_db.get_item(item_id)
     if not data then return false end
 
@@ -26,7 +41,6 @@ function M.add_item(item_id, amount)
     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
     local max_stack = data.max_stack or 1
 
-    -- 1. Сначала стакаем в существующие слоты
     if data.stackable then
         for i = 1, M.max_slots do
             local slot = M.items[i]
@@ -39,7 +53,6 @@ function M.add_item(item_id, amount)
         end
     end
 
-    -- 2. Ищем пустые слоты для остатка
     for i = 1, M.max_slots do
         local slot = M.items[i]
         if not slot.item_id then
@@ -50,95 +63,102 @@ function M.add_item(item_id, amount)
             if remaining <= 0 then return true end
         end
     end
-
-    return remaining <= 0 -- Вернет false, если инвентарь забит
+    return remaining <= 0
 end
 
-function M.swap_slots(from_idx, to_idx)
-    M.items[from_idx], M.items[to_idx] = M.items[to_idx], M.items[from_idx]
+-- УНИВЕРСАЛЬНЫЕ МЕТОДЫ (теперь через self.items)
+function M:swap_slots(from_idx, to_idx)
+    self.items[from_idx], self.items[to_idx] = self.items[to_idx], self.items[from_idx]
 end
 
-function M.try_stack_items(from_index, to_index, item_cfg)
-    local from_item = M.items[from_index]
-    local to_item = M.items[to_index]
+function M:try_stack_items(from_index, to_index, item_cfg)
+    local from_item = self.items[from_index]
+    local to_item = self.items[to_index]
 
-    -- Если исходный слот пуст или в целевом слоте ничего нет — стакать нечего
     if not from_item or not from_item.item_id or not to_item or not to_item.item_id then
         return false
     end
 
-    -- Если предмет в принципе нельзя стакать по базе данных
     if not item_cfg or not item_cfg.stackable then
         return false
     end
 
-    -- Сравниваем чистые ID предметов
-    local id1 = get_clean_id(from_item.item_id)
-    local id2 = get_clean_id(to_item.item_id)
-
-    if id1 ~= id2 then
-        return false -- Разные предметы, стакать нельзя
+    if get_clean_id(from_item.item_id) ~= get_clean_id(to_item.item_id) then
+        return false
     end
 
-    -- Считаем лимиты стака
     local max_stack = item_cfg.max_stack or 64
     local space_left = max_stack - to_item.amount
 
-    -- Если целевой стак уже забит до упора
-    if space_left <= 0 then
-        return false
-    end
+    if space_left <= 0 then return false end
 
-    -- Вычисляем сколько реально можем досыпать
     local to_add = math.min(from_item.amount, space_left)
-
-    -- Меняем цифры в памяти
     to_item.amount = to_item.amount + to_add
     from_item.amount = from_item.amount - to_add
 
-    -- Если исходный стак полностью улетел в целевой, зануляем его правильной пустышкой
     if from_item.amount <= 0 then
-        M.items[from_index] = {item_id = nil, amount = 0}
+        self.items[from_index] = empty_slot()
     end
 
-    return true -- Успешно стакнули!
+    return true
 end
 
-function M.split_stack(from_idx, to_idx, new_amount, item_cfg)
-    local from_item = M.items[from_idx]
-    local to_item = M.items[to_idx]
+function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
+    local from_item = other_model:get_item(from_idx)
+    local to_item = self:get_item(to_idx)
 
-    -- Защита: если исходный слот пустой, сплитать нечего
-    if not from_item or not from_item.item_id then
+    if not from_item or not from_item.item_id or not to_item or not to_item.item_id then
         return false
     end
 
-    -- Гарантируем, что целевой слот инициализирован (хотя бы как пустышка)
-    M.items[to_idx] = M.items[to_idx] or {item_id = nil, amount = 0}
-    to_item = M.items[to_idx]
+    -- Твоя логика проверки ID и stackable
+    if not item_cfg or not item_cfg.stackable then return false end
+    
+    -- Сравниваем ID (используй свою функцию get_clean_id)
+    if get_clean_id(from_item.item_id) ~= get_clean_id(to_item.item_id) then
+        return false
+    end
 
-    ---------------------------------------------------------------------------
-    -- СЦЕНАРИЙ 1: Бросаем в абсолютно пустой слот
-    ---------------------------------------------------------------------------
-    if not to_item.item_id or to_item.amount <= 0 then
-        local item_id = from_item.item_id
-        local remainder = from_item.amount - new_amount
+    local max_stack = item_cfg.max_stack or 64
+    local space_left = max_stack - to_item.amount
+    if space_left <= 0 then return false end
 
-        -- Записываем отщипнутый кусок в цель
-        to_item.item_id = item_id
-        to_item.amount = new_amount
+    local to_add = math.min(from_item.amount, space_left)
+    to_item.amount = to_item.amount + to_add
+    from_item.amount = from_item.amount - to_add
 
-        -- Уменьшаем исходный слот
-        from_item.amount = remainder
-        if remainder <= 0 then
-            M.items[from_idx] = {item_id = nil, amount = 0}
+    -- Если в источнике ничего не осталось — зануляем его там
+    if from_item.amount <= 0 then
+        other_model:set_item(from_idx, nil)
+    end
+
+    return true
+end
+
+-- В player_inventory.lua
+
+function M:split_stack(other_model, from_idx, to_idx, new_amount, item_cfg)
+    local from_item = other_model:get_item(from_idx) -- Берем из ИСТОЧНИКА
+    local to_item = self:get_item(to_idx)           -- Кладем в СЕБЯ (цель)
+
+    if not from_item or not from_item.item_id then return false end
+
+    -- 1. СЦЕНАРИЙ: В пустой слот
+    if not to_item or not to_item.item_id or to_item.amount <= 0 then
+        self:set_item(to_idx, {
+            item_id = from_item.item_id,
+            amount = new_amount
+        })
+        
+        -- Вычитаем из источника
+        from_item.amount = from_item.amount - new_amount
+        if from_item.amount <= 0 then
+            other_model:set_item(from_idx, nil)
         end
         return true
     end
 
-     ---------------------------------------------------------------------------
-    -- СЦЕНАРИЙ 2: Бросаем на ТОЧНО ТАКОЙ ЖЕ предмет (Слияние стаков при сплите)
-    ---------------------------------------------------------------------------
+    -- 2. СЦЕНАРИЙ: Слияние (бросаем сплит в существующий такой же стак)
     local id1 = get_clean_id(from_item.item_id)
     local id2 = get_clean_id(to_item.item_id)
 
@@ -146,36 +166,25 @@ function M.split_stack(from_idx, to_idx, new_amount, item_cfg)
         local max_stack = item_cfg.max_stack or 64
         local space_left = max_stack - to_item.amount
 
-        -- Если в целевом стаке есть место, досыпаем
         if space_left > 0 then
-            -- Досыпаем сколько влезет, но не больше, чем мы принесли на курсоре (new_amount)
             local to_add = math.min(new_amount, space_left)
-
-            -- Прибавляем к целевому слоту
+            
             to_item.amount = to_item.amount + to_add
-            
-            -- Вычитаем ИЗ ИСХОДНОГО слота в памяти (там лежало полное количество, например 10)
             from_item.amount = from_item.amount - to_add
-
-            -- Если исходный стак полностью исчерпан, зануляем его пустышкой
-            if from_item.amount <= 0 then
-                M.items[from_idx] = {item_id = nil, amount = 0}
-            end
             
-            print("SPLIT SUCCESS: Merged " .. tostring(to_add) .. " items into existing stack.")
+            if from_item.amount <= 0 then
+                other_model:set_item(from_idx, nil)
+            end
             return true
         end
     end
 
-    ---------------------------------------------------------------------------
-    -- СЦЕНАРИЙ 3: Бросаем на ЧУЖОЙ предмет или стак забит (Блокировка и Отмена)
-    ---------------------------------------------------------------------------
-    print("SPLIT BLOCKED: Invalid target item or stack is full. Resetting.")
-    return false -- Возвращаем false дирижёру, чтобы он знал, что операция отменена
+    return false
 end
 
+
+-- СИСТЕМНЫЕ МЕТОДЫ
 function M.clear()
-    print('Сбросили инвентарь')
     M.init()
 end
 
@@ -184,14 +193,8 @@ function M.get_save_data()
     for i = 1, M.max_slots do
         local item = M.items[i]
         if item and item.item_id then
-            -- Очищаем строку от "hash: [...]"
-            local id_str = tostring(item.item_id)
-            id_str = id_str:match("%[(.-)%]") or id_str
-
-            data[i] = {
-                id = id_str,
-                amount = item.amount
-            }
+            local id_str = tostring(item.item_id):match("%[(.-)%]") or tostring(item.item_id)
+            data[i] = { id = id_str, amount = item.amount }
         else
             data[i] = { id = nil, amount = 0 }
         end
@@ -200,16 +203,12 @@ function M.get_save_data()
 end
 
 function M.load_save_data(data)
-    M.init() -- Сначала очищаем всё
+    M.init()
     if not data then return end
-
     for index, saved in pairs(data) do
-        local i = tonumber(index) -- Гарантируем, что индекс — число
+        local i = tonumber(index)
         if i and saved and saved.id then
-            M.items[i] = {
-                item_id = hash(saved.id), -- Теперь тут чистая строка, хеш будет верным
-                amount = saved.amount
-            }
+            M.items[i] = { item_id = hash(saved.id), amount = saved.amount }
         end
     end
 end

@@ -7,33 +7,30 @@ local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local items_db = require("main.modules.data.items_db")
+
 local h_touch = hash("touch")
 
 function init(self)
-    print("DEBUG: Character Window Address is:", msg.url())
     msg.post(".", "acquire_input_focus")
-    -- 1. Создаем Druid для этого конкретного GUI
     self.druid = druid.new(self)
 
-    -- 2. Создаем экземпляр твоего окна, передавая ему Druid
-    -- Мы используем твой M.new из Lua-файла
-    -- self.window_logic = CharacterWindow.new(self.druid, "character_window", player_inv)
-    
-    self.character_window = CharacterWindow.new(self.druid, "", player_inv)
+    -- Инициализируем окно как Druid-компонент
+    -- Передаем player_inv в init компонента
+    self.character_window = self.druid:new(CharacterWindow, "", player_inv)
     
     self.broadcast_handler = function(data)
-        print('data_updated:')
         if data.message_id == hash("refresh_all") then
             self.character_window:refresh_all()
         
-        elseif data.message_id == hash("data_updated") then -- ВОТ СЮДА ПРИЛЕТИТ СИГНАЛ
-            -- Твой родной блок пересчета и обновления вкладок
+        elseif data.message_id == hash("data_updated") then
             character_logic.update_derived_stats()
-
-            for name, tab in pairs(self.character_window.tabs) do
+            -- Вызываем внутренний метод обновления всех модулей
+            self.character_window:refresh_all()
+            
+            -- Обновляем текстовые дисплеи (статы и т.д.), если у них есть этот метод
+            for _, tab in pairs(self.character_window.tabs) do
                 for _, module in ipairs(tab.modules) do
                     if module.update_display then
-                        print("Updating module in tab:", name)
                         module:update_display()
                     end
                 end
@@ -49,31 +46,20 @@ function final(self)
 end
 
 function update(self, dt)
-    -- Если объект окна еще не создан или не проинициализирован
-    if not self.character_window or not self.character_window.inventory_grid then
+    if not self.character_window or not self.character_window:is_visible() then
         return
     end
 
-    -- Берем координаты из менеджера (которые обновляет world.script)
     local mx = tooltip_manager.mouse_x
     local my = tooltip_manager.mouse_y
 
-    local hovered = false
-    -- Проверяем инвентарь (если окно открыто)
-    if self.character_window:is_visible() then
-        if self.character_window.inventory_grid:update_hover(mx, my) then
-            hovered = true
-        end
-
-        -- Если у тебя кукла тоже в этом окне:
-        if not hovered and self.character_window.paperdoll:update_hover(mx, my) then
-          hovered = true
-        end
+    -- Проверка ховера через модули окна
+    local hovered = self.character_window.inventory_grid:update_hover(mx, my)
+    if not hovered and self.character_window.paperdoll then
+        hovered = self.character_window.paperdoll:update_hover(mx, my)
     end
 
-    -- Если ни один слот ни в одном модуле не поймал мышь
     if not hovered then
-        -- Важно: прячем только если мышь была над этим окном
         if gui.pick_node(self.character_window.root, mx, my) then
             tooltip_manager.hide()
         end
@@ -81,10 +67,9 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-    -- ГОЛОЕ ЗАКРЫТИЕ (от менеджера или кнопки Esc)
     if message_id == hash("close_window") then
         if self.character_window:is_visible() then
-            self.character_window:close() -- Твой метод модуля
+            self.character_window:close()
             gui.set_render_order(0)
             window_manager.pop(msg.url())
         end
@@ -92,116 +77,58 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
         local data_source = self.character_window.inventory_grid:get_data_source()
-        local item = data_source.items[slot_index];
-        local item_cfg = items_db.get_item(item.item_id)
-        print('amount_to_split',  current_amount)
-        local split_item = {
-            item_id = item.item_id,
-            amount = current_amount,
-            source_split_slot = slot_index
-        }
-        drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
-      
+        local item = data_source:get_item(slot_index) -- Используем метод модели!
+        
+        if item and item.item_id then
+            local item_cfg = items_db.get_item(item.item_id)
+            local split_item = {
+                item_id = item.item_id,
+                amount = current_amount,
+                source_split_slot = slot_index
+            }
+            drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
+        end
 
-    -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
     elseif message_id == hash("toggle_character_window") then
         self.character_window:toggle()
-
-        if self.character_window:is_visible() then
-            gui.set_render_order(10)
+        local visible = self.character_window:is_visible()
+        gui.set_render_order(visible and 10 or 0)
+        
+        if visible then
             window_manager.push(msg.url(), hash("close_window"))
         else
-            gui.set_render_order(0)
             window_manager.pop(msg.url())
         end
 
     elseif message_id == hash("refresh") then
-        if self.character_window and self.character_window:is_visible() then
-            self.character_window.inventory_grid:refresh()
-        end
+        self.character_window:refresh_all()
     end
 end
 
--- function on_input(self, action_id, action)
---     local handled = self.druid:on_input(action_id, action)
---
---     if action_id == h_touch and action.released then print("CHAR: Released") end
---
---     if drag_manager.is_dragging() then
---         -- 1. Обновление позиции и флага GUI
---         if action_id == nil or action_id == h_touch then
---             drag_manager.update(action.x, action.y)
---         end
---
---         -- Важно: ставим флаг "мы над GUI"
---         if gui.pick_node(self.character_window.root, action.x, action.y) then
---             drag_manager.set_over_gui(true)
---         end
---
---         -- 2. Попытка дропа (только при отпускании)
---         if action_id == h_touch and action.released then
---             -- Проверяем инвентарь
---             if self.character_window.inventory_grid:on_drop(action.x, action.y) then
---                 return true
---             end
---
---             -- Проверяем куклу
---             if self.character_window.paperdoll:on_drop(action.x, action.y) then
---                 return true
---             end
---
---             -- 3. ЗАЩИТА: Если мы отпустили кнопку над ОКНОМ, но не попали в слоты
---             if gui.pick_node(self.character_window.root, action.x, action.y) then
---                 print("CHAR: Released over window, but no slot found. Cancelling.")
---                 drag_manager.finish(nil, nil) -- Менеджер сам сделает возврат, так как set_over_gui = true
---                 return true
---             end
---         end
---     end
---
---     return self.druid:on_input(action_id, action)
--- end
-
 function on_input(self, action_id, action)
-    -- Если окно закрыто, оно ВООБЩЕ не должно участвовать в логике драга
-    if not self.character_window:is_visible() then
+    if not self.character_window or not self.character_window:is_visible() then
         return self.druid:on_input(action_id, action)
     end
 
     local handled = self.druid:on_input(action_id, action)
 
-    if not action_id then
-        -- Обновляем драг и НЕ возвращаем true
-        if drag_manager.is_dragging() then
+    if drag_manager.is_dragging() then
+        if not action_id or action_id == h_touch then
             drag_manager.update(action.x, action.y)
             if gui.pick_node(self.character_window.root, action.x, action.y) then
                 drag_manager.set_over_gui(true)
             end
         end
-        return handled -- Скорее всего false
-    end
 
-    -- 2. КЛИКИ И ДРАГ (action_id ~= nil)
-    if action_id == h_touch then
-        if drag_manager.is_dragging() then
-            -- Обновляем позицию иконки при зажатой кнопке
-            drag_manager.update(action.x, action.y)
+        if action_id == h_touch and action.released then
+            -- Пробуем дроп в инвентарь или куклу
+            if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
+            if self.character_window.paperdoll and self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
 
-            -- Проставляем флаг GUI
+            -- Отмена драга над окном
             if gui.pick_node(self.character_window.root, action.x, action.y) then
-                drag_manager.set_over_gui(true)
-            end
-
-            -- ЛОГИКА ОТПУСКАНИЯ (DROP)
-            if action.released then
-                print("CHAR: Released")
-                if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
-                if self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
-
-                if gui.pick_node(self.character_window.root, action.x, action.y) then
-                    drag_manager.finish(nil, nil)
-                    return true
-                end
+                drag_manager.finish(nil, nil)
+                return true
             end
         end
     end
@@ -210,8 +137,180 @@ function on_input(self, action_id, action)
 end
 
 
-function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
-end
+-- local druid = require("druid.druid")
+-- local broadcast = require("main.modules.system.broadcast")
+-- local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
+-- local character_logic = require("main.modules.character.character_logic")
+-- local player_inv = require("main.modules.player.player_inventory")
+-- local drag_manager = require("main.gui.components.managers.drag_manager")
+-- local window_manager = require("main.gui.components.managers.window_manager")
+-- local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+-- local items_db = require("main.modules.data.items_db")
+-- local h_touch = hash("touch")
+--
+-- function init(self)
+--     print("DEBUG: Character Window Address is:", msg.url())
+--     msg.post(".", "acquire_input_focus")
+--     -- 1. Создаем Druid для этого конкретного GUI
+--     self.druid = druid.new(self)
+--
+--     -- 2. Создаем экземпляр твоего окна, передавая ему Druid
+--     -- Мы используем твой M.new из Lua-файла
+--     -- self.window_logic = CharacterWindow.new(self.druid, "character_window", player_inv)
+--     
+--     self.character_window = CharacterWindow.new(self.druid, "", player_inv)
+--     
+--     self.broadcast_handler = function(data)
+--         print('data_updated:')
+--         if data.message_id == hash("refresh_all") then
+--             self.character_window:refresh_all()
+--         
+--         elseif data.message_id == hash("data_updated") then -- ВОТ СЮДА ПРИЛЕТИТ СИГНАЛ
+--             -- Твой родной блок пересчета и обновления вкладок
+--             character_logic.update_derived_stats()
+--
+--             for name, tab in pairs(self.character_window.tabs) do
+--                 for _, module in ipairs(tab.modules) do
+--                     if module.update_display then
+--                         print("Updating module in tab:", name)
+--                         module:update_display()
+--                     end
+--                 end
+--             end
+--         end
+--     end
+--
+--     broadcast.subscribe("inventory_events", self.broadcast_handler)
+-- end
+--
+-- function final(self)
+--     broadcast.unsubscribe("inventory_events", self.broadcast_handler)
+-- end
+--
+-- function update(self, dt)
+--     -- Если объект окна еще не создан или не проинициализирован
+--     if not self.character_window or not self.character_window.inventory_grid then
+--         return
+--     end
+--
+--     -- Берем координаты из менеджера (которые обновляет world.script)
+--     local mx = tooltip_manager.mouse_x
+--     local my = tooltip_manager.mouse_y
+--
+--     local hovered = false
+--     -- Проверяем инвентарь (если окно открыто)
+--     if self.character_window:is_visible() then
+--         if self.character_window.inventory_grid:update_hover(mx, my) then
+--             hovered = true
+--         end
+--
+--         -- Если у тебя кукла тоже в этом окне:
+--         if not hovered and self.character_window.paperdoll:update_hover(mx, my) then
+--           hovered = true
+--         end
+--     end
+--
+--     -- Если ни один слот ни в одном модуле не поймал мышь
+--     if not hovered then
+--         -- Важно: прячем только если мышь была над этим окном
+--         if gui.pick_node(self.character_window.root, mx, my) then
+--             tooltip_manager.hide()
+--         end
+--     end
+-- end
+--
+-- function on_message(self, message_id, message, sender)
+--     -- ГОЛОЕ ЗАКРЫТИЕ (от менеджера или кнопки Esc)
+--     if message_id == hash("close_window") then
+--         if self.character_window:is_visible() then
+--             self.character_window:close() -- Твой метод модуля
+--             gui.set_render_order(0)
+--             window_manager.pop(msg.url())
+--         end
+--
+--     elseif message_id == hash("split_confirmed") then
+--         local slot_index, current_amount = message.slot_index, message.current_amount
+--         local data_source = self.character_window.inventory_grid:get_data_source()
+--         local item = data_source.items[slot_index];
+--         local item_cfg = items_db.get_item(item.item_id)
+--         print('amount_to_split',  current_amount)
+--         local split_item = {
+--             item_id = item.item_id,
+--             amount = current_amount,
+--             source_split_slot = slot_index
+--         }
+--         drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
+--       
+--
+--     -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
+--     elseif message_id == hash("toggle_character_window") then
+--         self.character_window:toggle()
+--
+--         if self.character_window:is_visible() then
+--             gui.set_render_order(10)
+--             window_manager.push(msg.url(), hash("close_window"))
+--         else
+--             gui.set_render_order(0)
+--             window_manager.pop(msg.url())
+--         end
+--
+--     elseif message_id == hash("refresh") then
+--         if self.character_window and self.character_window:is_visible() then
+--             self.character_window.inventory_grid:refresh()
+--         end
+--     end
+-- end
+--
+-- function on_input(self, action_id, action)
+--     -- Если окно закрыто, оно ВООБЩЕ не должно участвовать в логике драга
+--     if not self.character_window:is_visible() then
+--         return self.druid:on_input(action_id, action)
+--     end
+--
+--     local handled = self.druid:on_input(action_id, action)
+--
+--     if not action_id then
+--         -- Обновляем драг и НЕ возвращаем true
+--         if drag_manager.is_dragging() then
+--             drag_manager.update(action.x, action.y)
+--             if gui.pick_node(self.character_window.root, action.x, action.y) then
+--                 drag_manager.set_over_gui(true)
+--             end
+--         end
+--         return handled -- Скорее всего false
+--     end
+--
+--     -- 2. КЛИКИ И ДРАГ (action_id ~= nil)
+--     if action_id == h_touch then
+--         if drag_manager.is_dragging() then
+--             -- Обновляем позицию иконки при зажатой кнопке
+--             drag_manager.update(action.x, action.y)
+--
+--             -- Проставляем флаг GUI
+--             if gui.pick_node(self.character_window.root, action.x, action.y) then
+--                 drag_manager.set_over_gui(true)
+--             end
+--
+--             -- ЛОГИКА ОТПУСКАНИЯ (DROP)
+--             if action.released then
+--                 print("CHAR: Released")
+--                 if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
+--                 if self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
+--
+--                 if gui.pick_node(self.character_window.root, action.x, action.y) then
+--                     drag_manager.finish(nil, nil)
+--                     return true
+--                 end
+--             end
+--         end
+--     end
+--
+--     return handled
+-- end
+--
+--
+-- function on_reload(self)
+-- 	-- Add reload-handling code here
+-- 	-- Learn more: https://defold.com/manuals/hot-reload/
+-- 	-- Remove this function if not needed
+-- end

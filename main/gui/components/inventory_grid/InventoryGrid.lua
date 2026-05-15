@@ -94,7 +94,7 @@ function M:refresh()
     end
 
     for i = 1, #self.slots do
-        local data = data_source.items[i]
+        local data = data_source:get_item(i)
         if data and data.item_id then
             DragModule.update_slot_visual(self, i, data.item_id, data.amount)
         else
