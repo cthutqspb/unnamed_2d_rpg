@@ -4,6 +4,7 @@ M.LANG = "ru" -- Текущий язык (потом можно менять)
 
 M.data = {
     ["ru"] = {
+        --items
         ["item_iron_sword_name"] = "Железный меч",
         ["item_iron_sword_desc"] = "Обычный стальной клинок. Подойдет для тренировок.",
         ["item_crystal_sword_name"] = "Кристальный меч",
@@ -14,12 +15,14 @@ M.data = {
         ["item_lesser_mana_potion_name"] = "Малое зелье маны",
         ["item_lesser_mana_potion_desk"] = "Это зелье восстанавливает немного маны.",
 
-        ["container_chest"] = "Сундук",
+        ["item_potion_name"] = "Зелье здоровья",
+
+        --world containers
+        ["container_common_chest_name"] = "Простой сундук",
         ["container_status_empty"] = "Пусто",
 
 
-
-        ["item_potion_name"] = "Зелье здоровья",
+        --gui
         ["inventory_title"] = "Инвентарь",
         ["character_window"] = "Окно персонажа",
         ["character_journal"] = "Журнал",
@@ -56,10 +59,15 @@ M.data = {
         ["item_lesser_mana_potion_name"] = "Lesser mana potion" ,
         ["item_lesser_mana_potion_desk"] = "This potion restores some mana.",
 
-        ["container_chest"] = "Chest",
+        ["item_potion_name"] = "Health Potion",
+
+        --world containers
+        ["container_common_chest_name"] = "Common chest",
         ["container_status_empty"] = "Empty",
 
-        ["item_potion_name"] = "Health Potion",
+
+        --gui
+
         ["inventory_title"] = "Inventory",
         ["character_window"] = "Character window",
         ["character_journal"] = "Journal",
@@ -87,9 +95,63 @@ M.data = {
     }
 }
 
+-- Внутренняя таблица для быстрого поиска по хешам
+local hash_map = {}
+
+-- Функция наполнения карты (вызываем один раз)
+function M.rebuild()
+    for key, value in pairs(M.data) do
+        hash_map[hash(key)] = value
+    end
+end
+
+local current_lang = "ru"
+local hash_to_string_map = {}
+
+-- Функция, которая строит карту хешей ДЛЯ ТЕКУЩЕГО ЯЗЫКА
+function M.rebuild_cache()
+    hash_to_string_map = {}
+    local lang_data = M.data[current_lang]
+    if lang_data then
+        for key, value in pairs(lang_data) do
+            hash_to_string_map[hash(key)] = value
+        end
+    end
+end
+
+-- Инициализация при старте
+M.rebuild_cache()
+
 function M.get(key)
-    local lang_data = M.data[M.LANG] or M.data["en"]
-    return lang_data[key] or key -- Возвращает ключ, если перевод не найден
+    if not key then return "" end
+
+    -- 1. Если пришла строка (из кода)
+    if type(key) == "string" then
+        return M.data[current_lang][key] or key
+    end
+
+    -- 2. Если пришел ХЕШ (из go.property)
+    if type(key) == "userdata" then
+        local value = hash_to_string_map[key]
+        if value then
+            return value
+        end
+        
+        -- Если не нашли (хот-релод), пробуем обновить кэш
+        M.rebuild_cache()
+        return hash_to_string_map[key] or tostring(key)
+    end
+
+    return tostring(key)
+end
+
+-- Метод для смены языка (например, из настроек)
+function M.set_language(lang)
+    if M.data[lang] then
+        current_lang = lang
+        M.rebuild_cache()
+        -- Тут можно кинуть бродкаст, чтобы все UI обновились, но это позже
+    end
 end
 
 return M

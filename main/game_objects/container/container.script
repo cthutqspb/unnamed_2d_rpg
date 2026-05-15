@@ -1,5 +1,5 @@
-go.property("container_id", hash("unknown"))
-go.property("container_name", hash("container_name"))
+go.property("container_id", hash("chest_common"))
+go.property("container_name", hash("container_common_chest_name"))
 go.property("columns", 6)
 go.property("rows", 4)
 go.property("is_lootable", true)
@@ -11,35 +11,67 @@ local loot_tables = require("main.modules.data.loot_tables")
 local containers_state = require("main.modules.game_state.containers_state")
 local strings = require("main.modules.data.strings")
 local broadcast = require("main.modules.system.broadcast")
-local items_db = require("main.modules.data.items_db")
-local display_name = strings.get(name_key) or "Container"
 
-local CONTAINER_KEYS = {
-    ["container_chest"] = "container_chest",
-    ["container_barrel"] = "container_barrel",
-  }
-
-function apply_container_visual(self)
-    --local name_key = strings.get(self.container_name)  -- получим "container_chest"
-    local name_key = tostring(self.container_name)
-    local display_name = strings.get(name_key) or "Сундук"  -- получим "Сундук" или дефолт
-    
+local function apply_container_visual(self)
     -- Устанавливаем текст как в lootable_item
-    label.set_text("#container_name", "Сундук")
+    print('name', self.container_name)
+    label.set_text("#container_name", strings.get(self.container_name))
     -- msg.post("#container_name", "disable")
 end
 
--- function add_item(self, item_id, amount)
---     -- ищем пустой слот или стакаем
---     for i = 1, self.max_slots do
---         local slot = self.container_data.items[i]
---         if not slot.item_id then
---             self.container_data.items[i] = {item_id = hash(item_id), amount = amount}
---             return true
---         end
---     end
---     return false
--- end
+local function open_container(self)
+    local state = containers_state.get(self.container_id)
+    print("container_id:", self.container_id)
+    print("Opening container:", self.container_name)
+
+    ---------------------------------------------------------------------------
+    -- НАШ ФИКС: Если сундука нет в глобальной памяти (Новая игра), создаем структуру
+    ---------------------------------------------------------------------------
+    if not state then
+        state = {
+            is_looted = false,
+            items = {}
+        }
+        
+        -- Заполняем сетку сундука пустышками {item_id = nil, amount = 0} 
+        -- на основе его размеров, чтобы drag_manager не падал при обращении к слотам
+        local total_slots = self.columns * self.rows
+        for i = 1, total_slots do
+            state.items[i] = { item_id = nil, amount = 0 }
+        end
+        
+        -- Сразу регистрируем эту чистую структуру в памяти
+        containers_state.init(self.container_id, state)
+    end
+    ---------------------------------------------------------------------------
+
+    -- Твой родной рабочий код генерации лута:
+    if not state.is_looted then
+        -- генерируем лут в state.items
+        local items = loot_tables.get_loot(self.loot_table_id)
+        for i, item in ipairs(items) do
+            state.items[i] = item
+        end
+        state.is_looted = true
+        -- обновляем реестр
+        containers_state.init(self.container_id, state)
+    end
+
+    -- Передаём в GUI ссылку на state.items
+    msg.post("main:/container_window#gui", "open_container_window", {
+        container_id = self.container_id,
+        container_items = state.items,  -- передаём ссылку на предметы
+        columns = self.columns,
+        rows = self.rows,
+        position = go.get_world_position(),
+        player_pos = go.get_position("/player")
+    })
+end
+
+local function close_container(self)
+    -- Закрыть окно
+    msg.post("hud#gui", "close_container")
+end
 
 function init(self)
 	  -- msg.post(".", "acquire_input_focus")
@@ -48,7 +80,7 @@ function init(self)
 
     -- Сначала проверяем: может этот сундук уже есть в памяти?
     local existing_state = containers_state.get(self.container_id)
-    
+
     if not existing_state then
         -- Если его нет (первый спавн), только тогда регистрируем
         containers_state.init(self.container_id, {
@@ -59,7 +91,7 @@ function init(self)
             loot_table_id = self.loot_table_id
         })
     end
-    
+
     apply_container_visual(self)
 
     msg.post("#container_name", "disable")
@@ -110,7 +142,7 @@ function on_message(self, message_id, message, sender)
     end
 
     if message_id == hash("close_window") then
-        self:close_container()
+        close_container()
     end
 end
 
@@ -131,68 +163,4 @@ function on_reload(self)
 
 end
 
-function open_container(self)
-    local state = containers_state.get(self.container_id)
-    print("container_id:", self.container_id)
-    print("Opening container:", self.container_name)
 
-    ---------------------------------------------------------------------------
-    -- НАШ ФИКС: Если сундука нет в глобальной памяти (Новая игра), создаем структуру
-    ---------------------------------------------------------------------------
-    if not state then
-        state = {
-            is_looted = false,
-            items = {}
-        }
-        
-        -- Заполняем сетку сундука пустышками {item_id = nil, amount = 0} 
-        -- на основе его размеров, чтобы drag_manager не падал при обращении к слотам
-        local total_slots = self.columns * self.rows
-        for i = 1, total_slots do
-            state.items[i] = { item_id = nil, amount = 0 }
-        end
-        
-        -- Сразу регистрируем эту чистую структуру в памяти
-        containers_state.init(self.container_id, state)
-    end
-    ---------------------------------------------------------------------------
-
-    -- Твой родной рабочий код генерации лута:
-    if not state.is_looted then
-        -- генерируем лут в state.items
-        local items = loot_tables.get_loot(self.loot_table_id)
-        for i, item in ipairs(items) do
-            state.items[i] = item
-        end
-        state.is_looted = true
-        -- обновляем реестр
-        containers_state.init(self.container_id, state)
-    end
-
-    -- Передаём в GUI ссылку на state.items
-    msg.post("main:/container_window#gui", "open_container_window", {
-        container_id = self.container_id,
-        container_items = state.items,  -- передаём ссылку на предметы
-        columns = self.columns,
-        rows = self.rows,
-        position = go.get_world_position(),
-        player_pos = go.get_position("/player")
-    })
-end
-
-function close_container(self)
-    -- Закрыть окно
-    msg.post("hud#gui", "close_container")
-end
-
-function update_container_data(self)
-    msg.post("/gui_manager", "update_container_data", {
-        container_id = self.container_id,
-        container_data = self.container_data
-    })
-end
-
-function get_data_source(self)
-    print("get_data_source called, returning", self.container_data)
-    return self.container_data  -- возвращаем ссылку на оригинал
-end

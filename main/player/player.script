@@ -2,6 +2,25 @@ local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
 local settings = require("main.modules.data.settings")
 
+
+local function take_damage(self, amount)
+    -- Логика сама изменит данные в модуле и обновит HUD
+    character_logic.take_damage(amount)
+
+    -- Если тебе нужно проверить смерть:
+    if character_data.player.health <= 0 then
+        print("Player died!")
+    end
+end
+
+local function heal(self, amount)
+    character_logic.heal(amount)
+
+    if character_data.player.health >= character_data.player.max_health then
+        print("Already full HP!")
+    end
+end
+
 function init(self)
     print("Player initialized at position:", go.get_position())
     -- Центр Full HD экрана
@@ -36,23 +55,6 @@ end
 --     print("Health:", self.health, "Percentage:", percentage)
 -- end
 
-function take_damage(self, amount)
-    -- Логика сама изменит данные в модуле и обновит HUD
-    character_logic.take_damage(amount)
-    
-    -- Если тебе нужно проверить смерть:
-    if character_data.player.health <= 0 then
-        print("Player died!")
-    end
-end
-
-function heal(self, amount)
-    character_logic.heal(amount)
-    
-    if character_data.player.health >= character_data.player.max_health then
-        print("Already full HP!")
-    end
-end
 
 -- function heal(self, amount)
 --     print("h pressed")  
@@ -75,16 +77,16 @@ function update(self, dt)
     local hp_mod = (player.health < 20) and 0.50 or 1.0
     -- Итоговая скорость для этого кадра
     local current_speed = self.base_speed * hp_mod
-    
+
     -- Если есть ввод с клавиатуры — отменяем движение мышью
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
         self.move_target = nil
         msg.post("main:/container_window#gui", "close_window")
     end
-    
+
     -- 1. Собираем вектор направления из того, что пришло из on_input
     local move = vmath.vector3(self.move_input.x, self.move_input.y, 0)
-    
+
     -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
         msg.post("main:/container_window#gui", "close_window")
@@ -97,7 +99,7 @@ function update(self, dt)
             move = vmath.vector3(0,0,1)
         end
     end
-    
+
     -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (только один раз за кадр!)
     -- НЕ ЗАБЫВАТЬ ЧТО СЕЙЧАС МОДИФИКАТОР ЕСТЬ НА МИНУС СКОРОСТЬ ОТ ЗДОРОВЬЯ
     if vmath.length(move) > 0 then
@@ -134,15 +136,14 @@ function on_input(self, action_id, action)
     -- Движение мышью (правый клик)
     if action_id == hash("mouse_right") and action.pressed then
         local player_pos = go.get_position("player")
-        local w = sys.get_config("display.width")
-        local h = sys.get_config("display.height")
-        
-        local world_x = player_pos.x + (action.x - w / 2)
-        local world_y = player_pos.y + (action.y - h / 2)
-        
+        local cx, cy = settings.get_center()
+
+        local world_x = player_pos.x + (action.x - cx)
+        local world_y = player_pos.y + (action.y - cy)
+
         self.move_target = vmath.vector3(world_x, world_y, 1.0)
         self.move_input = vmath.vector3(0, 0, 0)
-        
+
     -- Остальные действия
     elseif action_id == hash("take_damage") and action.pressed then
         take_damage(self, 10)
@@ -154,7 +155,7 @@ function on_input(self, action_id, action)
     elseif action_id == hash("toggle_character_window") and action.pressed then
         print('Toggle character window(from player.script)')
         msg.post("main:/character_window#gui", "toggle_character_window")
-    end    
+    end
 
     if action_id == hash("key_alt") then
         -- Отправляем ТОЛЬКО когда состояние меняется (pressed или released)

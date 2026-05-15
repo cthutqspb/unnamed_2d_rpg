@@ -3,6 +3,8 @@ local character_data = require("main.modules.character.character_data")
 local config = require("main.modules.character.character_config")
 local strings = require("main.modules.data.strings")
 
+---@class CharacterTalents : druid.component
+---@field template_id string
 local M = component.create("CharacterTalents")
 
 function M:init(template_id)

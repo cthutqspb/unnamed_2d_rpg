@@ -17,7 +17,6 @@ function M:init(template_id)
     self.root = gui.get_node(template_id .. "/root")
     self.slots = {}
 
-    self.refresh = M.refresh
     -- Конфиг соответствия нод и типов слотов
     local config = {
         HEAD = "slot_head",

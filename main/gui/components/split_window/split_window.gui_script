@@ -1,5 +1,6 @@
 local druid = require("druid.druid")
 local window_manager = require("main.gui.components.managers.window_manager")
+local settings = require("main.modules.data.settings")
 local items_db = require("main.modules.data.items_db")
 
 -- 1. Объявляем функции локально, чтобы скрипт их видел
@@ -93,9 +94,8 @@ function on_message(self, message_id, message, sender)
             gui.set_position(self.root, message.position)
         else
             -- Дефолтный бэкап: центр экрана, если позиция почему-то не прилетела
-            local w = sys.get_config_number("display.width", 960)
-            local h = sys.get_config_number("display.height", 540)
-            gui.set_position(self.root, vmath.vector3(w / 2, h / 2, 0))
+            local cx, cy = settings.get_center()
+            gui.set_position(self.root, vmath.vector3(cx, cy, 0))
         end
 
         -- Отрисовка иконок предмета из базы данных

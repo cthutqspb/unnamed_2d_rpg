@@ -1,4 +1,3 @@
-local player_inv = require("main.modules.player.player_inventory")
 local gui_utils = require("main.gui.gui_utils")
 local strings = require("main.modules.data.strings")
 local CharacterStats = require("main.gui.components.character_window.CharacterStats")
@@ -21,7 +20,7 @@ local TABS = {
         sub_components = {
             { class = CharacterStats, template = "character_stats" },
             { class = CharacterPaperdoll, template = "character_paperdoll" },
-            { 
+            {
                 class = CharacterInventory,
                 template = "inventory_grid",
                 config = {
@@ -38,7 +37,7 @@ local TABS = {
         window_title = "character_journal",
         btn_key = "btn_journal",
         container_key = "page_journal",
-        template_id = "character_journal", 
+        template_id = "character_journal",
         component = CharacterJournal
     },
     talents = {

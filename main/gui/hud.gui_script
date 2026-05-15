@@ -1,6 +1,6 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
-local HealthBar = require("main.gui.components.health_bar.health_bar")
+local HealthBar = require("main.gui.components.health_bar.HealthBar")
 local ActionBar = require("main.gui.action_bar.action_bar")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
@@ -69,18 +69,6 @@ function on_message(self, message_id, message, sender)
         msg.post("main:/inventory_window#gui", "refresh")
     end
 
-end
-
-function clear_slot_highlights(self)
-    -- if self.container_window and self.container_window.inventory_grid then
-    --     self.container_window.inventory_grid:highlight_slot(nil)
-    -- end
-    -- if self.character_window and self.character_window.inventory_grid then
-    --     self.character_window.inventory_grid:highlight_slot(nil)
-    -- end
-    -- if self.inventory and self.inventory.inventory_grid then
-    --     self.inventory.inventory_grid:highlight_slot(nil)
-    -- end
 end
 
 function on_input(self, action_id, action)

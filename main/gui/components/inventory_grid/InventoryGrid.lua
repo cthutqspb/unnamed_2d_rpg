@@ -37,7 +37,7 @@ function M:init(template_id, config)
     self:init_grid(d, template_id)
 
     DragModule.create_slots(self)
-    DragModule.init(self, d)
+    DragModule.init(self)
 
     if self.drag_template then
         gui.set_enabled(self.drag_template, false)
@@ -84,10 +84,6 @@ function M:on_input(action_id, action)
         -- Прокидываем в DragModule, чтобы он знал актуальные координаты
         DragModule.on_input(self, action_id, action)
     end
-end
-
-function M:is_mouse_over_any_gui(x, y)
-    return DragModule.is_mouse_over_any_gui(self, x, y)
 end
 
 function M:refresh()

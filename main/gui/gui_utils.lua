@@ -1,12 +1,13 @@
+local settings = require("main.modules.data.settings")
+
 local M = {}
 
 function M.world_to_screen(world_pos, ref_pos)
-    local screen_w = sys.get_config("display.width") or 1920
-    local screen_h = sys.get_config("display.height") or 1080
-    
-    local screen_x = (world_pos.x - ref_pos.x) + screen_w / 2
-    local screen_y = (world_pos.y - ref_pos.y) + screen_h / 2
-    
+    local screen_w, screen_h = settings.get_center()
+
+    local screen_x = (world_pos.x - ref_pos.x) + screen_w
+    local screen_y = (world_pos.y - ref_pos.y) + screen_h
+
     return screen_x, screen_y
 end
 
@@ -24,37 +25,37 @@ end
 function M.get_screen_position(node)
     local x, y = 0, 0
     local current = node
-    
+
     while current do
         local pos = gui.get_position(current)
-        x = x + pos.x
-        y = y + pos.y
+        x = x + math.floor(pos.x)
+        y = y + math.floor(pos.y)
         current = gui.get_parent(current)
     end
-    
+
     return x, y
 end
 
 function M.layout_horizontal(parent_node, button_names, spacing)
     local current_x = 0
     local max_height = 0
-    
+
     -- Сначала определяем максимальную высоту
     for _, btn_name in ipairs(button_names) do
         local btn = gui.get_node(parent_node .. "/" .. btn_name)
         local size = gui.get_size(btn)
         if size.y > max_height then
-            max_height = size.y
+            max_height = math.floor(size.y)
         end
     end
-    
+
     -- Расставляем кнопки
     for _, btn_name in ipairs(button_names) do
         local btn = gui.get_node(parent_node .. "/" .. btn_name)
         local size = gui.get_size(btn)
-        
+
         gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
-        current_x = current_x + size.x + spacing
+        current_x = current_x + math.floor(size.x) + spacing
     end
 end
 
@@ -62,18 +63,18 @@ end
 function M.layout_horizontal_by_node(parent_node, button_nodes, spacing)
     local current_x = 0
     local max_height = 0
-    
+
     for _, btn in ipairs(button_nodes) do
         local size = gui.get_size(btn)
         if size.y > max_height then
-            max_height = size.y
+            max_height = math.floor(size.y)
         end
     end
-    
+
     for _, btn in ipairs(button_nodes) do
         local size = gui.get_size(btn)
         gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
-        current_x = current_x + size.x + spacing
+        current_x = current_x + math.floor(size.x) + spacing
     end
 end
 
@@ -84,29 +85,29 @@ function M.clamp_to_screen(node, new_pos, margin_x, margin_y)
 
     local sw = gui.get_width()
     local sh = gui.get_height()
-    
+
     local size = gui.get_size(node)
     local scale = gui.get_scale(node)
-    
+
     local w = size.x * scale.x
     local h = size.y * scale.y
-    
+
     -- Для Pivot: Center
     local hw = w / 2
     local hh = h / 2
 
     -- Ограничение по горизонтали (X)
-    if new_pos.x - hw < margin_x then 
-        new_pos.x = hw + margin_x 
-    elseif new_pos.x + hw > sw - margin_x then 
-        new_pos.x = sw - hw - margin_x 
+    if new_pos.x - hw < margin_x then
+        new_pos.x = hw + margin_x
+    elseif new_pos.x + hw > sw - margin_x then
+        new_pos.x = sw - hw - margin_x
     end
 
     -- Ограничение по вертикали (Y)
-    if new_pos.y - hh < margin_y then 
-        new_pos.y = hh + margin_y 
-    elseif new_pos.y + hh > sh - margin_y then 
-        new_pos.y = sh - hh - margin_y 
+    if new_pos.y - hh < margin_y then
+        new_pos.y = hh + margin_y
+    elseif new_pos.y + hh > sh - margin_y then
+        new_pos.y = sh - hh - margin_y
     end
 
     return new_pos

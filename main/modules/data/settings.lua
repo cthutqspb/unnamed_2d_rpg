@@ -26,6 +26,10 @@ function M.get_center()
     return M.resolution.width / 2, M.resolution.height / 2
 end
 
+function M.get_resolution()
+    return M.resolution
+end
+
 function M.get_world_center()
     return M.world_center.x, M.world_center.y
 end

@@ -16,18 +16,27 @@ end
 function update(self, dt)
     if drag_manager.is_dragging() then
         local d = drag_manager.get_active()
+
+        -- ПРОВЕРКА 1: Существует ли активный объект?
+        if not d then return end
+
         gui.set_enabled(self.icon, true)
 
-        -- Устанавливаем визуал из данных менеджера
+        -- ПРОВЕРКА 2: Безопасная установка текстуры
         if d.texture and d.animation then
             gui.set_texture(self.icon, d.texture)
             gui.play_flipbook(self.icon, d.animation)
         end
 
-        -- Позиция напрямую по координатам мыши
-        gui.set_position(self.icon, vmath.vector3(d.x, d.y, 0))
+        -- ПРОВЕРКА 3: Наличие координат
+        local x = d.x or 0
+        local y = d.y or 0
+        gui.set_position(self.icon, vmath.vector3(x, y, 0))
     else
-        gui.set_enabled(self.icon, false)
+        -- Если не тащим — гарантированно выключаем
+        if gui.is_enabled(self.icon) then
+            gui.set_enabled(self.icon, false)
+        end
     end
 end
 

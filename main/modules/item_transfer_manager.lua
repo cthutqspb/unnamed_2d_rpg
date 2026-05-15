@@ -82,8 +82,26 @@ function M.execute_transfer(source_component, source_slot, target_component, tar
 
         -- Б. С куклы в инвентарь
         elseif source_data.slots and target_data.items then
-            -- ... твой старый код unequip ...
+            local target_item = target_data.items[target_slot]
             
+            -- Вариант 1: Слот в инвентаре пустой — просто снимаем
+            if not target_item or not target_item.item_id then
+                target_data.items[target_slot] = item
+                source_data.slots[source_slot] = {item_id = nil, amount = 0}
+            else
+                -- Вариант 2: В инвентаре что-то лежит. 
+                -- Просто спрашиваем Модель куклы: "А мы можем ВМЕСТО этой шмотки надеть ВОТ ЭТУ?"
+                -- Мы передаем ID предмета из инвентаря, а кукла сама проверит его тип
+                if player_paperdoll.can_equip(target_item.item_id, source_slot) then
+                    local old_inventory_item = target_data.items[target_slot]
+                    target_data.items[target_slot] = item
+                    source_data.slots[source_slot] = old_inventory_item
+                else
+                    print("Unequip blocked: invalid swap type")
+                    M.cancel_transfer(source_component)
+                    return
+                end
+            end           
         -- В. Перенос между разными контейнерами .items (Инвентарь <-> Сундук)
         elseif source_data.items and target_data.items then
             local stacked = player_inventory.try_stack_items(source_slot, target_slot, item_cfg)

@@ -1,6 +1,7 @@
 local component = require("druid.component")
 
-local M = component.create("health_bar")
+---@class HealthBar : druid.component
+local M = component.create("HealthBar")
 
 function M:init()
     -- Получаем узлы из шаблона
@@ -21,7 +22,7 @@ function M:update_health(percentage)
 
     -- Цвет (зелёный -> жёлтый -> красный)
     local color = vmath.vector4(0, 1, 0, 1)
-    if percentage < 0.3 then 
+    if percentage < 0.3 then
         color = vmath.vector4(1, 0, 0, 1)
     elseif percentage < 0.6 then
         color = vmath.vector4(1, 1, 0, 1)
