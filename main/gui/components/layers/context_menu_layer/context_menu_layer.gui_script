@@ -1,0 +1,39 @@
+local druid = require("druid.druid")
+local ContextMenu = require("main.gui.components.layers.context_menu_layer.ContextMenu")
+
+function init(self)
+    self.druid = druid.new(self)
+    -- Регистрируем наш компонент
+    self.menu = self.druid:new(ContextMenu)
+    gui.set_render_order(30)
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("show_menu") then
+        self.menu:show(message.x, message.y, message.type, message.data)
+    elseif message_id == hash("hide_menu") then
+        self.menu:hide()
+    end
+end
+
+function on_input(self, action_id, action)
+    return self.druid:on_input(action_id, action)
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

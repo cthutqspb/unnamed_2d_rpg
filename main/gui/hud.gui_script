@@ -37,7 +37,7 @@ function init(self)
                 msg.post("main:/character_window#gui", "refresh")
                 msg.post("main:/inventory_window#gui", "refresh")
                 -- Если нужно обновить что-то в самом HUD
-                if self.inventory_grid then self.inventory_grid:refresh() end
+                if self.static_grid then self.static_grid:refresh() end
             end
         end
     end

@@ -37,6 +37,10 @@ function M:init(template_id)
         }
 
         local drag = self.druid:new_drag(slot_root)
+        
+        self.druid:new_button(slot_root, function(ctx, action_id, action)
+            self:on_slot_input(slot_type, action_id, action)
+        end)
 
         drag.on_drag_start:subscribe(function()
             local item_data = player_paperdoll.slots[slot_type]
@@ -49,6 +53,31 @@ function M:init(template_id)
             end
         end)
     end
+end
+
+function M:on_slot_input(slot_type, action_id, action)
+    local item_data = player_paperdoll.slots[slot_type]
+
+    -- 1. Правая кнопка мыши (Контекстное меню)
+    if action.button_id == 2 then
+        if item_data and item_data.item_id then
+            msg.post("main:/gui_manager#context_menu", "show_menu", {
+                x = action.x,
+                y = action.y,
+                type = "item",
+                data = { 
+                    slot_index = slot_type, 
+                    is_paperdoll = true, 
+                    item_id = item_data.item_id 
+                }
+            })
+        end
+        return
+    end
+
+    -- 2. Левая кнопка мыши (ЛКМ)
+    -- Тут в будущем можно добавить быстрый "Unequip" (снять предмет)
+    print("Paperdoll click:", slot_type)
 end
 
 function M:on_drop(x, y)

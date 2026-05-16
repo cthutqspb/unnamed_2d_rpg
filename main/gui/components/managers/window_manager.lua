@@ -2,6 +2,26 @@ local M = {}
 
 -- Стек открытых окон (список URL скриптов)
 local stack = {}
+M.hovered_states = {}
+M.mouse_x = 0
+M.mouse_y = 0
+M.is_over_ui = false
+
+function M.update_mouse(x, y)
+    M.mouse_x = x
+    M.mouse_y = y
+end
+
+function M.set_hover_status(url, is_hovered)
+    M.hovered_states[url] = is_hovered
+end
+
+function M.is_any_hovered()
+    for url, status in pairs(M.hovered_states) do
+        if status then return true end
+    end
+    return false
+end
 
 -- Добавить окно в стек
 function M.push(url, close_message)

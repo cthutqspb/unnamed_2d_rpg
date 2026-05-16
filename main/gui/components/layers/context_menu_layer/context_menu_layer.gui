@@ -1,0 +1,82 @@
+script: "/main/gui/components/layers/context_menu_layer/context_menu_layer.gui_script"
+fonts {
+  name: "gui_title"
+  font: "/assets/fonts/gui_title.font"
+}
+nodes {
+  size {
+    x: 240.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 240.0
+    y: 100.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_BOX
+  id: "background"
+  pivot: PIVOT_NW
+  parent: "root"
+  alpha: 0.72
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 240.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "action_list"
+  pivot: PIVOT_NW
+  parent: "background"
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 240.0
+    y: 24.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
+  }
+  type: TYPE_BOX
+  id: "action_field"
+  pivot: PIVOT_NW
+  parent: "action_list"
+  size_mode: SIZE_MODE_AUTO
+  enabled: false
+  visible: false
+}
+nodes {
+  position {
+    x: 10.0
+  }
+  size {
+    x: 220.0
+    y: 24.0
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "gui_title"
+  id: "action_text"
+  pivot: PIVOT_NW
+  parent: "action_field"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

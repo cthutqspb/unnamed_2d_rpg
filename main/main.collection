@@ -34,6 +34,7 @@ embedded_instances {
   id: "gui_manager"
   children: "character_window"
   children: "container_window"
+  children: "context_menu_layer"
   children: "drag_layer"
   children: "inventory_window"
   children: "split_window"
@@ -144,6 +145,14 @@ embedded_instances {
   data: "components {\n"
   "  id: \"gui\"\n"
   "  component: \"/main/gui/components/split_window/split_window.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "context_menu_layer"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/layers/context_menu_layer/context_menu_layer.gui\"\n"
   "}\n"
   ""
 }

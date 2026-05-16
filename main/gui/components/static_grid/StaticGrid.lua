@@ -3,11 +3,11 @@ local drag_manager = require("main.gui.components.managers.drag_manager")
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
 -- Модуль драга теперь один для всех инвентарей
-local DragModule = require("main.gui.components.inventory_grid.inventory_drag")
+local DragModule = require("main.gui.components.static_grid.inventory_drag")
 
----@class InventoryGrid : druid.component
+---@class StaticGrid : druid.component
 ---@field slots table
-local M = component.create("InventoryGrid")
+local M = component.create("StaticGrid")
 
 function M:init(template_id, config)
     config = config or {}
@@ -67,29 +67,56 @@ function M:get_slot_at_position(x, y)
     return DragModule.get_slot_at_position(self, x, y)
 end
 
+
 function M:on_input(action_id, action)
-    -- Ловим Shift прямо внутри компонента инвентаря
+    -- 1. Логика Shift
     if action_id == hash("key_lshift") then
-        if action.pressed then
-            self.is_shift_pressed = true
-        elseif action.released then
-            self.is_shift_pressed = false
-        end
-        return false -- Возвращаем false, чтобы не блокировать инпут другим окнам
+        print('LSHIFT')
+        if action.pressed then self.is_shift_pressed = true
+        elseif action.released then self.is_shift_pressed = false end
+        return false -- Не блокируем!
     end
 
-    if action and action.x and action.y then
-        self.mouse_x = action.x
-        self.mouse_y = action.y
-        -- Прокидываем в DragModule, чтобы он знал актуальные координаты
-        DragModule.on_input(self, action_id, action)
+    -- 2. Логика ПКМ (Правая кнопка)
+    -- Мы ловим её ДО Друида
+    if action_id == hash("mouse_right") and action.released then
+        local index = DragModule.get_slot_at_position(self, action.x, action.y)
+        if index then
+            -- Вызываем меню
+            DragModule.on_slot_input(self, index, action_id, action)
+            return true -- БЛОКИРУЕМ (персонаж не бежит)
+        end
     end
+
+    -- 3. ВСЁ. Никаких return self.druid:on_input здесь!
+    -- Мы возвращаем false, чтобы gui_script пошел дальше к Друиду
+    return false
 end
+
+
+-- function M:on_input(action_id, action)
+--     -- Ловим Shift прямо внутри компонента инвентаря
+--     if action_id == hash("key_lshift") then
+--         if action.pressed then
+--             self.is_shift_pressed = true
+--         elseif action.released then
+--             self.is_shift_pressed = false
+--         end
+--         return false -- Возвращаем false, чтобы не блокировать инпут другим окнам
+--     end
+--
+--     if action and action.x and action.y then
+--         self.mouse_x = action.x
+--         self.mouse_y = action.y
+--         -- Прокидываем в DragModule, чтобы он знал актуальные координаты
+--         DragModule.on_input(self, action_id, action)
+--     end
+-- end
 
 function M:refresh()
     local data_source = self:get_data_source()
     if not data_source or not data_source.items then
-        print("Warning: InventoryGrid has no data_source during refresh")
+        print("Warning: StaticGrid has no data_source during refresh")
         return
     end
 
@@ -117,7 +144,7 @@ function M:on_drop(x, y)
     local slot_index = self:get_slot_at_position(x, y)
 
     if slot_index then
-        print("InventoryGrid [" .. self.template_id .. "]: Drop into slot", slot_index)
+        print("StaticGrid [" .. self.template_id .. "]: Drop into slot", slot_index)
         drag_manager.finish(self, slot_index)
         return true -- Мы обработали дроп
     end
@@ -126,6 +153,9 @@ function M:on_drop(x, y)
 end
 
 function M:update_hover(mx, my)
+    -- ЗАЩИТА: Если координат нет, выходим сразу
+    if not mx or not my then return false end
+    
     -- 1. Жесткая проверка: готов ли компонент
     if not self.root or not gui.is_enabled(self.root, true) then
         return false

@@ -5,13 +5,13 @@ local strings = require("main.modules.data.strings")
 -- Компоненты вкладок
 local CharacterStats = require("main.gui.components.character_window.CharacterStats")
 local CharacterPaperdoll = require("main.gui.components.character_window.CharacterPaperdoll")
-local CharacterInventory = require("main.gui.components.inventory_grid.InventoryGrid")
+local CharacterInventory = require("main.gui.components.static_grid.StaticGrid")
 local CharacterJournal = require("main.gui.components.character_window.CharacterJournal")
 local CharacterTalents = require("main.gui.components.character_window.CharacterTalents")
 
 ---@class CharacterWindow : druid.component
 ---@field init fun(self: CharacterWindow, template_id: string, player_inventory: table)
----@field inventory_grid InventoryGrid | nil
+---@field static_grid StaticGrid | nil
 ---@field paperdoll CharacterPaperdoll | nil
 ---@field character_stats CharacterStats | nil
 ---@field root node
@@ -33,7 +33,7 @@ local TABS_CONFIG = {
             { class = CharacterPaperdoll, template = "character_paperdoll" },
             {
                 class = CharacterInventory,
-                template = "inventory_grid",
+                template = "static_grid",
                 config = {
                     columns = 7,
                     rows = 12,
@@ -99,7 +99,7 @@ function M:init(template_id, player_inventory)
         if cfg.sub_components then
             for _, sub in ipairs(cfg.sub_components) do
                 local sub_config = sub.config or {}
-                if sub.template == "inventory_grid" then
+                if sub.template == "static_grid" then
                     sub_config.data_source = player_inventory
                 end
 
@@ -107,7 +107,7 @@ function M:init(template_id, player_inventory)
                 table.insert(self.tabs[name].modules, instance)
 
                 -- Сохраняем прямые ссылки для быстрого доступа
-                if sub.template == "inventory_grid" then self.inventory_grid = instance
+                if sub.template == "static_grid" then self.static_grid = instance
                 elseif sub.template == "character_paperdoll" then self.paperdoll = instance
                 elseif sub.template == "character_stats" then self.character_stats = instance end
             end
@@ -150,7 +150,7 @@ function M:switch_tab(tab_name)
 end
 
 function M:refresh_all()
-    if self.inventory_grid then self.inventory_grid:refresh() end
+    if self.static_grid then self.static_grid:refresh() end
     if self.paperdoll then self.paperdoll:refresh() end
     if self.character_stats then self.character_stats:update_display() end
 end
@@ -173,8 +173,8 @@ function M:close()
 end
 
 function M:get_slot_at_position(x, y)
-    if self.inventory_grid and self.active_tab == "character" then
-        return self.inventory_grid:get_slot_at_position(x, y)
+    if self.static_grid and self.active_tab == "character" then
+        return self.static_grid:get_slot_at_position(x, y)
     end
     return nil
 end
@@ -186,7 +186,7 @@ return M
 -- local strings = require("main.modules.data.strings")
 -- local CharacterStats = require("main.gui.components.character_window.CharacterStats")
 -- local CharacterPaperdoll = require("main.gui.components.character_window.CharacterPaperdoll")
--- local CharacterInventory = require("main.gui.components.inventory_grid.InventoryGrid")
+-- local CharacterInventory = require("main.gui.components.static_grid.StaticGrid")
 -- local CharacterJournal = require("main.gui.components.character_window.CharacterJournal")
 -- local CharacterTalents = require("main.gui.components.character_window.CharacterTalents")
 --
@@ -206,7 +206,7 @@ return M
 --             { class = CharacterPaperdoll, template = "character_paperdoll" },
 --             {
 --                 class = CharacterInventory,
---                 template = "inventory_grid",
+--                 template = "static_grid",
 --                 config = {
 --                     columns = 7,
 --                     rows = 12,
@@ -331,7 +331,7 @@ return M
 --                 local sub_config = sub.config or {}
 --
 --                 -- Если это инвентарь - добавляем в config data_source
---                 if sub.template == "inventory_grid" then
+--                 if sub.template == "static_grid" then
 --                     sub_config.data_source = player_inventory
 --                 end
 --
@@ -339,8 +339,8 @@ return M
 --                 instance.character_window = self
 --                 table.insert(self.tabs[name].modules, instance)
 --
---                 if sub.template == "inventory_grid" then
---                     self.inventory_grid = instance
+--                 if sub.template == "static_grid" then
+--                     self.static_grid = instance
 --                 elseif sub.template == "character_paperdoll" then
 --                     self.paperdoll = instance
 --                 elseif sub.template == "character_stats" then -- ДОБАВЬ ЭТОТ БЛОК
@@ -359,8 +359,8 @@ return M
 --     gui.set_size(self.body, vmath.vector3(TOTAL_WIDTH, WINDOW_HEIGHT, 0))
 --     gui.set_size(self.header, vmath.vector3(TOTAL_WIDTH, 80, 0))
 --     
---     if self.inventory_grid then
---         self.inventory_grid:refresh()
+--     if self.static_grid then
+--         self.static_grid:refresh()
 --     end
 --     if self.paperdoll then
 --         self.paperdoll:refresh()
@@ -396,15 +396,15 @@ return M
 --
 -- function M:refresh_all()
 --     -- Просто вызываем рефреш у всех внутренних частей
---     if self.inventory_grid then self.inventory_grid:refresh() end
+--     if self.static_grid then self.static_grid:refresh() end
 --     if self.paperdoll then self.paperdoll:refresh() end
 --     if self.character_stats then self.character_stats:update_display() end
 --     print("CharacterWindow: All components refreshed from data")
 -- end
 --
 -- function M:get_slot_at_position(x, y)
---     if self.inventory_grid then
---         return self.inventory_grid:get_slot_at_position(x, y)
+--     if self.static_grid then
+--         return self.static_grid:get_slot_at_position(x, y)
 --     end
 --     return nil
 -- end

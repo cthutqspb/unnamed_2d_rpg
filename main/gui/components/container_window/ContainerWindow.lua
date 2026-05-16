@@ -1,11 +1,11 @@
 local component = require("druid.component")
-local InventoryGrid = require("main.gui.components.inventory_grid.InventoryGrid")
+local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local InventoryModel = require("main.modules.inventory_model")
 local containers_state = require("main.modules.game_state.containers_state")
 local gui_utils = require("main.gui.gui_utils")
 
 ---@class ContainerWindow : druid.component
----@field inventory_grid InventoryGrid
+---@field static_grid StaticGrid
 local M = component.create("ContainerWindow")
 
 local function get_id(template_id, node_name)
@@ -29,7 +29,7 @@ function M:init(template_id, config)
     self.btn_take_all = gui.get_node("btn_take_all")
 
     -- Создаём вложенный грид инвентаря
-    self.inventory_grid = d:new(InventoryGrid, get_id(template_id, "inventory_grid"), {
+    self.static_grid = d:new(StaticGrid, get_id(template_id, "static_grid"), {
         columns = config.columns or 6,
         rows = config.rows or 4,
         item_size = config.item_size or 48,
@@ -94,17 +94,17 @@ function M:take_all()
 end
 
 function M:set_data_source(data_source)
-    self.inventory_grid:set_data_source(data_source)
+    self.static_grid:set_data_source(data_source)
 end
 
 function M:get_slot_at_position(x, y)
-    return self.inventory_grid:get_slot_at_position(x, y)
+    return self.static_grid:get_slot_at_position(x, y)
 end
 
 function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
     if visible then
-        self.inventory_grid:refresh()
+        self.static_grid:refresh()
     end
 end
 
@@ -117,7 +117,7 @@ return M
 
 
 -- local gui_utils = require("main.gui.gui_utils")
--- local InventoryGrid = require("main.gui.components.inventory_grid.InventoryGrid")
+-- local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 -- local containers_state = require("main.modules.game_state.containers_state")
 --
 -- local M = {}
@@ -146,7 +146,7 @@ return M
 --     -- Создаём грид
 --     -- local container_data = containers_state.get(config.container_id)
 --     
---     self.inventory_grid = druid:new(InventoryGrid, get_id(template_id, "inventory_grid"), {
+--     self.static_grid = druid:new(StaticGrid, get_id(template_id, "static_grid"), {
 --         columns = config.columns,
 --         rows = config.rows,
 --         item_size = config.item_size,
@@ -240,8 +240,8 @@ return M
 -- end
 --
 -- function M:set_data_source(data_source)
---     self.inventory_grid:set_data_source(data_source)
---     self.inventory_grid:refresh()
+--     self.static_grid:set_data_source(data_source)
+--     self.static_grid:refresh()
 -- end
 --
 -- function M:set_position(position)
@@ -249,8 +249,8 @@ return M
 -- end 
 --
 -- function M:get_slot_at_position(x, y)
---     if self.inventory_grid then
---         return self.inventory_grid:get_slot_at_position(x, y)
+--     if self.static_grid then
+--         return self.static_grid:get_slot_at_position(x, y)
 --     end
 --     return nil
 -- end
@@ -261,8 +261,8 @@ return M
 --
 -- function M:set_visible(visible)
 --     gui.set_enabled(self.root, visible)
---     if visible and self.inventory_grid then
---         self.inventory_grid:refresh()
+--     if visible and self.static_grid then
+--         self.static_grid:refresh()
 --     end
 -- end
 --

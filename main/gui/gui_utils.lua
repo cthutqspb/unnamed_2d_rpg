@@ -113,4 +113,16 @@ function M.clamp_to_screen(node, new_pos, margin_x, margin_y)
     return new_pos
 end
 
+function M.is_input_over_window(window_root, action_id, action)
+    if not action.x or not action.y then return false end
+    if not gui.is_enabled(window_root, true) then return false end
+    
+    if gui.pick_node(window_root, action.x, action.y) then
+        -- Если это просто движение мыши, не блокируем (для тултипов)
+        if not action_id then return false end
+        return true
+    end
+    return false
+end
+
 return M

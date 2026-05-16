@@ -17,7 +17,7 @@ nodes {
   id: "slot_head"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -45,7 +45,7 @@ nodes {
   id: "slot_chest"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -73,7 +73,7 @@ nodes {
   id: "slot_legs"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -102,7 +102,7 @@ nodes {
   id: "slot_main_hand"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -131,7 +131,7 @@ nodes {
   id: "slot_off_hand"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
 }
 nodes {
   type: TYPE_BOX

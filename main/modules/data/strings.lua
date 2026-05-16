@@ -47,6 +47,19 @@ M.data = {
         ["btn_save_game"] = "Сохранить игру",
         ["btn_load_game"] = "Загрузить игру",
         ["btn_exit_game"] = "Выйти из игры",
+
+        -- Cotext menu
+
+        -- Default
+        ["menu_examine"] = "Осмотреть",
+
+        -- Inventory item 
+        ["menu_use"] = "Использовать",
+        ["menu_split"] = "Разделить",
+        ["menu_drop"] = "Выбросить",
+
+        -- World contaienr
+        ["menu_open"] = "Открыть",
     },
     ["en"] = {
         ["item_iron_sword_name"] = "Iron Sword",
@@ -92,6 +105,19 @@ M.data = {
         ["btn_save_game"] = "Save game",
         ["btn_load_game"] = "Load game",
         ["btn_exit_game"] = "Exit game",
+
+        -- Cotext menu
+
+        -- Default
+        ["menu_examine"] = "Examine",
+
+        -- Inventory item 
+        ["menu_use"] = "Use",
+        ["menu_split"] = "Split",
+        ["menu_drop"] = "Drop",
+
+        -- World contaienr
+        ["menu_open"] = "Open",
     }
 }
 

@@ -29,8 +29,8 @@ function update(self, dt)
     local mx = tooltip_manager.mouse_x
     local my = tooltip_manager.mouse_y
     
-    -- Проверка ховера через компонент (который пробросит вызов в inventory_grid)
-    local hovered = self.container_window.inventory_grid:update_hover(mx, my)
+    -- Проверка ховера через компонент (который пробросит вызов в static_grid)
+    local hovered = self.container_window.static_grid:update_hover(mx, my)
     
     if not hovered then
         -- Если мышь над окном, но не над слотом — гасим тултип
@@ -65,7 +65,7 @@ function on_message(self, message_id, message, sender)
     -- ЛОГИКА СПЛИТА
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
-        local data_source = self.container_window.inventory_grid:get_data_source()
+        local data_source = self.container_window.static_grid:get_data_source()
         local item = data_source.items[slot_index]
         
         if item then
@@ -75,12 +75,12 @@ function on_message(self, message_id, message, sender)
                 amount = current_amount,
                 source_split_slot = slot_index
             }
-            drag_manager.start(self.container_window.inventory_grid, slot_index, split_item, item_cfg)
+            drag_manager.start(self.container_window.static_grid, slot_index, split_item, item_cfg)
         end
 
     -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
     elseif message_id == hash("refresh") then
-        self.container_window.inventory_grid:refresh()
+        self.container_window.static_grid:refresh()
     end
 end
 
@@ -104,7 +104,7 @@ function on_input(self, action_id, action)
         -- Обработка Drop
         if action_id == h_touch and action.released then
             -- 1. Пытаемся бросить в сетку сундука
-            if self.container_window.inventory_grid:on_drop(action.x, action.y) then 
+            if self.container_window.static_grid:on_drop(action.x, action.y) then 
                 return true 
             end
 

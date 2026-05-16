@@ -23,7 +23,7 @@ function M.init()
     end
 end
 
--- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (для InventoryGrid и TransferManager)
+-- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (для StaticGrid и TransferManager)
 function M:get_item(idx)
     return self.items[idx]
 end

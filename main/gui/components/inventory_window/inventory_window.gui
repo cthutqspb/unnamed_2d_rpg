@@ -132,51 +132,51 @@ nodes {
 }
 nodes {
   type: TYPE_TEMPLATE
-  id: "inventory_grid"
+  id: "static_grid"
   parent: "container"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/inventory_grid.gui"
+  template: "/main/gui/components/static_grid/StaticGrid.gui"
 }
 nodes {
   type: TYPE_BOX
-  id: "inventory_grid/root"
-  parent: "inventory_grid"
+  id: "static_grid/root"
+  parent: "static_grid"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "inventory_grid/container"
-  parent: "inventory_grid/root"
+  id: "static_grid/container"
+  parent: "static_grid/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEMPLATE
-  id: "inventory_grid/slot_prefab"
-  parent: "inventory_grid"
+  id: "static_grid/slot_prefab"
+  parent: "static_grid"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "inventory_grid/slot_prefab/root"
-  parent: "inventory_grid/slot_prefab"
+  id: "static_grid/slot_prefab/root"
+  parent: "static_grid/slot_prefab"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "inventory_grid/slot_prefab/icon"
-  parent: "inventory_grid/slot_prefab/root"
+  id: "static_grid/slot_prefab/icon"
+  parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "inventory_grid/slot_prefab/count"
-  parent: "inventory_grid/slot_prefab/root"
+  id: "static_grid/slot_prefab/count"
+  parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "inventory_grid/drag_icon"
-  parent: "inventory_grid"
+  id: "static_grid/drag_icon"
+  parent: "static_grid"
   template_node_child: true
 }
 material: "/builtins/materials/gui.material"

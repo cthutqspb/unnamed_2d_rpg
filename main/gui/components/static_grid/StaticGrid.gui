@@ -29,7 +29,7 @@ nodes {
   type: TYPE_TEMPLATE
   id: "slot_prefab"
   inherit_alpha: true
-  template: "/main/gui/components/inventory_grid/slot.gui"
+  template: "/main/gui/components/static_grid/slot.gui"
   enabled: false
 }
 nodes {

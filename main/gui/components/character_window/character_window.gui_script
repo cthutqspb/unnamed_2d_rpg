@@ -53,8 +53,16 @@ function update(self, dt)
     local mx = tooltip_manager.mouse_x
     local my = tooltip_manager.mouse_y
 
+    if self.character_window:is_visible() then
+        local over = gui.pick_node(self.character_window.root, window_manager.mouse_x, window_manager.mouse_y)
+        
+        -- Обновляем флаг/таблицу
+        window_manager.is_over_ui = over 
+        window_manager.set_hover_status(msg.url(), over)
+    end
+
     -- Проверка ховера через модули окна
-    local hovered = self.character_window.inventory_grid:update_hover(mx, my)
+    local hovered = self.character_window.static_grid:update_hover(mx, my)
     if not hovered and self.character_window.paperdoll then
         hovered = self.character_window.paperdoll:update_hover(mx, my)
     end
@@ -76,7 +84,7 @@ function on_message(self, message_id, message, sender)
 
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
-        local data_source = self.character_window.inventory_grid:get_data_source()
+        local data_source = self.character_window.static_grid:get_data_source()
         local item = data_source:get_item(slot_index) -- Используем метод модели!
         
         if item and item.item_id then
@@ -86,14 +94,15 @@ function on_message(self, message_id, message, sender)
                 amount = current_amount,
                 source_split_slot = slot_index
             }
-            drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
+            drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
         end
 
     elseif message_id == hash("toggle_character_window") then
         self.character_window:toggle()
         local visible = self.character_window:is_visible()
         gui.set_render_order(visible and 10 or 0)
-        
+        msg.post(".", "acquire_input_focus")
+
         if visible then
             window_manager.push(msg.url(), hash("close_window"))
         else
@@ -122,7 +131,7 @@ function on_input(self, action_id, action)
 
         if action_id == h_touch and action.released then
             -- Пробуем дроп в инвентарь или куклу
-            if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
+            if self.character_window.static_grid:on_drop(action.x, action.y) then return true end
             if self.character_window.paperdoll and self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
 
             -- Отмена драга над окном
@@ -189,7 +198,7 @@ end
 --
 -- function update(self, dt)
 --     -- Если объект окна еще не создан или не проинициализирован
---     if not self.character_window or not self.character_window.inventory_grid then
+--     if not self.character_window or not self.character_window.static_grid then
 --         return
 --     end
 --
@@ -200,7 +209,7 @@ end
 --     local hovered = false
 --     -- Проверяем инвентарь (если окно открыто)
 --     if self.character_window:is_visible() then
---         if self.character_window.inventory_grid:update_hover(mx, my) then
+--         if self.character_window.static_grid:update_hover(mx, my) then
 --             hovered = true
 --         end
 --
@@ -230,7 +239,7 @@ end
 --
 --     elseif message_id == hash("split_confirmed") then
 --         local slot_index, current_amount = message.slot_index, message.current_amount
---         local data_source = self.character_window.inventory_grid:get_data_source()
+--         local data_source = self.character_window.static_grid:get_data_source()
 --         local item = data_source.items[slot_index];
 --         local item_cfg = items_db.get_item(item.item_id)
 --         print('amount_to_split',  current_amount)
@@ -239,7 +248,7 @@ end
 --             amount = current_amount,
 --             source_split_slot = slot_index
 --         }
---         drag_manager.start(self.character_window.inventory_grid, slot_index, split_item, item_cfg)
+--         drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
 --       
 --
 --     -- ПЕРЕКЛЮЧЕНИЕ (от кнопки "C" или кнопки в HUD)
@@ -256,7 +265,7 @@ end
 --
 --     elseif message_id == hash("refresh") then
 --         if self.character_window and self.character_window:is_visible() then
---             self.character_window.inventory_grid:refresh()
+--             self.character_window.static_grid:refresh()
 --         end
 --     end
 -- end
@@ -294,7 +303,7 @@ end
 --             -- ЛОГИКА ОТПУСКАНИЯ (DROP)
 --             if action.released then
 --                 print("CHAR: Released")
---                 if self.character_window.inventory_grid:on_drop(action.x, action.y) then return true end
+--                 if self.character_window.static_grid:on_drop(action.x, action.y) then return true end
 --                 if self.character_window.paperdoll:on_drop(action.x, action.y) then return true end
 --
 --                 if gui.pick_node(self.character_window.root, action.x, action.y) then

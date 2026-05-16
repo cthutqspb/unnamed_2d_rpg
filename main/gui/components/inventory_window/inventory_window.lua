@@ -1,6 +1,6 @@
 local component = require("druid.component")
 local strings = require("main.modules.data.strings")
-local InventoryGrid = require("main.gui.components.inventory_grid.InventoryGrid")
+local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 
 local M = {}
 
@@ -32,7 +32,7 @@ function M.new(druid, template_id, player_inventory)
     self.is_visible = M.is_visible
     self.close = M.close
 
-    self.inventory_grid = druid:new(InventoryGrid, get_id("inventory_grid"), {
+    self.static_grid = druid:new(StaticGrid, get_id("static_grid"), {
         data_source = config.data_source,
         columns = config.columns or 6,
         rows = config.rows or 4,
@@ -71,28 +71,28 @@ function M.new(druid, template_id, player_inventory)
     end)
     -- self:refresh()
     -- msg.post("@render:", "acquire_input_focus")
-    if self.inventory_grid then
-        self.inventory_grid:refresh()
+    if self.static_grid then
+        self.static_grid:refresh()
     end
     return self
 end
 
 function M:refresh()
-    print("=== InventoryGrid:refresh called ===")
-    if self.inventory_grid then
-        self.inventory_grid:refresh()
+    print("=== StaticGrid:refresh called ===")
+    if self.static_grid then
+        self.static_grid:refresh()
     end
 end
 
 function M:on_input(action_id, action)
-    if self.inventory_grid then
-        self.inventory_grid:on_input(action_id, action)
+    if self.static_grid then
+        self.static_grid:on_input(action_id, action)
     end
 end
 
 function M:get_slot_at_position(x, y)
-    if self.inventory_grid then
-        return self.inventory_grid:get_slot_at_position(x, y)
+    if self.static_grid then
+        return self.static_grid:get_slot_at_position(x, y)
     end
     return nil
 end
@@ -103,8 +103,8 @@ end
 
 function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
-    if visible and self.inventory_grid then
-        self.inventory_grid:refresh()
+    if visible and self.static_grid then
+        self.static_grid:refresh()
     end
 end
 
@@ -116,7 +116,7 @@ end
 --     gui.set_enabled(self.root, visible)
 --     if visible then
 --         -- Как только окно становится видимым — принудительно обновляем данные
---         self.inventory_grid:refresh() 
+--         self.static_grid:refresh() 
 --     end
 -- end
 
