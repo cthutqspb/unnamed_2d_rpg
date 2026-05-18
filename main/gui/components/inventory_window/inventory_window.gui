@@ -30,7 +30,7 @@ nodes {
     y: 220.0
   }
   type: TYPE_BOX
-  id: "background"
+  id: "body"
   parent: "root"
 }
 nodes {
@@ -92,7 +92,7 @@ nodes {
   }
   type: TYPE_TEXT
   font: "gui_title"
-  id: "title"
+  id: "window_title"
   pivot: PIVOT_W
   parent: "header"
   inherit_alpha: true

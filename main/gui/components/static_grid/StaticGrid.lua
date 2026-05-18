@@ -155,7 +155,7 @@ end
 function M:update_hover(mx, my)
     -- ЗАЩИТА: Если координат нет, выходим сразу
     if not mx or not my then return false end
-    
+
     -- 1. Жесткая проверка: готов ли компонент
     if not self.root or not gui.is_enabled(self.root, true) then
         return false
@@ -183,6 +183,27 @@ function M:update_hover(mx, my)
         end
     end
     return over_any_slot
+end
+
+function M:get_hover_data(mx, my)
+    -- 1. Ищем индекс слота под мышкой (используем твой текущий метод)
+    local index = self:get_slot_at_position(mx, my)
+
+    if index then
+        -- 2. Берем данные из модели
+        local item = self:get_data_source():get_item(index)
+
+        -- 3. Если в слоте что-то есть — возвращаем пакет для тултипа
+        if item and item.item_id then
+            return {
+                type = "item",
+                id = item.item_id,
+                amount = item.amount -- может пригодиться в тултипе
+            }
+        end
+    end
+
+    return nil
 end
 
 return M

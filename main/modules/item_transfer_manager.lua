@@ -2,8 +2,11 @@ local broadcast = require("main.modules.system.broadcast")
 local M = {}
 
 -- 1. ОТМЕНА: Просто перерисовываем источник
+
 function M.cancel_transfer(source_comp)
-    if source_comp then source_comp:refresh() end
+    if source_comp and source_comp.request_refresh then
+        source_comp:request_refresh()
+    end
 end
 
 function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
@@ -16,7 +19,7 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
         mouse_x = mouse_x,
         mouse_y = mouse_y
     })
-
+    
     local source = source_comp:get_data_source()
 
     -- 2. ЛОГИКА УДАЛЕНИЯ ИЗ ИНВЕНТАРЯ
@@ -33,7 +36,7 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
         -- Если обычный драг (выбрасываем всё), просто зануляем слот
         source:set_item(source_slot, nil)
     end
-
+    
     -- 3. Обновляем визуал
     M.finalize(source_comp)
 end
@@ -93,10 +96,16 @@ end
 function M.finalize(source_comp, target_comp)
     -- 1. Обновляем локальный скрипт (тот, в который бросили предмет)
     -- msg.post(".", "refresh")
-    
     -- 2. Вместо поиска URL, шлем глобальный сигнал всем окнам
     -- Все открытые GUI-скрипты должны быть подписаны на это
-    broadcast.send("inventory_events", { message_id = hash("refresh_all") })
+    print("FROM TRANSFER MANAGER REFFRESH ALL")
+    if source_comp and source_comp.request_refresh then
+        source_comp:request_refresh()
+    end
+    if target_comp and target_comp.request_refresh then
+        target_comp:request_refresh()
+    end
+    broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
 end
 
 return M

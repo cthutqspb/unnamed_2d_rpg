@@ -90,7 +90,7 @@ nodes {
   text: "\320\232\320\276\320\275\321\202\320\265\320\271\320\275\320\265\321\200\n"
   ""
   font: "gui_title"
-  id: "title"
+  id: "window_title"
   parent: "header"
   inherit_alpha: true
 }

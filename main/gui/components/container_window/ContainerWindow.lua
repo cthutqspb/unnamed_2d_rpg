@@ -1,32 +1,46 @@
 local component = require("druid.component")
+local BaseWindow = require("main.gui.components.base_window.base_window")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local InventoryModel = require("main.modules.inventory_model")
 local containers_state = require("main.modules.game_state.containers_state")
 local gui_utils = require("main.gui.gui_utils")
 
 ---@class ContainerWindow : druid.component
----@field static_grid StaticGrid
+---@field root node
+---@field body node
+---@field window_title node
 local M = component.create("ContainerWindow")
 
 local function get_id(template_id, node_name)
-    if not template_id or template_id == "" then 
-        return node_name 
+    if not template_id or template_id == "" then
+        return node_name
     end
     return template_id .. "/" .. node_name
 end
-
 
 function M:init(template_id, config)
     self.template_id = template_id
     local d = self:get_druid()
 
+    BaseWindow.init(self, template_id, {
+        on_show = function ()
+            self.static_grid:refresh()
+        end
+    })
+
     -- Инициализация нод
-    self.root = gui.get_node("root")
-    self.body = gui.get_node("body")
-    self.header = gui.get_node("header")
-    self.btn_close = gui.get_node("btn_close")
-    self.title = gui.get_node("title")
     self.btn_take_all = gui.get_node("btn_take_all")
+    
+    self.toggle = BaseWindow.toggle
+    self.is_visible = BaseWindow.is_visible
+    self.set_visible = BaseWindow.set_visible
+    self.close = BaseWindow.close
+    self.set_title  = BaseWindow.set_title
+    self.update = BaseWindow.update
+    self.request_refresh = BaseWindow.request_refresh
+    self.is_over_window = BaseWindow.is_over_window
+    self.handle_hover = BaseWindow.handle_hover
+    -- self.take_all = M.take_all
 
     -- Создаём вложенный грид инвентаря
     self.static_grid = d:new(StaticGrid, get_id(template_id, "static_grid"), {
@@ -36,21 +50,18 @@ function M:init(template_id, config)
         spacing = config.spacing or 4
     })
 
-    -- Настройка Drag & Drop окна
-    self.drag = d:new_drag(self.header, function(_, dx, dy)
-        local pos = gui.get_position(self.root)
-        local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
-        local final_pos = gui_utils.clamp_to_screen(self.body, target_pos, 0, 20)
-        gui.set_position(self.root, final_pos)
-    end)
-    self.drag.is_touch_threshold = true
-
-    -- Кнопки
-    d:new_button(self.btn_close, self.close)
-    d:new_button(self.btn_take_all, self.take_all)
+    -- Кнопк
+    -- d:new_button(self.btn_close, self.close)
+    d:new_button(self.btn_take_all, self:take_all())
 
     -- Начальные настройки
-    gui.set_text(self.title, config.title or "Container")
+    -- gui.set_text(self.title, config.title or "Container")
+    self.set_title(self, config.title or "Container")
+
+    self.modules = {
+        self.static_grid
+    }
+
     self:set_visible(false)
 end
 
@@ -70,27 +81,26 @@ function M:open(container_id, columns, rows, world_pos, player_pos)
     local screen_x, screen_y = gui_utils.world_to_screen(world_pos, player_pos)
     local window_w = columns * (48 + 4) - 4
     local window_h = rows * (48 + 4) - 4
-    
+
     local offset_x, offset_y = 50, 50
     local final_x = screen_x + offset_x
     local final_y = screen_y + offset_y
 
     -- Проверка границ экрана (1920x1080)
-    if final_x + window_w > 1920 then final_x = screen_x - window_w - offset_x end
-    if final_y + window_h > 1080 then final_y = screen_y - window_h - offset_y end
+    if final_x + window_w > 1920 then
+        final_x = math.floor(screen_x - window_w - offset_x)
+    end
+    if final_y + window_h > 1080 then
+        final_y = math.floor(screen_y - window_h - offset_y)
+    end
 
     -- 3. Показываем
     gui.set_position(self.root, vmath.vector3(final_x, final_y, 0))
-    self:set_visible(true)
-end
-
-function M:close()
-    self:set_visible(false)
 end
 
 function M:take_all()
-    print("Take all logic here")
-    -- Здесь будет вызов метода переноса всех вещей в player_inventory
+    print("Take all logic for:", self.template_id) -- Используем self
+    -- Тут будет логика
 end
 
 function M:set_data_source(data_source)
@@ -101,15 +111,8 @@ function M:get_slot_at_position(x, y)
     return self.static_grid:get_slot_at_position(x, y)
 end
 
-function M:set_visible(visible)
-    gui.set_enabled(self.root, visible)
-    if visible then
-        self.static_grid:refresh()
-    end
-end
-
-function M:is_visible()
-    return gui.is_enabled(self.root)
+function M:refresh_all()
+    self.static_grid:refresh()
 end
 
 return M

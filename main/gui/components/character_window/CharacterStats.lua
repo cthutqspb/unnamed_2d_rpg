@@ -36,6 +36,7 @@ function M:init(template_id)
 end
 
 function M:update_display()
+  print("STATS")
     local player = character_data.player
 
     gui.set_text(self.nodes.name, player.name)
@@ -43,7 +44,7 @@ function M:update_display()
     gui.set_text(self.nodes.class, player.class)
     gui.set_text(self.nodes.level, tostring(player.level))
     gui.set_text(self.nodes.health, player.health .. " / " .. player.max_health)
-
+    
     -- Обновляем только те статы, для которых нашлись ноды в GUI
     for stat_id, node in pairs(self.stat_nodes) do
         ---@type number, number

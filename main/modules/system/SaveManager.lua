@@ -52,7 +52,7 @@ function M.new_game()
     M.save_game()
 
     -- 7. Сообщаем интерфейсу, что мир готов и нужно обновить картинки
-    broadcast.send("inventory_events", { message_id = hash("refresh_all") })
+    broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
 end
 
 -- function M.new_game()
