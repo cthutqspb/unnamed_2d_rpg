@@ -45,7 +45,8 @@ end
 function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, item, item_cfg)
     local source = source_comp:get_data_source()
     local target = target_comp:get_data_source()
-
+    
+    print('execute_transfer', source_slot, target_slot, item, item_cfg)
     ---------------------------------------------------------------------------
     -- 0. ОБРАБОТКА СПЛИТА (Должна быть первой!)
     ---------------------------------------------------------------------------
@@ -89,6 +90,30 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
         source:set_item(source_slot, item_b)
     end
 
+    M.finalize(source_comp, target_comp)
+end
+
+function M.transfer_to_paperdoll(source_comp, target_comp, slot_index, target_slot_type)
+    print('transfer_to_paperdoll')
+    local source = source_comp:get_data_source()
+    local target = target_comp:get_data_source()
+    print(source, target)
+    if target.can_equip_item then
+        if not target:can_equip_item(item.item_id, target_slot) then
+            print("TRANSFER: This item doesn't fit in " .. target_slot)
+            M.cancel_transfer(source_comp)
+            return
+        end
+    end
+
+    -- if not stacked then
+    --     local item_a = source:get_item(source_slot)
+    --     local item_b = target:get_item(target_slot)
+    --
+    --     target:set_item(target_slot, item_a)
+    --     source:set_item(source_slot, item_b)
+    -- end
+    --
     M.finalize(source_comp, target_comp)
 end
 

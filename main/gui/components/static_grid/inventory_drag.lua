@@ -41,40 +41,7 @@ function M.on_slot_input(self, index, action_id, action)
 end
 
 
--- function M.on_slot_input(self, index, action_id, action)
---     local item_data = self:get_data_source().items[index]
---     
---     -- 1. Правая кнопка мыши (Контекстное меню) через action_id
---     if action_id == hash("mouse_right") then
---         if action.released then -- Срабатываем именно на отпускание
---             print('RIGHT CLICK ON SLOT:', index)
---             if item_data and item_data.item_id then
---                 msg.post("main:/context_menu_layer#gui", "show_menu", {
---                     x = action.x,
---                     y = action.y,
---                     type = "item",
---                     data = { 
---                         slot_index = index, 
---                         item_id = item_data.item_id,
---                         -- ВАЖНО: Передаем только строку/хеш шаблона вместо self
---                         template_id = self.template_id 
---                     }
---                 })
---             end
---         end
---         return true -- Поглощаем ввод
---     end
---
---     -- 2. Левая кнопка мыши + Shift (Сплиттер)
---     -- Для ЛКМ в Defold/Druid обычно используется action_id == nil (движение) 
---     -- или action_id == hash("touch") (клик)
---     if action_id == hash("touch") and action.released then
---         if self.is_shift_pressed and item_data and item_data.amount > 1 then
---             M.on_slot_click(self, index)
---             return true
---         end
---     end
--- end
+
 
 function M.create_slots(self)
     self.slots = {}
@@ -110,13 +77,13 @@ function M.create_slots(self)
                 M.on_slot_click(self, i, action_id, action) 
             end)
 
-     
+
 
             local drag = druid_inst:new_drag(slot_root)
 
             drag.is_touch_threshold = false
             btn.click_zone = slot_root
-            
+
             drag.on_drag_start:subscribe(function()
                 if self.is_shift_pressed then
                     drag.is_drag = false

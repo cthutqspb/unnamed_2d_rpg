@@ -1,5 +1,6 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
+local item_transfer_manager = require("main.modules.item_transfer_manager")
 local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
 local character_logic = require("main.modules.character.character_logic")
 local player_inv = require("main.modules.player.player_inventory")
@@ -76,6 +77,23 @@ function on_message(self, message_id, message, sender)
                 source_split_slot = slot_index
             }
             drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
+        end
+
+    elseif message_id == hash("context_menu_action") then
+        if message.event == "equip_item" then
+            local slot_index = message.data.slot_index -- индекс в инвентаре
+            local item_id = message.data.item_id
+
+            -- 1. Узнаем из базы, в какой слот куклы должен лечь предмет
+            local item_cfg = items_db.get_item(item_id)
+            local target_slot_type = item_cfg.equip_slot -- например, "HEAD"
+
+            local data_source = self.character_window.static_grid:get_data_source()
+            local item = data_source:get_item(slot_index)
+
+            -- 2. Вызываем трансфер
+            -- Передаем: откуда (сетка), куда (кукла), индекс слота, ТИП слота куклы
+            item_transfer_manager.execute_transfer(self.character_window.static_grid, slot_index, self.character_window.paperdoll, target_slot_type, item , item_cfg)
         end
 
     elseif message_id == hash("toggle_character_window") then

@@ -9,7 +9,8 @@ M.items_raw = {
         tile_index = 2976,
         color = vmath.vector4(0.8, 0.8, 1, 1),
         texture = "items_project_utumno",
-        type = "WEAPON",
+        type = "weapon",
+        equip_slot = "MAIN_HAND",
         stackable = false,
         max_stack = 1
         -- scale = 0.5,
@@ -23,7 +24,8 @@ M.items_raw = {
         tile_index = 3013,
         color = vmath.vector4(0.8, 0.8, 1, 1),
         texture = "items_project_utumno",
-        type = "WEAPON",
+        type = "weapon",
+        equip_slot = "MAIN_HAND",
         stackable = false,
         max_stack = 1
     },
@@ -33,13 +35,31 @@ M.items_raw = {
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2345,
         texture = "items_project_utumno",
-        type = "HEAD",
+        type = "armor",
+        equip_slot = "HEAD",
         weight = 1.0,
         stackable = false,
         max_stack = 1,
         stats = {
             stamina = 5,
             agility = 2
+        }
+    },
+    ["clown_hat"] = {
+        name_key = "item_clown_hat_name",
+        animation = "clown_hat",
+        color = vmath.vector4(0.8, 0.8, 1, 1),
+        tile_index = 2347,
+        texture = "items_project_utumno",
+        type = "armor",
+        equip_slot = "HEAD",
+        weight = 1.0,
+        stackable = false,
+        max_stack = 1,
+        stats = {
+            stamina = -2,
+            agility = 3,
+            intellect = 5
         }
     },
     ["lesser_mana_potion"] = {

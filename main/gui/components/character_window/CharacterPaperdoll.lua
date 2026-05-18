@@ -22,7 +22,7 @@ function M:init(template_id)
         HEAD = "slot_head",
         CHEST = "slot_chest",
         LEGS = "slot_legs",
-        WEAPON = "slot_main_hand",
+        MAIN_HAND = "slot_main_hand",
         SHIELD = "slot_off_hand"
     }
 
@@ -55,29 +55,31 @@ function M:init(template_id)
     end
 end
 
-function M:on_slot_input(slot_type, action_id, action)
-    local item_data = player_paperdoll.slots[slot_type]
+function M.on_slot_input(self, index, action_id, action)
+    -- Если данных нет (например, кликнули не мышкой) — выходим
+    if not action or not action.x then return end
 
-    -- 1. Правая кнопка мыши (Контекстное меню)
+    local item_data = self:get_data_source():get_item(index)
+    if not item_data or not item_data.item_id then return end
+
+    -- 1. ЛКМ + Shift (Сплиттер)
+    -- if action_id == hash("touch") and self.is_shift_pressed then
+    --     if item_data.amount > 1 then
+    --         M.on_slot_click(self, index)
+    --         return true
+    --     end
+    -- end
+
+    -- 2. ПКМ (Контекстное меню)
     if action.button_id == 2 then
-        if item_data and item_data.item_id then
-            msg.post("main:/gui_manager#context_menu", "show_menu", {
-                x = action.x,
-                y = action.y,
-                type = "item",
-                data = { 
-                    slot_index = slot_type, 
-                    is_paperdoll = true, 
-                    item_id = item_data.item_id 
-                }
-            })
-        end
-        return
+        msg.post("main:/gui_manager#context_menu", "show_menu", {
+            x = action.x,
+            y = action.y,
+            type = "item",
+            data = { slot_index = index, source = self, item_id = item_data.item_id }
+        })
+        return true
     end
-
-    -- 2. Левая кнопка мыши (ЛКМ)
-    -- Тут в будущем можно добавить быстрый "Unequip" (снять предмет)
-    print("Paperdoll click:", slot_type)
 end
 
 function M:on_drop(x, y)

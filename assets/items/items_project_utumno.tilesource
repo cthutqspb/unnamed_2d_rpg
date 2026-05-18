@@ -8,6 +8,11 @@ animations {
   end_tile: 1
 }
 animations {
+  id: "clown_hat"
+  start_tile: 2347
+  end_tile: 2347
+}
+animations {
   id: "crystal_sword"
   start_tile: 3013
   end_tile: 3013

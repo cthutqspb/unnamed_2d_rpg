@@ -11,6 +11,7 @@ M.data = {
         ["item_crystal_sword_desc"] = "Сквозь него все выглядит смешнее. Кому вообще взбрело в голову делать меч из стекла? .",
 
         ["item_leather_helmet_name"] = "Кожаный шлем",
+        ["item_clown_hat_name"] = "Клоунская шапка",
 
         ["item_lesser_mana_potion_name"] = "Малое зелье маны",
         ["item_lesser_mana_potion_desk"] = "Это зелье восстанавливает немного маны.",
@@ -55,6 +56,10 @@ M.data = {
 
         -- Inventory item 
         ["menu_use"] = "Использовать",
+        ["menu_equip"] = "Надеть",
+        ["menu_repair"] = "Починить",
+        ["menu_sharpen"] = "Заточить",
+        ["menu_learn"] = "Изучить",
         ["menu_split"] = "Разделить",
         ["menu_drop"] = "Выбросить",
 
@@ -69,6 +74,8 @@ M.data = {
 
 
         ["item_leather_helmet_name"] = "Leather helmet",
+        ["item_clown_hat_name"] = "Clown hat",
+
         ["item_lesser_mana_potion_name"] = "Lesser mana potion" ,
         ["item_lesser_mana_potion_desk"] = "This potion restores some mana.",
 
@@ -113,6 +120,10 @@ M.data = {
 
         -- Inventory item 
         ["menu_use"] = "Use",
+        ["menu_equip"] = "Equip",
+        ["menu_repair"] = "Repair",
+        ["menu_sharpen"] = "Sharpen",
+        ["menu_learn"] = "Learn",
         ["menu_split"] = "Split",
         ["menu_drop"] = "Drop",
 

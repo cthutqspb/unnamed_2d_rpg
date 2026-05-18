@@ -35,6 +35,7 @@ function M.new_game()
     player_inventory.add_item("iron_sword", 1)
     player_inventory.add_item("lesser_mana_potion", 10)
     player_inventory.add_item("leather_helmet", 1)
+    player_inventory.add_item("clown_hat", 1)
 
     -- 3. Сбрасываем статы персонажа на дефолтные значения (1 уровень, полное ХП)
     character_data.player.level = 1

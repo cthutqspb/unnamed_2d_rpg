@@ -1,7 +1,9 @@
 local druid = require("druid.druid")
+local window_manager = require("main.gui.components.managers.window_manager")
 local ContextMenu = require("main.gui.components.layers.context_menu_layer.ContextMenu")
 
 function init(self)
+    msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
     -- Регистрируем наш компонент
     self.menu = self.druid:new(ContextMenu)
@@ -9,31 +11,40 @@ function init(self)
 end
 
 function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	
 end
 
 function update(self, dt)
-	-- Add update code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	
 end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("show_menu") then
-        self.menu:show(message.x, message.y, message.type, message.data)
-    elseif message_id == hash("hide_menu") then
+        self.menu:show(message.x, message.y, message.type, message.sub_type, message.can_split, message.data)
+        
+        -- ВЫНОСИМ МЕНЮ В ТОП ВВОДА
+        msg.post(".", "acquire_input_focus")
+        
+        -- Чтобы ESC закрывал сначала меню
+        window_manager.push(msg.url(), hash("hide_menu"))
+    end
+    
+    if message_id == hash("hide_menu") then
         self.menu:hide()
+        -- ОБЯЗАТЕЛЬНО ОТДАЕМ ФОКУС, когда меню скрыто
+        msg.post(".", "release_input_focus")
     end
 end
 
 function on_input(self, action_id, action)
+    -- Сначала даем компоненту меню проверить клик "мимо"
+    local handled = self.menu:on_input(action_id, action)
+    if handled then return true end
+
+    -- Потом отдаем Друиду (для кнопок самого меню)
     return self.druid:on_input(action_id, action)
 end
 
 function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
+	
 end

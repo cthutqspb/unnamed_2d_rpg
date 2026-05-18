@@ -6,7 +6,7 @@ M.slots = {
     HEAD = {item_id = nil, amount = 0},
     CHEST = {item_id = nil, amount = 0},
     LEGS = {item_id = nil, amount = 0},
-    WEAPON = {item_id = nil, amount = 0},
+    MAIN_HAND = {item_id = nil, amount = 0},
     SHIELD = {item_id = nil, amount = 0}
 }
 
@@ -25,10 +25,10 @@ end
 function M:can_equip_item(item_id, slot_type)
     local cfg = items_db.get_item(item_id)
     if not cfg then return false end
-    
+
     -- Сверяем тип предмета (например, "HEAD") с ключом слота ("HEAD")
     -- В базе данных тип должен называться так же, как ключи в M.slots
-    return cfg.type == slot_type
+    return cfg.equip_slot == slot_type
 end
 
 -- СИСТЕМНЫЕ МЕТОДЫ

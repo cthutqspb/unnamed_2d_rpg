@@ -66,6 +66,11 @@ function M.add_item(item_id, amount)
     return remaining <= 0
 end
 
+-- Методы контекстного меню
+function M.equip_item(item)
+    
+end
+
 -- УНИВЕРСАЛЬНЫЕ МЕТОДЫ (теперь через self.items)
 function M:swap_slots(from_idx, to_idx)
     self.items[from_idx], self.items[to_idx] = self.items[to_idx], self.items[from_idx]

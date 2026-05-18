@@ -1,53 +1,113 @@
-local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
-local drag_manager = require("main.gui.components.managers.drag_manager")
+local Layout = require("main.gui.components.static_grid.static_grid_layout")
+local Interactions = require("main.gui.components.static_grid.static_grid_interactions")
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
--- Модуль драга теперь один для всех инвентарей
-local DragModule = require("main.gui.components.static_grid.inventory_drag")
+local drag_manager = require("main.gui.components.managers.drag_manager")
 
 ---@class StaticGrid : druid.component
----@field slots table
 local M = component.create("StaticGrid")
 
 function M:init(template_id, config)
-    config = config or {}
-    local d = self:get_druid()
-
-    -- Группа: Базовые настройки
+    self.druid = self:get_druid()
     self.template_id = template_id
     self.data_source = config.data_source
-    self.columns     = config.columns or 6
-    self.rows        = config.rows or 4
+    self.columns = config.columns or 6
+    self.rows = config.rows or 4
 
-    -- Группа: Визуал
-    self.item_size   = config.item_size or 40
-    self.spacing     = config.spacing or 4
-    self.root        = gui.get_node(template_id .. "/root")
-    self.container   = gui.get_node(template_id .. "/container")
+    self.item_size = config.item_size or 40
+    self.spacing = config.spacing or 4
+    self.container = gui.get_node(template_id .. "/container")
+    self.root = gui.get_node(template_id .. "/root")
 
-    -- Группа: Состояние
-    self.slots       = {}
-    self.mouse_x     = 0
-    self.mouse_y     = 0
+    self.is_shift_pressed = false
 
-    self.items_data  = {}
-    self.drag_template = gui.get_node(template_id .. "/drag_icon")
+    self.grid = self.druid:new(static_grid, self.container, template_id .. "/slot_prefab/root", self.columns)
+    self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing)
 
-    -- Инициализация сложных систем
-    self:init_grid(d, template_id)
+    self.slots = {}
 
-    DragModule.create_slots(self)
-    DragModule.init(self)
+    -- ВЫЗОВ ИЗ LAYOUT (названия совпадают)
+    Layout.create_slots(self)
+    -- ВЫЗОВ ИЗ INTERACTIONS
+    Interactions.setup(self)
 
-    if self.drag_template then
-        gui.set_enabled(self.drag_template, false)
+    self._dirty = false
+end
+
+
+function M:on_input(action_id, action)
+    -- 1. Логика Shift (системная)
+    if action_id == hash("key_lshift") then
+        if action.pressed then self.is_shift_pressed = true
+        elseif action.released then self.is_shift_pressed = false end
+        return false
+    end
+
+    -- 2. Ручной перехват ПКМ (так как Друид его не видит)
+    if action_id == hash("mouse_right") and action.released then
+        local index = self:get_slot_at_position(action.x, action.y)
+        if index then
+            -- ВЫЗЫВАЕМ МЕТОД ИЗ INTERACTIONS
+            Interactions.handle_right_click(self, index, action.x, action.y)
+            return true
+        end
+    end
+
+    -- 3. Отдаем ЛКМ Друиду (он сам разберется со слотами через Interactions.setup)
+    return false
+end
+
+
+-- function M:on_input(action_id, action)
+--     if action_id == hash("key_lshift") then
+--         if action.pressed then 
+--             self.is_shift_pressed = true
+--             print("GRID: SHIFT ON")
+--         elseif action.released then 
+--             self.is_shift_pressed = false
+--             print("GRID: SHIFT OFF")
+--         end
+--         return false -- Важно вернуть false, чтобы другие окна тоже видели Shift
+--     end
+--     -- Если нужно, чтобы Друид-кнопки внутри Interactions работали, 
+--     -- можно добавить: return self.druid:on_input(action_id, action)
+--     -- Но обычно Друид сам это делает.
+-- end
+
+function M:update(dt)
+    if self._dirty then
+        self:refresh()
+        self._dirty = false
     end
 end
 
-function M:init_grid(d, template_id)
-    self.grid = d:new(static_grid, self.container, template_id .. "/slot_prefab/root", self.columns)
-    self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing)
-    self.grid:set_anchor(vmath.vector3(0, 1, 0))
+function M:request_refresh()
+    self._dirty = true
+end
+
+function M:refresh()
+    local ds = self:get_data_source()
+    if not ds or not ds.items then return end
+
+    for i = 1, #self.slots do
+        local item = ds:get_item(i)
+        if item and item.item_id then
+            Layout.draw_slot(self, i, item.item_id, item.amount)
+        else
+            Layout.clear_slot_visual(self, i)
+        end
+    end
+end
+
+function M:on_slot_click(index)
+    local item_data = self:get_data_source():get_item(index)
+    if item_data and item_data.amount > 1 then
+        print('SPLIT ON SLOT CLICK')
+        msg.post("main:/split_window#gui", "open_split_window", {
+            item_data = item_data,
+            slot_index = index
+        })
+    end
 end
 
 function M:set_data_source(data_source)
@@ -56,156 +116,44 @@ function M:set_data_source(data_source)
 end
 
 function M:get_data_source()
-    if self.data_source then
-        return self.data_source
-    end
-    -- По умолчанию - инвентарь игрока
-    return require("main.modules.player.player_inventory")
+    return self.data_source or require("main.modules.player.player_inventory")
 end
 
 function M:get_slot_at_position(x, y)
-    return DragModule.get_slot_at_position(self, x, y)
+    for i, slot in ipairs(self.slots) do
+        if gui.pick_node(slot.root, x, y) then return i end
+    end
+    return nil
 end
 
-
-function M:on_input(action_id, action)
-    -- 1. Логика Shift
-    if action_id == hash("key_lshift") then
-        print('LSHIFT')
-        if action.pressed then self.is_shift_pressed = true
-        elseif action.released then self.is_shift_pressed = false end
-        return false -- Не блокируем!
+function M:on_drop(x, y)
+    if not gui.is_enabled(self.root, true) then return false end
+    local index = self:get_slot_at_position(x, y)
+    if index then
+        drag_manager.finish(self, index)
+        return true
     end
-
-    -- 2. Логика ПКМ (Правая кнопка)
-    -- Мы ловим её ДО Друида
-    if action_id == hash("mouse_right") and action.released then
-        local index = DragModule.get_slot_at_position(self, action.x, action.y)
-        if index then
-            -- Вызываем меню
-            DragModule.on_slot_input(self, index, action_id, action)
-            return true -- БЛОКИРУЕМ (персонаж не бежит)
-        end
-    end
-
-    -- 3. ВСЁ. Никаких return self.druid:on_input здесь!
-    -- Мы возвращаем false, чтобы gui_script пошел дальше к Друиду
     return false
 end
 
-
--- function M:on_input(action_id, action)
---     -- Ловим Shift прямо внутри компонента инвентаря
---     if action_id == hash("key_lshift") then
---         if action.pressed then
---             self.is_shift_pressed = true
---         elseif action.released then
---             self.is_shift_pressed = false
---         end
---         return false -- Возвращаем false, чтобы не блокировать инпут другим окнам
---     end
---
---     if action and action.x and action.y then
---         self.mouse_x = action.x
---         self.mouse_y = action.y
---         -- Прокидываем в DragModule, чтобы он знал актуальные координаты
---         DragModule.on_input(self, action_id, action)
---     end
--- end
-
-function M:refresh()
-    local data_source = self:get_data_source()
-    if not data_source or not data_source.items then
-        print("Warning: StaticGrid has no data_source during refresh")
-        return
-    end
-
-    for i = 1, #self.slots do
-        local data = data_source:get_item(i)
-        if data and data.item_id then
-            DragModule.update_slot_visual(self, i, data.item_id, data.amount)
-        else
-            -- Если предмет выкинули, мы должны попасть сюда
-            DragModule.clear_slot_visual(self, i)
+function M:get_hover_data(mx, my)
+    local index = self:get_slot_at_position(mx, my)
+    if index then
+        local item = self:get_data_source():get_item(index)
+        if item and item.item_id then
+            return { type = "item", id = item.item_id }
         end
     end
+    return nil
 end
 
 function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
-end
-
-function M:on_drop(x, y)
-    if not gui.is_enabled(self.root) then
-        return false
+    -- Если окно стало видимым, можно сразу запросить обновление
+    if visible then
+        self:request_refresh()
     end
-
-    -- Ищем слот через DragModule
-    local slot_index = self:get_slot_at_position(x, y)
-
-    if slot_index then
-        print("StaticGrid [" .. self.template_id .. "]: Drop into slot", slot_index)
-        drag_manager.finish(self, slot_index)
-        return true -- Мы обработали дроп
-    end
-
-    return false -- Мышь была не над этой сеткой
-end
-
-function M:update_hover(mx, my)
-    -- ЗАЩИТА: Если координат нет, выходим сразу
-    if not mx or not my then return false end
-
-    -- 1. Жесткая проверка: готов ли компонент
-    if not self.root or not gui.is_enabled(self.root, true) then
-        return false
-    end
-
-    if drag_manager.is_dragging() then
-        tooltip_manager.hide()
-        return false
-    end
-
-    local over_any_slot = false
-    -- 2. Инвентарь — это массив, используем ipairs
-    for i, slot_nodes in ipairs(self.slots) do
-        if gui.pick_node(slot_nodes.root, mx, my) then
-            local item_data = self:get_data_source().items[i]
-
-            -- Если слот пустой (item_id == nil), просто прячем тултип
-            if item_data and item_data.item_id then
-                tooltip_manager.show("item", item_data.item_id)
-            else
-                tooltip_manager.hide()
-            end
-            over_any_slot = true
-            break
-        end
-    end
-    return over_any_slot
-end
-
-function M:get_hover_data(mx, my)
-    -- 1. Ищем индекс слота под мышкой (используем твой текущий метод)
-    local index = self:get_slot_at_position(mx, my)
-
-    if index then
-        -- 2. Берем данные из модели
-        local item = self:get_data_source():get_item(index)
-
-        -- 3. Если в слоте что-то есть — возвращаем пакет для тултипа
-        if item and item.item_id then
-            return {
-                type = "item",
-                id = item.item_id,
-                amount = item.amount -- может пригодиться в тултипе
-            }
-        end
-    end
-
-    return nil
 end
 
 return M
-
 

@@ -72,18 +72,25 @@ function M.is_over_window(self, x, y)
 end
 
 function M.handle_hover(self, mx, my)
-    if not mx or not my or not gui.is_enabled(self.root, true) then return nil end
+    -- 1. Сначала проверяем координаты (защита от nil и 0)
+    if not mx or not my or mx == 0 or my == 0 then return nil end
+    
+    if drag_manager.is_dragging() then return nil end
 
+    -- 2. Проверяем, что нода вообще СУЩЕСТВУЕТ, прежде чем вызывать gui.is_enabled
+    -- Если self.root будет nil, gui.is_enabled уронит игру с нечитаемой ошибкой
+    if not self.root or not gui.is_enabled(self.root, true) then 
+        return nil 
+    end
+
+    -- 3. Опрос модулей
     if self.modules then
         for i, module in ipairs(self.modules) do
-    if module then
-        if module.get_hover_data then
-            local data = module:get_hover_data(mx, my)
-            if data then return data end
+            if module and module.get_hover_data then
+                local data = module:get_hover_data(mx, my)
+                if data then return data end
+            end
         end
-    end
-end
-
     end
     return nil
 end
