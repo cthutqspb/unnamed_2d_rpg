@@ -46,16 +46,16 @@ function M.init(self, template_id, callbacks)
         end)
     end
 
-    --------------------------------------------------------------------
-    -- НОВЫЙ БЛОК: СЛОИ И РЕГИСТРАЦИЯ
-    --------------------------------------------------------------------
     -- 1. Устанавливаем визуальный Z-слой
     -- self.render_order должен быть задан в gui_script до вызова M.init
-    self.render_order = self.render_order or 10
+    if not self.render_order then
+        self.render_order = 5
+        print("WARNING: render_order not set, using default 10 for", msg.url())
+    end
     gui.set_render_order(self.render_order)
-
-    -- 2. Если это статика (HUD, Портрет, Экшен-бар), сразу пушим в менеджер.
-    -- Они будут в стеке всегда, но на нижних Z-слоях.
+    --
+    -- -- 2. Если это статика (HUD, Портрет, Экшен-бар), сразу пушим в менеджер.
+    -- -- Они будут в стеке всегда, но на нижних Z-слоях.
     if self.is_static then
         window_manager.push(self, msg.url(), self.render_order)
     end
@@ -117,21 +117,25 @@ end
 
 function M.toggle(self)
     local is_visible = M.is_visible(self)
-    M.set_visible(self, not is_visible)
-
-    local new_visible = M.is_visible(self)
+    local new_visible = not is_visible
+    
+    M.set_visible(self, new_visible)
 
     if new_visible then
-        msg.post(".", "acquire_input_focus")
-        -- ПЕРЕДАЕМ self.render_order (который 30 для сундука и 20 для перса)
+        -- 1. Регистрируем в стеке с Z
         window_manager.push(self, msg.url(), self.render_order)
+        -- 2. ГЛАВНЫЙ ФИКС: Перестраиваем очередь ввода по слоям
+        window_manager.reorder_focus()
     else
         window_manager.pop(msg.url())
         msg.post(".", "release_input_focus")
+        -- После закрытия обновляем фокус для тех, кто остался
+        window_manager.reorder_focus()
     end
 
     return new_visible
 end
+
 
 
 function M.set_visible(self, visible)

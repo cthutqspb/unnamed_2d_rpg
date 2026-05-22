@@ -1,5 +1,5 @@
-local constants_ui = require("main.gui.constants_ui")
 local locales = require("main.modules.data.locales.locale_manager")
+local constants_ui = require("main.gui.constants_ui")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
@@ -18,9 +18,6 @@ local QUALITY_COLORS = {
 local STATS_COLOR = vmath.vector4(0.7, 0.7, 0.7, 1)
 
 function init(self)
-    self.render_order = constants_ui.LAYERS.TOOLTIP
-    self.is_static = false
-
     self.root = gui.get_node("root")
     self.background = gui.get_node("background")
 
@@ -92,7 +89,7 @@ local function add_line(self, left_text, right_text, color, is_header)
     local padding = 2
     gui.set_position(root, vmath.vector3(padding, self.current_y - padding, 0))
     gui.set_size(root, vmath.vector3(320 - (padding * 2), row_h, 0))
-
+    
     self.current_y = self.current_y - row_h
     table.insert(self.active_elements, root)
 end
@@ -251,6 +248,7 @@ function update(self, dt)
     -- ПОЗИЦИОНИРОВАНИЕ
     local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
     gui.set_position(self.root, gui_utils.clamp_to_screen(self.root, mouse_pos, 10))
+    gui.set_render_order(constants_ui.LAYERS.TOOLTIP)
 
     -- 2. Сравнение по ссылке на таблицу данных (самый надежный способ)
     if data == self.current_data_ref then

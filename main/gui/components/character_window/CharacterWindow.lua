@@ -2,6 +2,7 @@ local component = require("druid.component")
 local locales = require("main.modules.data.locales.locale_manager")
 
 -- Компоненты вкладок
+local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
 local CharacterStats = require("main.gui.components.character_window.CharacterStats")
 local CharacterPaperdoll = require("main.gui.components.character_window.CharacterPaperdoll")
@@ -60,6 +61,9 @@ local TABS_CONFIG = {
 }
 
 function M:init(template_id, player_inventory)
+    self.render_order = constants_ui.LAYERS.WINDOW
+    self.is_static = false
+
     BaseWindow.init(self, template_id, {
         on_show = function ()
             self.static_grid:refresh()

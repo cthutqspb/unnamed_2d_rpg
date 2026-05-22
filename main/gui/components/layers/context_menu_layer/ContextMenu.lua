@@ -7,6 +7,7 @@ local M = component.create("ContextMenu")
 
 function M:init()
     self.druid = self:get_druid()
+
     self.root = gui.get_node("root")
     self.background = gui.get_node("background")
     self.action_field = gui.get_node("action_field")

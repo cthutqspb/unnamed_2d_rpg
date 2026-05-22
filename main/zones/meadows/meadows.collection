@@ -66,6 +66,7 @@ instances {
   position {
     x: 5475.0
     y: 2873.0
+    z: 1.0
   }
   component_properties {
     id: "world_item"
@@ -87,6 +88,7 @@ instances {
   position {
     x: 5098.0
     y: 2398.0
+    z: 1.0
   }
   component_properties {
     id: "world_item"

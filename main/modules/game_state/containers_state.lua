@@ -34,8 +34,8 @@ function M.restore_all(data)
     if not data then return end
 
     -- Бежим циклом только по сохраненным сундукам и обновляем их в реестре
-    for container_id, container_data in pairs(data) do
-        M.registry[container_id] = container_data
+    for container_uid, container_data in pairs(data) do
+        M.registry[container_uid] = container_data
     end
 end
 

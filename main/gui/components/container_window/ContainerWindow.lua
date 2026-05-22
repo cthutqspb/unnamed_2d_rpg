@@ -1,4 +1,5 @@
 local component = require("druid.component")
+local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local InventoryModel = require("main.modules.inventory_model")
@@ -21,6 +22,10 @@ end
 function M:init(template_id, config)
     self.template_id = template_id
     local d = self:get_druid()
+    
+
+    self.render_order = constants_ui.LAYERS.LOOT -- 30
+    self.is_static = false
 
     BaseWindow.init(self, template_id, {
         on_show = function ()
@@ -65,8 +70,9 @@ function M:init(template_id, config)
     self:set_visible(false)
 end
 
-function M:open(container_id, columns, rows, world_pos, player_pos)
-    local container_data = containers_state.get(container_id)
+function M:open(container_uid, container_id, columns, rows, world_pos, player_pos)
+    self.uid = container_uid
+    local container_data = containers_state.get(container_uid)
     if not container_data then
         print("ERROR: Container state not found")
         return

@@ -68,5 +68,17 @@ function M.is_context_menu_open()
     return false
 end
 
+function M.reorder_focus()
+    -- Стек у нас уже отсортирован: [Z10, Z20, Z30]
+    -- Мы идем от МЕНЬШЕГО к БОЛЬШЕМУ.
+    for i = 1, #stack do
+        local win = stack[i]
+        -- Тот, кто вызвал acquire ПОСЛЕДНИМ в цикле, станет ПЕРВЫМ в on_input
+        msg.post(win.url, "release_input_focus")
+        msg.post(win.url, "acquire_input_focus")
+    end
+end
+
+
 return M
 

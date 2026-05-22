@@ -4,14 +4,11 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local ContextMenu = require("main.gui.components.layers.context_menu_layer.ContextMenu")
 
 function init(self)
-    self.render_order = constants_ui.LAYERS.POPUP
-    self.is_static = false
-
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
     -- Регистрируем наш компонент
     self.menu = self.druid:new(ContextMenu)
-    gui.set_render_order(30)
+    -- gui.set_render_order(30)
 end
 
 function final(self)
@@ -28,14 +25,15 @@ function on_message(self, message_id, message, sender)
         msg.post(".", "acquire_input_focus")
 
         -- Чтобы ESC закрывал сначала меню
-        window_manager.push(self, msg.url(), hash("hide_menu"))
+        gui.set_render_order(constants_ui.LAYERS.CONTEXT)
+        window_manager.push(self, msg.url(), constants_ui.LAYERS.CONTEXT)
     end
 
-    if message_id == hash("hide_menu") then
+    if message_id == hash("hide_menu") or message_id == hash("close_window") then
         self.menu:hide_ui()
         window_manager.pop(msg.url())
-        -- ОБЯЗАТЕЛЬНО ОТДАЕМ ФОКУС, когда меню скрыто
         msg.post(".", "release_input_focus")
+        window_manager.reorder_focus() -- Вернуть фокус окну под меню
     end
 end
 

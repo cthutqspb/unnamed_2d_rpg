@@ -1,8 +1,9 @@
+local constants_ui = require("main.gui.constants_ui")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 
 function init(self)
     -- Мы не запрашиваем фокус ввода! Этот слой только для отрисовки.
-    gui.set_render_order(20)
+    gui.set_render_order(constants_ui.LAYERS.DRAG)
     self.icon = gui.get_node("icon")
     gui.set_enabled(self.icon, false)
 end
