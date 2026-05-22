@@ -61,7 +61,7 @@ local function open_container(self)
 
     -- Передаём в GUI ссылку на state.items
     msg.post("main:/container_window#gui", "open_container_window", {
-        container_id = self.container_id,
+        container_id = self.container_uid,
         container_items = state.items,  -- передаём ссылку на предметы
         columns = self.columns,
         rows = self.rows,

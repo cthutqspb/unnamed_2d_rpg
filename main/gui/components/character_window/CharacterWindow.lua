@@ -60,7 +60,6 @@ local TABS_CONFIG = {
 }
 
 function M:init(template_id, player_inventory)
-
     BaseWindow.init(self, template_id, {
         on_show = function ()
             self.static_grid:refresh()

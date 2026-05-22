@@ -57,9 +57,9 @@ function update(self, dt)
     -- -- Сбрасываем флаг в начале каждого кадра
     -- window_manager.is_over_ui = false
     -- -- Если используешь таблицу:
-    for url, _ in pairs(window_manager.hovered_states) do
-        window_manager.hovered_states[url] = false
-    end
+    -- for url, _ in pairs(window_manager.hovered_states) do
+    --     window_manager.hovered_states[url] = false
+    -- end
 end
 
 function late_update(self, dt)

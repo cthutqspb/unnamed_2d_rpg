@@ -1,10 +1,11 @@
+local constants_ui = require("main.gui.constants_ui")
 local druid = require("druid.druid")
 local window_manager = require("main.gui.components.managers.window_manager")
 local settings = require("main.modules.data.settings")
 local items_db = require("main.modules.data.items_db")
 
 -- 1. Объявляем функции локально, чтобы скрипт их видел
-local function update_ui(self) 
+local function update_ui(self)
     gui.set_text(self.text_count, tostring(self.current_amount))
 end
 
@@ -36,7 +37,9 @@ end
 
 
 function init(self)
-    gui.set_render_order(20)
+    self.render_order = constants_ui.LAYERS.POPUP
+    self.is_static = false
+
     msg.post(".", "acquire_input_focus") -- запрашиваем фокус, чтобы ловить клики кнопок
     self.druid = druid.new(self)
 
@@ -78,7 +81,7 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("open_split_window") then
         print('ON MESSAGE IN SPLIT_WINDOW: ACTIVE!')
-        window_manager.push(self, msg.url(), hash("close_window"))
+        window_manager.push(self, msg.url(), self.render_order)
         msg.post(".", "acquire_input_focus")
         
         self.sender_url = sender

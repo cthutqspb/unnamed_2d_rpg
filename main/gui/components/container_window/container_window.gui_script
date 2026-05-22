@@ -1,4 +1,5 @@
 local druid = require("druid.druid")
+local constants_ui = require("main.gui.constants_ui")
 local broadcast = require("main.modules.system.broadcast")
 local item_transfer_manager = require("main.modules.item_transfer_manager")
 local ContainerWindow = require("main.gui.components.container_window.ContainerWindow")
@@ -13,6 +14,8 @@ function init(self)
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
 
+    self.render_order = constants_ui.LAYERS.LOOT
+    self.is_static = false
     -- Создаем окно как Druid-компонент
     -- Пустая строка "" вторым аргументом, так как внутри компонента мы ищем ноды напрямую или через префиксы
     self.container_window = self.druid:new(ContainerWindow, "", {
@@ -67,6 +70,7 @@ function on_message(self, message_id, message, sender)
             message.position,
             message.player_pos
         )
+        print("OPENING CONTAINER WITH Z:", self.render_order)
         self.container_window:toggle()
     end
 
@@ -131,7 +135,14 @@ function on_input(self, action_id, action)
 
     -- 1. Сначала отдаем ввод Друиду (кнопки, вкладки и начало драга)
     local handled = self.druid:on_input(action_id, action)
-
+    
+    -- 2. Если мышь над телом окна - возвращаем true. 
+    -- Это СЪЕДАЕТ клик. Нижние окна его не получат.
+     if action.x and action.y then
+        if self.container_window:is_over_window(action.x, action.y) then
+            return true
+        end
+    end
     -- 2. Логика Драга (твоя идеальная версия)
     if drag_manager.is_dragging() then
         if not action_id or action_id == h_touch then

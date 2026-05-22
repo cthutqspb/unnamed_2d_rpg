@@ -1,8 +1,12 @@
 local druid = require("druid.druid")
+local constants_ui = require("main.gui.constants_ui")
 local window_manager = require("main.gui.components.managers.window_manager")
 local ContextMenu = require("main.gui.components.layers.context_menu_layer.ContextMenu")
 
 function init(self)
+    self.render_order = constants_ui.LAYERS.POPUP
+    self.is_static = false
+
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
     -- Регистрируем наш компонент

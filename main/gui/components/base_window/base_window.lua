@@ -1,4 +1,3 @@
-local druid = require("druid.druid")
 local gui_utils = require("main.gui.gui_utils")
 local window_manager = require("main.gui.components.managers.window_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
@@ -46,6 +45,20 @@ function M.init(self, template_id, callbacks)
             M.close(self)
         end)
     end
+
+    --------------------------------------------------------------------
+    -- НОВЫЙ БЛОК: СЛОИ И РЕГИСТРАЦИЯ
+    --------------------------------------------------------------------
+    -- 1. Устанавливаем визуальный Z-слой
+    -- self.render_order должен быть задан в gui_script до вызова M.init
+    self.render_order = self.render_order or 10
+    gui.set_render_order(self.render_order)
+
+    -- 2. Если это статика (HUD, Портрет, Экшен-бар), сразу пушим в менеджер.
+    -- Они будут в стеке всегда, но на нижних Z-слоях.
+    if self.is_static then
+        window_manager.push(self, msg.url(), self.render_order)
+    end
 end
 
 function M.request_refresh(self)
@@ -53,10 +66,7 @@ function M.request_refresh(self)
 end
 
 function M.update(self, dt, mx, my)
-    if gui.is_enabled(self.root, true) then
-        local over = gui.pick_node(self.body, mx, my)
-        window_manager.set_hover_status(msg.url(), over)
-    end
+    -- УБРАЛИ set_hover_status. Теперь менеджер сам опрашивает окна через is_over_window
     if self._dirty then
         if self.refresh_all then self:refresh_all() end
         self._dirty = false
@@ -111,20 +121,18 @@ function M.toggle(self)
 
     local new_visible = M.is_visible(self)
 
-    -- Управление рендер-ордером и фокусом (базовое)
-    gui.set_render_order(new_visible and 10 or 0)
-
     if new_visible then
         msg.post(".", "acquire_input_focus")
-        window_manager.push(self, msg.url())
+        -- ПЕРЕДАЕМ self.render_order (который 30 для сундука и 20 для перса)
+        window_manager.push(self, msg.url(), self.render_order)
     else
-        window_manager.set_hover_status(msg.url(), false)
         window_manager.pop(msg.url())
         msg.post(".", "release_input_focus")
     end
 
     return new_visible
 end
+
 
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
@@ -143,22 +151,10 @@ function M.is_visible(self)
 end
 
 function M.close(self)
-    -- 1. Скрываем визуал
     M.set_visible(self, false)
-
-    -- 2. Сбрасываем слой отрисовки
-    gui.set_render_order(0)
-
-    -- 3. Убираем из стека менеджера
-    -- Важно: window_manager.pop сам найдет этот URL
+    -- УБРАЛИ обнуление render_order, чтобы не ломать Z-слой окна
     window_manager.pop(msg.url())
-
-    -- 4. Отдаем фокус ввода
     msg.post(".", "release_input_focus")
-
-    -- 5. (Опционально) Сбрасываем статус ховера, 
-    -- чтобы мир перестал думать, что мышь над окном
-    window_manager.set_hover_status(msg.url(), false)
 end
 
 function M.set_title(self, text)

@@ -2,42 +2,24 @@ local M = {}
 
 -- Стек открытых окон (список URL скриптов)
 local stack = {}
-M.hovered_states = {}
+
 M.mouse_x = 0
 M.mouse_y = 0
--- M.is_over_ui = false
 
 function M.update_mouse(x, y)
     M.mouse_x = x
     M.mouse_y = y
 end
 
-function M.set_hover_status(url, is_hovered)
-    M.hovered_states[url] = is_hovered
-end
-
-function M.is_over_ui()
-    -- 1. Если стек пуст - мир точно свободен
-    if #stack == 0 then return false end
-
-    -- 2. Проверяем только то окно, которое САМОЕ ВЕРХНЕЕ в стеке
-    local top = stack[#stack]
-    local url_str = tostring(top.url)
-    
-    -- 3. Если верхнее окно говорит "я под мышкой" - блокируем мир
-    if M.hovered_states[url_str] then
-        return true
-    end
-    
-    return false
-end
-
-
 function M.push(instance, url, z)
     M.pop(url)
+    -- Сохраняем Z вместе с инстансом
     table.insert(stack, { instance = instance, url = url, z = z or 0 })
-    -- Сортируем: чем больше Z, тем дальше в таблице (выше)
-    table.sort(stack, function(a, b) return a.z < b.z end)
+    
+    -- ЖЕСТКАЯ СОРТИРОВКА: теперь в конце стека всегда то окно, у которого Z больше
+    table.sort(stack, function(a, b) 
+        return a.z < b.z 
+    end)
 end
 
 -- Удалить конкретное окно из стека (например, если закрыли кликом на крестик)
@@ -64,7 +46,6 @@ function M.close_top()
     end
     return false
 end
-
 
 function M.get_window_instance(url)
     for _, win in ipairs(stack) do

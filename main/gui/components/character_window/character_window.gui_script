@@ -1,4 +1,5 @@
 local druid = require("druid.druid")
+local constants_ui = require("main.gui.constants_ui")
 local broadcast = require("main.modules.system.broadcast")
 local item_transfer_manager = require("main.modules.item_transfer_manager")
 local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
@@ -12,6 +13,9 @@ local items_db = require("main.modules.data.items_db")
 local h_touch = hash("touch")
 
 function init(self)
+    self.render_order = constants_ui.LAYERS.WINDOW
+    self.is_static = false
+
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
 
@@ -159,7 +163,12 @@ function on_input(self, action_id, action)
 
     -- 1. Сначала отдаем ввод Друиду (кнопки, вкладки и начало драга)
     local handled = self.druid:on_input(action_id, action)
-
+    
+    if action.x and action.y then
+        if self.character_window:is_over_window(action.x, action.y) then
+            return true
+        end
+    end
     -- 2. Логика Драга (твоя идеальная версия)
     if drag_manager.is_dragging() then
         if not action_id or action_id == h_touch then
