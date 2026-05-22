@@ -2,13 +2,13 @@ local component = require("druid.component")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local drag_manager = require("main.gui.components.managers.drag_manager")
-local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 
 ---@class CharacterPaperdoll : druid.component
 ---@field druid table
 ---@field slots table
----@field root any
+---@field root node
 ---@field template_id string
+---@field is_shift_pressed boolean
 local M = component.create("CharacterPaperdoll")
 
 function M:init(template_id)
@@ -37,14 +37,12 @@ function M:init(template_id)
         }
 
         local drag = self.druid:new_drag(slot_root)
-        
-        self.druid:new_button(slot_root, function(ctx, action_id, action)
-            self:on_slot_input(slot_type, action_id, action)
-        end)
 
         drag.on_drag_start:subscribe(function()
+            ---@type any
             local item_data = player_paperdoll.slots[slot_type]
             if item_data and item_data.item_id then
+                ---@type table|nil
                 local data = items_db.get_item(item_data.item_id)
                 if data then
                     drag_manager.start(self, slot_type, item_data, data)
@@ -55,31 +53,65 @@ function M:init(template_id)
     end
 end
 
-function M.on_slot_input(self, index, action_id, action)
-    -- Если данных нет (например, кликнули не мышкой) — выходим
-    if not action or not action.x then return end
-
-    local item_data = self:get_data_source():get_item(index)
-    if not item_data or not item_data.item_id then return end
-
-    -- 1. ЛКМ + Shift (Сплиттер)
-    -- if action_id == hash("touch") and self.is_shift_pressed then
-    --     if item_data.amount > 1 then
-    --         M.on_slot_click(self, index)
-    --         return true
-    --     end
-    -- end
-
-    -- 2. ПКМ (Контекстное меню)
-    if action.button_id == 2 then
-        msg.post("main:/gui_manager#context_menu", "show_menu", {
-            x = action.x,
-            y = action.y,
-            type = "item",
-            data = { slot_index = index, source = self, item_id = item_data.item_id }
-        })
-        return true
+function M:on_input(action_id, action)
+    -- 1. Логика Shift (системная)
+    if action_id == hash("key_lshift") then
+        if action.pressed then self.is_shift_pressed = true
+        elseif action.released then self.is_shift_pressed = false end
     end
+
+    -- 2. Ручной перехват ПКМ (так как Друид его не видит)
+    if action_id == hash("mouse_right") and action.released then
+        for slot_type, nodes in pairs(self.slots) do
+            if gui.pick_node(nodes.root, action.x, action.y) then
+                self:handle_right_click(slot_type, action.x, action.y)
+            end
+        end
+    end
+end
+
+function M:handle_right_click( index, x, y)
+    local item_data = self:get_data_source():get_item(index)
+
+    if not item_data or not item_data.item_id then
+        print("RIGHT CLICK: Slot is empty")
+        return
+    end
+
+    local item_cfg = items_db.get_item(item_data.item_id)
+    -- -- Проверяем, можно ли разделить этот конкретный стак
+    local can_split = item_data.amount and item_data.amount >= 2
+    msg.post("main:/context_menu_layer#gui", "show_menu", {
+        x = x, y = y,
+        type = "item",
+        sub_type = item_cfg.type,
+        flags = {
+            can_split = can_split, -- Передаем флаг в меню
+            is_equipped = true
+        },
+            data = {
+            slot_index = index,
+            item_id = item_data.item_id,
+            source_url = msg.url()
+        }
+    })
+
+    -- local item_cfg = items_db.get_item(item_data.item_id)
+    -- 
+    -- -- Проверяем, можно ли разделить этот конкретный стак
+    -- local can_split = item_data.amount and item_data.amount >= 2
+    -- 
+    -- msg.post("main:/context_menu_layer#gui", "show_menu", {
+    --     x = x, y = y,
+    --     type = "item",
+    --     sub_type = item_cfg.type,
+    --     can_split = can_split, -- Передаем флаг в меню
+    --     data = { 
+    --         slot_index = index,
+    --         item_id = item_data.item_id,
+    --         source_url = msg.url()
+    --     }
+    -- })
 end
 
 function M:on_drop(x, y)
@@ -95,15 +127,16 @@ function M:on_drop(x, y)
     return false
 end
 
-
 function M:get_data_source()
     return player_paperdoll
 end
 
 function M:refresh()
     for slot_type, slot_data in pairs(self.slots) do
+        ---@type any
         local data = player_paperdoll.slots[slot_type]
         if data and data.item_id then
+            ---@type table|nil
             local item_cfg = items_db.get_item(data.item_id)
             if item_cfg then
                 gui.set_enabled(slot_data.icon, true)
@@ -121,37 +154,18 @@ function M:set_visible(visible)
     if visible then self:refresh() end
 end
 
-function M:update_hover(mx, my)
-    -- Проверяем, включена ли нода и вся цепочка её родителей
-    if not self.root or not gui.is_enabled(self.root, true) then
-        return false
-    end
-    -- 1. Проверка для словаря (HEAD, CHEST...)
-    if not self.slots or next(self.slots) == nil then return false end
-
-    if drag_manager.is_dragging() then
-        tooltip_manager.hide()
-        return false
-    end
-
-    local hovered = false
+function M:get_hover_data(mx, my)
     -- 2. Кукла — это СЛОВАРЬ, используем pairs
     for slot_type, nodes in pairs(self.slots) do
         if gui.pick_node(nodes.root, mx, my) then
+            ---@type table|nil
             local item_data = self:get_data_source().slots[slot_type]
-
             if item_data and item_data.item_id then
-                tooltip_manager.show("item", item_data.item_id)
-            else
-                tooltip_manager.hide()
+                return { type = "item", item = item_data }
             end
-            hovered = true
-            break
         end
     end
-    return hovered
 end
-
 
 return M
 

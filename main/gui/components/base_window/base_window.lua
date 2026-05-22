@@ -63,32 +63,42 @@ function M.update(self, dt, mx, my)
     end
 end
 
+-- В BaseWindow.lua
 function M.is_over_window(self, x, y)
-    if self.root and gui.is_enabled(self.root, true) then
-        -- Проверяем попадание в body или root
-        return gui.pick_node(self.body, x, y)
+    -- Если root выключен, окно ВООБЩЕ не должно существовать для логики
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return false
     end
-    return false
+    -- Только если включено, проверяем координаты
+    return gui.pick_node(self.body, x, y)
 end
+
 
 function M.handle_hover(self, mx, my)
     -- 1. Сначала проверяем координаты (защита от nil и 0)
     if not mx or not my or mx == 0 or my == 0 then return nil end
-    
+
     if drag_manager.is_dragging() then return nil end
+    
+    if window_manager.is_context_menu_open() then return nil end
+
 
     -- 2. Проверяем, что нода вообще СУЩЕСТВУЕТ, прежде чем вызывать gui.is_enabled
     -- Если self.root будет nil, gui.is_enabled уронит игру с нечитаемой ошибкой
-    if not self.root or not gui.is_enabled(self.root, true) then 
-        return nil 
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return nil
     end
 
     -- 3. Опрос модулей
     if self.modules then
-        for i, module in ipairs(self.modules) do
-            if module and module.get_hover_data then
-                local data = module:get_hover_data(mx, my)
-                if data then return data end
+        for _, module in ipairs(self.modules) do
+            -- 2. ГЛАВНЫЙ ФИКС: Проверяем, включен ли корень модуля (сетки, куклы и т.д.)
+            -- Если вкладка скрыта, то module.root будет disabled, и мы его пропустим
+            if module and module.root and gui.is_enabled(module.root, true) then
+                if module.get_hover_data then
+                    local data = module:get_hover_data(mx, my)
+                    if data then return data end
+                end
             end
         end
     end
@@ -106,7 +116,7 @@ function M.toggle(self)
 
     if new_visible then
         msg.post(".", "acquire_input_focus")
-        window_manager.push(msg.url())
+        window_manager.push(self, msg.url())
     else
         window_manager.set_hover_status(msg.url(), false)
         window_manager.pop(msg.url())

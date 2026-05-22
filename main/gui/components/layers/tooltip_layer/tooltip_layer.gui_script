@@ -1,91 +1,420 @@
+local locales = require("main.modules.data.locales.locale_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
 local items_db = require("main.modules.data.items_db")
+local character_data = require("main.modules.character.character_data")
 local gui_utils = require("main.gui.gui_utils")
 
+local QUALITY_COLORS = {
+    common    = vmath.vector4(1, 1, 1, 1),
+    uncommon  = vmath.vector4(0.12, 1, 0, 1),
+    rare      = vmath.vector4(0, 0.44, 1, 1),
+    epic      = vmath.vector4(0.64, 0.21, 0.93, 1),
+    legendary = vmath.vector4(1, 0.5, 0, 1),
+}
+
+local STATS_COLOR = vmath.vector4(0.7, 0.7, 0.7, 1)
+
 function init(self)
-    gui.set_render_order(25) -- Самый верхний слой
+    gui.set_render_order(15) 
     self.root = gui.get_node("root")
-    self.title = gui.get_node("title")
-    self.description = gui.get_node("description")
-    self.stats = gui.get_node("stats")
+    self.background = gui.get_node("background")
     
+    -- Твой новый шаблон (Box-враппер)
+    self.row_wrapper = gui.get_node("row_wrapper")
+    
+    self.current_id = nil
+    self.active_elements = {}
+    self.current_y = 0
+
     gui.set_enabled(self.root, false)
+    gui.set_enabled(self.row_wrapper, false)
+end
+
+local function add_line(self, left_text, right_text, color, is_header)
+    local nodes = gui.clone_tree(self.row_wrapper)
+    local root = nodes[hash("row_wrapper")]
+    local label_l = nodes[hash("text_left")]
+    local label_r = nodes[hash("text_right")]
+
+    gui.set_enabled(root, true)
+
+    -- 1. ТЕКСТ
+    local l_str = tostring(left_text or "")
+    local r_str = tostring(right_text or "")
+    gui.set_text(label_l, l_str)
+    gui.set_text(label_r, r_str)
+
+    local text_color = color or vmath.vector4(1, 1, 1, 1)
+    gui.set_color(label_l, text_color)
+    gui.set_color(label_r, text_color)
+
+    -- 2. ВЫСОТА (Metrics)
+    local font = gui.get_font(label_l)
+    local max_w = (r_str == "") and 300 or 150
+    local metrics = gui.get_text_metrics(font, l_str, max_w, true)
+    local text_h = metrics.height * gui.get_scale(label_l).y
+
+    local row_h = math.max(24, text_h + 8)
+
+    -- 3. СТИЛИЗАЦИЯ
+    if is_header then
+        row_h = 40
+        gui.set_scale(label_l, vmath.vector3(1.2, 1.2, 1))
+        local bg_size = gui.get_size(self.background)
+        gui.set_position(label_l, vmath.vector3(bg_size.x / 2, -10, 0))
+        gui.set_pivot(label_l, gui.PIVOT_N)
+        -- Прячем правый текст в заголовке на всякий случай
+        gui.set_enabled(label_r, false)
+    else
+        -- ЛЕВЫЙ ТЕКСТ (Всегда слева)
+        gui.set_scale(label_l, vmath.vector3(1, 1, 1))
+        gui.set_pivot(label_l, gui.PIVOT_NW)
+        gui.set_position(label_l, vmath.vector3(10, -5, 0))
+
+        -- ПРАВЫЙ ТЕКСТ (Улетает вправо, если он есть)
+        if r_str ~= "" then
+            gui.set_enabled(label_r, true)
+            gui.set_pivot(label_r, gui.PIVOT_NE) -- Пивот на Северо-Восток
+            -- X = 310 (край враппера минус отступ), Y как у левого
+            gui.set_position(label_r, vmath.vector3(310, -5, 0))
+        else
+            gui.set_enabled(label_r, false)
+        end
+    end
+
+    -- 4. ПОЗИЦИЯ
+    local padding = 2
+    gui.set_position(root, vmath.vector3(padding, self.current_y - padding, 0))
+    gui.set_size(root, vmath.vector3(320 - (padding * 2), row_h, 0))
+
+    self.current_y = self.current_y - row_h
+    table.insert(self.active_elements, root)
 end
 
 
-function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+local function clear_tooltip(self)
+    for _, node in ipairs(self.active_elements) do
+        gui.delete_node(node)
+    end
+    self.active_elements = {}
+    self.current_y = 0
+    self.current_id = nil
 end
 
 function update(self, dt)
     local data = tooltip_manager.get_current()
+    print('DATA', data)
+    if not data or drag_manager.is_dragging() then
+        if gui.is_enabled(self.root) then
+            clear_tooltip(self)
+            gui.set_enabled(self.root, false)
+        end
+        return
+    end
 
-    -- Если драга нет и есть данные для тултипа
-    if data and not drag_manager.is_dragging() then
+    -- ВАЖНО: Разный ID для разных типов
+    local current_id_to_check = ""
+    print('DATA', data.type)
+    if data.type == "item" then
+        current_id_to_check = data.data.item_id or data.data.id
+    else
+        current_id_to_check = data.data.id -- для world_object это UID
+    end
+
+    -- ПРОВЕРКА ОБНОВЛЕНИЯ
+    if current_id_to_check ~= self.current_id then
+        clear_tooltip(self)
+        self.current_id = current_id_to_check
         gui.set_enabled(self.root, true)
 
-        -- 1. НАПОЛНЕНИЕ ДАННЫМИ
+        -- ЛОГИКА ДЛЯ ПРЕДМЕТА ИЗ ИНВЕНТАРЯ
         if data.type == "item" then
-            local item = items_db.get_item(data.id)
-
-            if not item then
-                -- Если предмета нет в базе, просто тихо прячемся
-                gui.set_enabled(self.root, false)
-                return
-            end
-
-            gui.set_text(self.title, item.name or "Unknown Item")
-            gui.set_text(self.description, item.description or "")
-            -- Если есть статы — собираем их в строку
-            local stats_text = ""
-            if item.stats then
-                for stat, val in pairs(item.stats) do
-                    stats_text = stats_text .. stat .. ": +" .. val .. "\n"
+            local item_context = data.data
+            local cfg = items_db.get_item(item_context.item_id or item_context.id)
+            if cfg then
+                local amount = item_context.amount or 1
+                -- [БЛОК 1: ШАПКА]
+                local name = locales.get(cfg.name_key)
+                local name_color = QUALITY_COLORS[cfg.quality] or QUALITY_COLORS.common
+                if cfg.stackable and amount > 1 then
+                    name = name .. " (x" .. amount .. ")"
                 end
-            end
-            gui.set_text(self.stats, stats_text)
+                add_line(self, name, nil, name_color, true)
 
-        elseif data.type == "unit" then
-            gui.set_text(self.title, data.id) -- например, имя монстра
-            gui.set_text(self.description, "Уровень: " .. (data.extra.level or "??"))
-            gui.set_text(self.stats, "HP: " .. data.extra.hp)
+                local type_key = cfg.weapon_type or cfg.armor_type or cfg.type
+                local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.equip_slot) .. ")"
+                add_line(self, sub_header, nil, STATS_COLOR)
+                
+                if cfg.required then
+                    -- Заголовок "Требования"
+                    add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
+                    
+                    local check = item_requirements_manager.check(cfg, character_data.player)
+
+                    for req_id, req_val in pairs(cfg.required) do
+
+                        local is_fail = check.errors[req_id]
+
+                        -- Цвет: белый если ок, красный если нет
+                        local color = is_fail and vmath.vector4(1, 0.2, 0.2, 1) or vmath.vector4(1, 1, 1, 1)
+                        
+                        -- Формируем строку (например: "  Уровень: 5")
+                        local req_label = locales.get(req_id == "resource" and req_val or "stat_" .. req_id)
+                        if req_id == "level" then req_label = locales.get("level") end
+                        
+                        local text = "  " .. req_label .. ": " .. req_val
+                        if req_id == "resource" then text = "  " .. locales.get("resource") .. ": " .. locales.get(req_val) end
+
+                        add_line(self, text, nil, color)
+                    end
+                end
+
+                -- [БЛОК 2: БОЕВЫЕ ХАРАКТЕРИСТИКИ] (Крупно и ярко)
+                if cfg.damage then
+                    local dmg_text = cfg.damage.min .. "-" .. cfg.damage.max .. " " .. locales.get(cfg.damage.type)
+                    -- Желтоватый цвет для урона
+                    add_line(self, dmg_text, nil, vmath.vector4(1, 0.85, 0.2, 1))
+                end
+
+                if cfg.bonus_damage then
+                    for _, bonus in ipairs(cfg.bonus_damage) do
+                        local b_text = "+" .. bonus.min .. "-" .. bonus.max .. " " .. locales.get(bonus.type)
+                        add_line(self, b_text, nil, vmath.vector4(0.4, 0.6, 1, 1))
+                    end
+                end
+
+                if cfg.armor_rating then
+                    local armor_text = cfg.armor_rating .. " " .. locales.get("armor_rating")
+                    add_line(self, armor_text, nil, vmath.vector4(0.7, 0.8, 1, 1))
+                end
+
+                -- [БЛОК 3: ПАРАМЕТРЫ] (Сила, Ловкость и т.д.)
+                if cfg.stats then
+                    for id, val in pairs(cfg.stats) do
+                        local sign = val > 0 and "+" or ""
+                        local stat_text = sign .. val .. " " .. locales.get("stat_" .. id)
+                        add_line(self, stat_text, nil, STATS_COLOR)
+                    end
+                end
+
+                -- [БЛОК 4: РЕЗИСТЫ]
+                if cfg.resists then
+                    for res_id, res_val in pairs(cfg.resists) do
+                        local res_text = "+" .. res_val .. "% " .. locales.get(res_id) .. " " .. locales.get("resists")
+                        add_line(self, res_text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+                    end
+                end
+
+                -- [БЛОК 5: ЭФФЕКТЫ И ОПИСАНИЕ]
+                if cfg.effects then
+                    for _, eff in ipairs(cfg.effects) do
+                        local pattern = locales.get("effect_" .. eff.id)
+                        local text = string.format(pattern, eff.value or "")
+                        add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+                    end
+                end
+
+                if cfg.desc_key then
+                    -- Описание обычно выводится курсивом и приглушенным цветом
+                    add_line(self, locales.get(cfg.desc_key), nil, vmath.vector4(0.8, 0.7, 0.5, 1))
+                end
+
+                -- [БЛОК 6: ТЕХНИЧЕСКАЯ ИНФО] (Вес слева, Цена справа)
+                -- 1. Подготовка Веса
+                local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.weight)
+                if cfg.stackable and amount > 1 then
+                    local total_w = string.format("%.1f", amount * cfg.weight)
+                    w_label = w_label .. " (" .. total_w .. ")"
+                end
+
+                -- 2. Подготовка Цены
+                local p_label = locales.get("price") .. ": " .. cfg.price
+                if cfg.stackable and amount > 1 then
+                    local total_p = amount * cfg.price
+                    p_label = p_label .. " (" .. total_p .. ")"
+                end
+
+                -- 3. Вывод
+                add_line(self, w_label, p_label, vmath.vector4(0.5, 0.5, 0.5, 1))
+
+                -- local total_weight = "(" .. string.format("%.1f", amount * cfg.weight) .. ")"
+                -- local total_price = "(" .. string.format("%.1f", amount * cfg.price) .. ")"
+                --
+                -- local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.weight) .. total_weight
+                -- local p_label = locales.get("price") .. ": " .. cfg.price .. total_price
+                -- add_line(self, w_label, p_label, vmath.vector4(0.5, 0.5, 0.5, 1))
+            end
+
+        -- ЛОГИКА ДЛЯ ОБЪЕКТА В МИРЕ (Сундук/Лут)
+        elseif data.type == "world_object" then
+            print('data', data,data)
+            local info = data.data
+            add_line(self, info.name, nil, vmath.vector4(1, 1, 1, 1), true)
+            
+            if info.kind == "container" then
+                local color = info.item_count > 0 and vmath.vector4(0.4, 1, 0.4, 1) or vmath.vector4(0.6, 0.6, 0.6, 1)
+                local txt = info.item_count > 0 and ("Предметов: " .. info.item_count) or "Пусто"
+                add_line(self, txt, nil, color)
+            end
         end
 
-        -- 2. ПОЗИЦИОНИРОВАНИЕ
-        -- Сдвигаем на 20 пикселей от курсора, чтобы не мешать
-        local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
-
-        -- Используем твой хелпер, чтобы тултип не улетал за экран!
-        local final_pos = gui_utils.clamp_to_screen(self.root, mouse_pos, 10)
-        gui.set_position(self.root, final_pos)
-    else
-        gui.set_enabled(self.root, false)
+        -- ПОДГОНКА ФОНА
+        local final_h = math.abs(self.current_y) + 6
+        gui.set_size(self.background, vmath.vector3(320, final_h, 0))
     end
+
+    -- ПОЗИЦИОНИРОВАНИЕ
+    local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
+    gui.set_position(self.root, gui_utils.clamp_to_screen(self.root, mouse_pos, 10))
 end
 
-function on_message(self, message_id, message, sender)
-	-- Add message-handling code here
-	-- Learn more: https://defold.com/manuals/message-passing/
-	-- Remove this function if not needed
-end
-
-function on_input(self, action_id, action)
-	-- Add input-handling code here. The game object this script is attached to
-	-- must have acquired input focus:
-	--
-	--    msg.post(".", "acquire_input_focus")
-	--
-	-- All mapped input bindings will be received. Mouse and touch input will
-	-- be received regardless of where on the screen it happened.
-	-- Learn more: https://defold.com/manuals/input/
-	-- Remove this function if not needed
-end
-
-function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
-end
+-- function update(self, dt)
+--     local data = tooltip_manager.get_current()
+--
+--     -- 1. СКРЫТИЕ (Если нет данных или идет перетаскивание)
+--     if not data or drag_manager.is_dragging() then
+--         if gui.is_enabled(self.root) then
+--             clear_tooltip(self)
+--             gui.set_enabled(self.root, false)
+--         end
+--         return
+--     end
+--
+--     local item_context = data.item_context -- это то, что ты сохранил в менеджере
+--     local item_id = item_context.item_id or item_context.id
+--     local amount = item_context.amount
+--
+--     -- 2. ОБНОВЛЕНИЕ (Dirty Flag)
+--     if item_id ~= self.current_id then
+--         clear_tooltip(self)
+--         self.current_id = data.id
+--         gui.set_enabled(self.root, true)
+--
+--         if data.type == "item" then
+--             local cfg = items_db.get_item(item_id)
+--             if cfg then
+--                 -- [БЛОК 1: ШАПКА]
+--                 local name = locales.get(cfg.name_key)
+--                 local name_color = QUALITY_COLORS[cfg.quality] or QUALITY_COLORS.common
+--                 if cfg.stackable and amount > 1 then
+--                     name = name .. " (x" .. amount .. ")"
+--                 end
+--                 add_line(self, name, nil, name_color, true)
+--
+--                 local type_key = cfg.weapon_type or cfg.armor_type or cfg.type
+--                 local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.equip_slot) .. ")"
+--                 add_line(self, sub_header, nil, STATS_COLOR)
+--                 
+--                 if cfg.required then
+--                     -- Заголовок "Требования"
+--                     add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
+--                     
+--                     local check = item_requirements_manager.check(cfg, character_data.player)
+--
+--                     for req_id, req_val in pairs(cfg.required) do
+--
+--                         local is_fail = check.errors[req_id]
+--
+--                         -- Цвет: белый если ок, красный если нет
+--                         local color = is_fail and vmath.vector4(1, 0.2, 0.2, 1) or vmath.vector4(1, 1, 1, 1)
+--                         
+--                         -- Формируем строку (например: "  Уровень: 5")
+--                         local req_label = locales.get(req_id == "resource" and req_val or "stat_" .. req_id)
+--                         if req_id == "level" then req_label = locales.get("level") end
+--                         
+--                         local text = "  " .. req_label .. ": " .. req_val
+--                         if req_id == "resource" then text = "  " .. locales.get("resource") .. ": " .. locales.get(req_val) end
+--
+--                         add_line(self, text, nil, color)
+--                     end
+--                 end
+--
+--                 -- [БЛОК 2: БОЕВЫЕ ХАРАКТЕРИСТИКИ] (Крупно и ярко)
+--                 if cfg.damage then
+--                     local dmg_text = cfg.damage.min .. "-" .. cfg.damage.max .. " " .. locales.get(cfg.damage.type)
+--                     -- Желтоватый цвет для урона
+--                     add_line(self, dmg_text, nil, vmath.vector4(1, 0.85, 0.2, 1))
+--                 end
+--
+--                 if cfg.bonus_damage then
+--                     for _, bonus in ipairs(cfg.bonus_damage) do
+--                         local b_text = "+" .. bonus.min .. "-" .. bonus.max .. " " .. locales.get(bonus.type)
+--                         add_line(self, b_text, nil, vmath.vector4(0.4, 0.6, 1, 1))
+--                     end
+--                 end
+--
+--                 if cfg.armor_rating then
+--                     local armor_text = cfg.armor_rating .. " " .. locales.get("armor_rating")
+--                     add_line(self, armor_text, nil, vmath.vector4(0.7, 0.8, 1, 1))
+--                 end
+--
+--                 -- [БЛОК 3: ПАРАМЕТРЫ] (Сила, Ловкость и т.д.)
+--                 if cfg.stats then
+--                     for id, val in pairs(cfg.stats) do
+--                         local sign = val > 0 and "+" or ""
+--                         local stat_text = sign .. val .. " " .. locales.get("stat_" .. id)
+--                         add_line(self, stat_text, nil, STATS_COLOR)
+--                     end
+--                 end
+--
+--                 -- [БЛОК 4: РЕЗИСТЫ]
+--                 if cfg.resists then
+--                     for res_id, res_val in pairs(cfg.resists) do
+--                         local res_text = "+" .. res_val .. "% " .. locales.get(res_id) .. " " .. locales.get("resists")
+--                         add_line(self, res_text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+--                     end
+--                 end
+--
+--                 -- [БЛОК 5: ЭФФЕКТЫ И ОПИСАНИЕ]
+--                 if cfg.effects then
+--                     for _, eff in ipairs(cfg.effects) do
+--                         local pattern = locales.get("effect_" .. eff.id)
+--                         local text = string.format(pattern, eff.value or "")
+--                         add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+--                     end
+--                 end
+--
+--                 if cfg.desc_key then
+--                     -- Описание обычно выводится курсивом и приглушенным цветом
+--                     add_line(self, locales.get(cfg.desc_key), nil, vmath.vector4(0.8, 0.7, 0.5, 1))
+--                 end
+--
+--                 -- [БЛОК 6: ТЕХНИЧЕСКАЯ ИНФО] (Вес слева, Цена справа)
+--                 -- 1. Подготовка Веса
+--                 local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.weight)
+--                 if cfg.stackable and amount > 1 then
+--                     local total_w = string.format("%.1f", amount * cfg.weight)
+--                     w_label = w_label .. " (" .. total_w .. ")"
+--                 end
+--
+--                 -- 2. Подготовка Цены
+--                 local p_label = locales.get("price") .. ": " .. cfg.price
+--                 if cfg.stackable and amount > 1 then
+--                     local total_p = amount * cfg.price
+--                     p_label = p_label .. " (" .. total_p .. ")"
+--                 end
+--
+--                 -- 3. Вывод
+--                 add_line(self, w_label, p_label, vmath.vector4(0.5, 0.5, 0.5, 1))
+--
+--                 -- local total_weight = "(" .. string.format("%.1f", amount * cfg.weight) .. ")"
+--                 -- local total_price = "(" .. string.format("%.1f", amount * cfg.price) .. ")"
+--                 --
+--                 -- local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.weight) .. total_weight
+--                 -- local p_label = locales.get("price") .. ": " .. cfg.price .. total_price
+--                 -- add_line(self, w_label, p_label, vmath.vector4(0.5, 0.5, 0.5, 1))
+--                 
+--                 -- ПОДГОНКА ФОНА (320 - ширина фона)
+--                 local final_h = math.abs(self.current_y) + 6
+--                 gui.set_size(self.background, vmath.vector3(320, final_h, 0))
+--             end
+--         end
+--     end
+--
+--     -- 3. ПОЗИЦИОНИРОВАНИЕ (За курсором)
+--     local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
+--     gui.set_position(self.root, gui_utils.clamp_to_screen(self.root, mouse_pos, 10))
+-- end
+--

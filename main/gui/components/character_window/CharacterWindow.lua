@@ -1,5 +1,5 @@
 local component = require("druid.component")
-local strings = require("main.modules.data.strings")
+local locales = require("main.modules.data.locales.locale_manager")
 
 -- Компоненты вкладок
 local BaseWindow = require("main.gui.components.base_window.base_window")
@@ -135,7 +135,7 @@ function M:switch_tab(tab_name)
     local active_tab_data = self.tabs[tab_name]
     if not active_tab_data then return end
 
-    self.set_title(self, strings.get(active_tab_data.window_title) or "No Title")
+    self.set_title(self, locales.get(active_tab_data.window_title) or "No Title")
 
     for name, tab in pairs(self.tabs) do
         local is_active = (name == tab_name)

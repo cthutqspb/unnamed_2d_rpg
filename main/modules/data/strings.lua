@@ -57,6 +57,7 @@ M.data = {
         -- Inventory item 
         ["menu_use"] = "Использовать",
         ["menu_equip"] = "Надеть",
+        ["menu_unequip"] = "Снять",
         ["menu_repair"] = "Починить",
         ["menu_sharpen"] = "Заточить",
         ["menu_learn"] = "Изучить",
@@ -121,6 +122,7 @@ M.data = {
         -- Inventory item 
         ["menu_use"] = "Use",
         ["menu_equip"] = "Equip",
+        ["menu_unequip"] = "Unequip",
         ["menu_repair"] = "Repair",
         ["menu_sharpen"] = "Sharpen",
         ["menu_learn"] = "Learn",

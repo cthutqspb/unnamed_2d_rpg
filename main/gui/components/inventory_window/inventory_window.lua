@@ -1,6 +1,6 @@
 local component = require("druid.component")
 local BaseWindow = require("main.gui.components.base_window.base_window")
-local strings = require("main.modules.data.strings")
+local locales = require("main.modules.data.locales.locale_manager")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 
 ---@class InventoryWindow : druid.component
@@ -45,7 +45,7 @@ function M:init(template_id, player_inventory)
     })
 
     --local title_node = gui.get_node(template_id .. "/title")
-    self.set_title(self, strings.get('inventory_title'))
+    self.set_title(self, locales.get('inventory_title'))
 
     -- local screen_w = sys.get_config("display.width")
     -- local screen_h = sys.get_config("display.height")
@@ -99,8 +99,7 @@ end
 
 return M
 
--- local component = require("druid.component")
--- local strings = require("main.modules.data.strings")
+-- local component = require("druid.component"
 -- local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 --
 -- local M = {}
@@ -142,7 +141,7 @@ return M
 --     })
 --
 --     --local title_node = gui.get_node(template_id .. "/title")
---     gui.set_text(self.title, strings.get("inventory_title"))
+--     gui.set_text(self.title, locales.get("inventory_title"))
 --
 --     local screen_w = sys.get_config("display.width")
 --     local screen_h = sys.get_config("display.height")

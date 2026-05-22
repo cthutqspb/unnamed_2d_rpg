@@ -1,7 +1,7 @@
 script: "/main/gui/components/character_window/character_window.gui_script"
 fonts {
-  name: "gui_title"
-  font: "/assets/fonts/gui_title.font"
+  name: "iosevka_header"
+  font: "/assets/fonts/iosevka_header.font"
 }
 nodes {
   position {
@@ -47,7 +47,7 @@ nodes {
     z: 0.101960786
   }
   type: TYPE_TEXT
-  font: "gui_title"
+  font: "iosevka_header"
   id: "window_title"
   parent: "header"
   inherit_alpha: true
@@ -76,7 +76,7 @@ nodes {
   }
   type: TYPE_TEXT
   text: "X"
-  font: "gui_title"
+  font: "iosevka_header"
   id: "icon"
   parent: "btn_close"
 }
@@ -227,225 +227,171 @@ nodes {
   template: "/main/gui/components/character_window/character_stats.gui"
 }
 nodes {
-  size {
-    x: 300.0
-    y: 500.0
-  }
   type: TYPE_BOX
   id: "character_stats/root"
   parent: "character_stats"
-  inherit_alpha: true
-  overridden_fields: 4
-  overridden_fields: 21
   template_node_child: true
 }
 nodes {
-  position {
-    y: 220.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
   type: TYPE_BOX
-  id: "character_stats/player_name"
+  id: "character_stats/background"
   parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
   template_node_child: true
 }
 nodes {
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_TEXT
-  id: "character_stats/player_name_text"
-  parent: "character_stats/player_name"
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  position {
-    y: 180.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_BOX
-  id: "character_stats/player_race"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_TEXT
-  id: "character_stats/player_race_text"
-  parent: "character_stats/player_race"
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  position {
-    y: 140.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_BOX
-  id: "character_stats/player_class"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_TEXT
-  id: "character_stats/player_class_text"
-  parent: "character_stats/player_class"
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  position {
-    y: 100.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_BOX
-  id: "character_stats/player_level"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  size {
-    x: 280.0
-    y: 24.0
-  }
-  type: TYPE_TEXT
-  id: "character_stats/player_level_text"
-  parent: "character_stats/player_level"
-  overridden_fields: 4
-  template_node_child: true
-}
-nodes {
-  position {
-    y: 60.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
   type: TYPE_BOX
   id: "character_stats/player_health"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
+  parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_health_text"
+  id: "character_stats/player_health_value"
   parent: "character_stats/player_health"
   template_node_child: true
 }
 nodes {
-  position {
-    y: 20.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
   type: TYPE_BOX
-  id: "character_stats/player_strength"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
+  id: "character_stats/player_name"
+  parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_strength_text"
-  parent: "character_stats/player_strength"
+  id: "character_stats/player_name_value"
+  parent: "character_stats/player_name"
   template_node_child: true
 }
 nodes {
-  position {
-    y: -20.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
   type: TYPE_BOX
-  id: "character_stats/player_intellect"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
+  id: "character_stats/player_race"
+  parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_intellect_text"
-  parent: "character_stats/player_intellect"
+  id: "character_stats/player_race_value"
+  parent: "character_stats/player_race"
   template_node_child: true
 }
 nodes {
-  position {
-    y: -60.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
+  type: TYPE_BOX
+  id: "character_stats/player_class"
+  parent: "character_stats/background"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_class_value"
+  parent: "character_stats/player_class"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/player_level"
+  parent: "character_stats/background"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_level_value"
+  parent: "character_stats/player_level"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/stats"
+  parent: "character_stats/background"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/attributes"
+  parent: "character_stats/background"
+  template_node_child: true
+}
+nodes {
   type: TYPE_BOX
   id: "character_stats/player_agility"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
+  parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_agility_text"
+  id: "character_stats/player_agility_value"
   parent: "character_stats/player_agility"
   template_node_child: true
 }
 nodes {
-  position {
-    y: -100.0
-  }
-  size {
-    x: 280.0
-    y: 24.0
-  }
+  type: TYPE_TEXT
+  id: "character_stats/player_agility_title"
+  parent: "character_stats/player_agility"
+  template_node_child: true
+}
+nodes {
   type: TYPE_BOX
   id: "character_stats/player_stamina"
-  parent: "character_stats/root"
-  overridden_fields: 1
-  overridden_fields: 4
+  parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_stamina_text"
+  id: "character_stats/player_stamina_value"
   parent: "character_stats/player_stamina"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_stamina_title"
+  parent: "character_stats/player_stamina"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/player_strength"
+  parent: "character_stats/attributes"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_strength_value"
+  parent: "character_stats/player_strength"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_strength_title"
+  parent: "character_stats/player_strength"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/player_intellect"
+  parent: "character_stats/attributes"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_intellect_value"
+  parent: "character_stats/player_intellect"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/player_intellect_title"
+  parent: "character_stats/player_intellect"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_stats/attributes_title"
+  parent: "character_stats/attributes"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_stats/text"
+  parent: "character_stats/attributes_title"
   template_node_child: true
 }
 nodes {

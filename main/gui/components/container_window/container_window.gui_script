@@ -1,5 +1,6 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
+local item_transfer_manager = require("main.modules.item_transfer_manager")
 local ContainerWindow = require("main.gui.components.container_window.ContainerWindow")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
@@ -45,7 +46,7 @@ function update(self, dt)
 
         -- 1. Если данные есть (мы над предметом)
         if hover_data then
-            tooltip_manager.show(hover_data.type, hover_data.id)
+            tooltip_manager.show(hover_data.type, hover_data.item)
         else
             -- 2. Если данных нет, но мы над окном — прячем
             if gui.pick_node(self.container_window.root, mx, my) then
@@ -94,20 +95,34 @@ function on_message(self, message_id, message, sender)
     -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
     elseif message_id == hash("refresh") then
         self.container_window.static_grid:refresh()
+    elseif message_id == hash("context_menu_action") then
+      if message.event == "equip_item" then
+            local slot_index = message.data.slot_index
+            local item_id = message.data.item_id
+            local item_cfg = items_db.get_item(item_id)
+
+            -- 1. ИСТОЧНИК: Сетка этого контейнера
+            -- Она всегда открыта, раз мы жмем в ней ПКМ
+            local source = self.container_window.static_grid
+            local item = source:get_data_source():get_item(slot_index)
+
+            -- 2. ЦЕЛЬ: Кукла игрока
+            local target = nil
+            -- Пытаемся найти открытое окно через глобальную ссылку (самый быстрый путь)
+            if _G.CHARACTER_WINDOW then
+                target = _G.CHARACTER_WINDOW.paperdoll
+            else
+                -- Окно закрыто, работаем напрямую с данными
+                target = require("main.modules.player.player_paperdoll")
+            end
+
+            -- 3. ТРАНСФЕР
+            -- Менеджер сам поймет: обновить визуал куклы (если открыта) или просто сменить данные
+            item_transfer_manager.execute_transfer(source, slot_index, target, item_cfg.equip_slot, item, item_cfg)
+        end
     end
 end
 
--- function on_input(self, action_id, action)
---     if not self.container_window or not self.container_window:is_visible() then
---         return self.druid:on_input(action_id, action)
---     end
---
---     -- Передаем логику в базу, а в колбэке проверяем только наши сетки
---     return self.container_window:handle_input_flow(action_id, action, function(x, y)
---         if self.container_window.static_grid:on_drop(x, y) then return true end
---     return false
---     end)
--- end
 
 function on_input(self, action_id, action)
     if not self.container_window or not self.container_window:is_visible() then

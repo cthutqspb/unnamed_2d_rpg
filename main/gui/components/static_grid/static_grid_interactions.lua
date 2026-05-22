@@ -44,7 +44,9 @@ function M.handle_right_click(self, index, x, y)
         x = x, y = y,
         type = "item",
         sub_type = item_cfg.type,
-        can_split = can_split, -- Передаем флаг в меню
+        flags = {
+            can_split = can_split, -- Передаем флаг в меню
+        },
         data = { 
             slot_index = index,
             item_id = item_data.item_id,

@@ -141,7 +141,10 @@ function M:get_hover_data(mx, my)
     if index then
         local item = self:get_data_source():get_item(index)
         if item and item.item_id then
-            return { type = "item", id = item.item_id }
+            return {
+                type = "item",
+                item = item
+            }
         end
     end
     return nil

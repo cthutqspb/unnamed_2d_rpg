@@ -1,4 +1,4 @@
-local strings = require("main.modules.data.strings")
+local locales = require("main.modules.data.locales.locale_manager")
 local SaveManager = require("main.modules.system.SaveManager")
 
 local M = {}
@@ -33,11 +33,11 @@ function M.new(druid, template_id)
     self.btn_save_game = druid:new_button("btn_save_game", function() self:on_save_game() end)
     self.btn_load_game = druid:new_button("btn_load_game", function() self:on_load_game() end)
 
-    gui.set_text(self.btn_new_game_title, strings.get("btn_new_game"))
-    gui.set_text(self.btn_continue_game_title, strings.get("btn_continue_game"))
-    gui.set_text(self.btn_save_game_title, strings.get("btn_save_game"))
-    gui.set_text(self.btn_load_game_title, strings.get("btn_load_game"))
-    gui.set_text(self.btn_exit_game_title, strings.get("btn_exit_game"))
+    gui.set_text(self.btn_new_game_title, tostring(locales.get("btn_new_game")))
+    gui.set_text(self.btn_continue_game_title, tostring(locales.get("btn_continue_game")))
+    gui.set_text(self.btn_save_game_title, tostring(locales.get("btn_save_game")))
+    gui.set_text(self.btn_load_game_title, tostring(locales.get("btn_load_game")))
+    gui.set_text(self.btn_exit_game_title, tostring(locales.get("btn_exit_game")))
 
     return self
 end

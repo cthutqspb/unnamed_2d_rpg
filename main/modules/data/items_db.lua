@@ -1,4 +1,4 @@
-local strings = require("main.modules.data.strings")
+local locales = require("main.modules.data.locales.locale_manager")
 local M = {}
 
 M.items_raw = {
@@ -12,7 +12,24 @@ M.items_raw = {
         type = "weapon",
         equip_slot = "MAIN_HAND",
         stackable = false,
-        max_stack = 1
+        max_stack = 1,
+        quality = "common",
+        weapon_type = "one_hand_sword",
+        required = {
+            level = 1,
+            strength = 6
+        },
+        stats = {
+            strength = 3
+        },
+        damage = {
+            min = 3,
+            max = 7,
+            type = "physical"
+        },
+        price = 25,
+        weight = 2.4
+
         -- scale = 0.5,
         -- drop_distance = 20,    -- на сколько пикселей перед игроком
         -- rotation = 0,          -- угол поворота на земле
@@ -27,51 +44,126 @@ M.items_raw = {
         type = "weapon",
         equip_slot = "MAIN_HAND",
         stackable = false,
-        max_stack = 1
+        max_stack = 1,
+        quality = "rare",
+        weapon_type = "one_hand_sword",
+        required = {
+            level = 3,
+            intellect = 10
+        },
+        stats = {
+            strength = 3,
+            intellect = 2
+        },
+        effects = {
+            { id = "mana_leech_on_hit", value = 1.0, chance = 100 }
+        },
+        use_effects = {
+            {
+                id = "restore_mana",
+                value = { min = 10, max = 10},
+                cooldown = 300
+            }
+        },
+        damage = {
+            min = 4,
+            max = 8,
+            type = "physical"
+        },
+        bonus_damage = {
+            {
+                min = 2,
+                max = 3,
+                type = "arcane"
+            }
+        },
+        resists = {
+            arcane = 15
+        },
+        price = 75,
+        weight = 2.4
     },
     ["leather_helmet"] = {
         name_key = "item_leather_helmet_name",
+        desc_key = "item_leather_helmet_desc",
         animation = "leather_helmet",
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2345,
         texture = "items_project_utumno",
         type = "armor",
         equip_slot = "HEAD",
-        weight = 1.0,
         stackable = false,
         max_stack = 1,
+        quality = "common",
+        armor_type = "leather",
+        required = {
+            level = 2,
+        },
         stats = {
             stamina = 5,
             agility = 2
-        }
+        },
+        effects = {
+            { id = "increase_max_health", value = 20 }
+        },
+        armor_rating = 27,
+        price = 15,
+        weight = 1.0,
     },
     ["clown_hat"] = {
         name_key = "item_clown_hat_name",
+        desc_key = "item_clown_hat_desc",
         animation = "clown_hat",
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2347,
         texture = "items_project_utumno",
         type = "armor",
         equip_slot = "HEAD",
-        weight = 1.0,
         stackable = false,
         max_stack = 1,
+        quality = "uncommon",
+        armor_type = "leather",
+        required = {
+            level = 2,
+            agility = 12,
+            intellect = 8
+        },
         stats = {
             stamina = -2,
             agility = 3,
             intellect = 5
-        }
+        },
+        effects = {
+            { id = "chance_to_critical_hit", value = 2.5 }
+        },
+        armor_rating = 15,
+        price = 40,
+        weight = 1.2
     },
     ["lesser_mana_potion"] = {
         name_key = "item_lesser_mana_potion_name",
-        desc_key = "item_lesser_mana_potion_desk",
+        desc_key = "item_lesser_mana_potion_desc",
         animation = "lesser_mana_potion",
-        type = "POTION",
+        type = "potion",
         tile_index = 2683,
         color = vmath.vector4(0.8, 0.8, 1, 1),
         texture = "items_project_utumno",
         stackable = true,
-        max_stack = 20
+        max_stack = 20,
+        quality = "common",
+        required = {
+            level = 1,
+            resource = "mana"
+        },
+        use_effects = {
+            {
+                id = "restore_mana",
+                value = {min = 20, max = 40},
+                cooldown = 1
+            }
+        },
+        price = 5,
+        weight = 0.1 -- нужно учитывать при стаках
     }
     -- ... остальные предметы
 }
@@ -86,14 +178,7 @@ end
 function M.get_item(id)
     -- Если id — это хеш (из go.property), берем из таблицы хешей
     -- Если id — это строка, берем из основной таблицы
-    local item = items_by_hash[id] or M.items_raw[id]
-
-    if item then
-        item.name = strings.get(item.name_key)
-        item.description = strings.get(item.desc_key)
-        item.icon = tostring(item.tile_index)
-    end
-    return item
+    return items_by_hash[id] or M.items_raw[id]
 end
 
 function M.get_save_data()

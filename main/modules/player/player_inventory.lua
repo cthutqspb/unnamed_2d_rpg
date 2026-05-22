@@ -71,6 +71,17 @@ function M.equip_item(item)
     
 end
 
+-- В player_inventory.lua
+function M:get_first_empty_slot()
+    for i = 1, self.max_slots do
+        if not self.items[i] or not self.items[i].item_id then
+            return i
+        end
+    end
+    return nil
+end
+
+
 -- УНИВЕРСАЛЬНЫЕ МЕТОДЫ (теперь через self.items)
 function M:swap_slots(from_idx, to_idx)
     self.items[from_idx], self.items[to_idx] = self.items[to_idx], self.items[from_idx]

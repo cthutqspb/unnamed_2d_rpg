@@ -11,26 +11,25 @@ function init(self)
 end
 
 function final(self)
-	
 end
 
 function update(self, dt)
-	
 end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("show_menu") then
-        self.menu:show(message.x, message.y, message.type, message.sub_type, message.can_split, message.data)
-        
+        self.menu:show(message.x, message.y, message.type, message.sub_type, message.flags, message.data)
+
         -- ВЫНОСИМ МЕНЮ В ТОП ВВОДА
         msg.post(".", "acquire_input_focus")
-        
+
         -- Чтобы ESC закрывал сначала меню
-        window_manager.push(msg.url(), hash("hide_menu"))
+        window_manager.push(self, msg.url(), hash("hide_menu"))
     end
-    
+
     if message_id == hash("hide_menu") then
-        self.menu:hide()
+        self.menu:hide_ui()
+        window_manager.pop(msg.url())
         -- ОБЯЗАТЕЛЬНО ОТДАЕМ ФОКУС, когда меню скрыто
         msg.post(".", "release_input_focus")
     end
@@ -46,5 +45,4 @@ function on_input(self, action_id, action)
 end
 
 function on_reload(self)
-	
 end

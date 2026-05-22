@@ -1,11 +1,11 @@
 fonts {
-  name: "gui_title"
-  font: "/assets/fonts/gui_title.font"
+  name: "iosevka_main"
+  font: "/assets/fonts/iosevka_main.font"
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 500.0
   }
   type: TYPE_BOX
   id: "root"
@@ -14,198 +14,368 @@ nodes {
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 500.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
   }
   type: TYPE_BOX
-  id: "player_name"
+  id: "background"
   parent: "root"
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_BOX
+  id: "player_health"
+  parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  font: "iosevka_main"
+  id: "player_health_value"
+  parent: "player_health"
+}
+nodes {
+  position {
+    x: -25.0
+    y: 225.0
+  }
+  size {
+    x: 250.0
+    y: 40.0
+  }
+  type: TYPE_BOX
+  id: "player_name"
+  parent: "background"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 250.0
+    y: 32.0
   }
   type: TYPE_TEXT
   text: "\n"
   ""
-  font: "gui_title"
-  id: "player_name_text"
+  font: "iosevka_main"
+  id: "player_name_value"
   parent: "player_name"
 }
 nodes {
+  position {
+    y: -220.0
+  }
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 32.0
   }
   type: TYPE_BOX
   id: "player_race"
-  parent: "root"
+  parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 32.0
   }
   type: TYPE_TEXT
-  font: "gui_title"
-  id: "player_race_text"
+  font: "iosevka_main"
+  id: "player_race_value"
   parent: "player_race"
 }
 nodes {
+  position {
+    y: -172.0
+  }
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 32.0
   }
   type: TYPE_BOX
   id: "player_class"
-  parent: "root"
+  parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
     x: 200.0
-    y: 100.0
+    y: 32.0
   }
   type: TYPE_TEXT
-  font: "gui_title"
-  id: "player_class_text"
+  font: "iosevka_main"
+  id: "player_class_value"
   parent: "player_class"
 }
 nodes {
+  position {
+    x: 125.0
+    y: 225.0
+  }
   size {
-    x: 200.0
-    y: 100.0
+    x: 50.0
+    y: 40.0
   }
   type: TYPE_BOX
   id: "player_level"
-  parent: "root"
+  parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 50.0
+    y: 32.0
   }
   type: TYPE_TEXT
-  font: "gui_title"
-  id: "player_level_text"
+  font: "iosevka_main"
+  id: "player_level_value"
   parent: "player_level"
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 30.0
   }
   type: TYPE_BOX
-  id: "player_health"
-  parent: "root"
+  id: "stats"
+  parent: "background"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    y: 125.0
+  }
+  size {
+    x: 300.0
+    y: 150.0
+  }
+  type: TYPE_BOX
+  id: "attributes"
+  parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
-  }
-  type: TYPE_TEXT
-  font: "gui_title"
-  id: "player_health_text"
-  parent: "player_health"
-}
-nodes {
-  size {
-    x: 200.0
-    y: 100.0
-  }
-  type: TYPE_BOX
-  id: "player_strength"
-  parent: "root"
-  inherit_alpha: true
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  size {
-    x: 200.0
-    y: 100.0
-  }
-  type: TYPE_TEXT
-  text: "<text>"
-  font: "gui_title"
-  id: "player_strength_text"
-  parent: "player_strength"
-}
-nodes {
-  size {
-    x: 200.0
-    y: 100.0
-  }
-  type: TYPE_BOX
-  id: "player_intellect"
-  parent: "root"
-  inherit_alpha: true
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  size {
-    x: 200.0
-    y: 100.0
-  }
-  type: TYPE_TEXT
-  text: "<text>"
-  font: "gui_title"
-  id: "player_intellect_text"
-  parent: "player_intellect"
-}
-nodes {
-  size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 30.0
   }
   type: TYPE_BOX
   id: "player_agility"
-  parent: "root"
+  parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
+  position {
+    x: 150.0
+  }
   size {
-    x: 200.0
-    y: 100.0
+    x: 150.0
+    y: 30.0
   }
   type: TYPE_TEXT
-  text: "<text>"
-  font: "gui_title"
-  id: "player_agility_text"
+  text: "\n"
+  ""
+  font: "iosevka_main"
+  id: "player_agility_value"
+  pivot: PIVOT_E
   parent: "player_agility"
 }
 nodes {
+  position {
+    x: -150.0
+  }
   size {
-    x: 200.0
-    y: 100.0
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "iosevka_main"
+  id: "player_agility_title"
+  pivot: PIVOT_W
+  parent: "player_agility"
+}
+nodes {
+  position {
+    y: 30.0
+  }
+  size {
+    x: 300.0
+    y: 30.0
   }
   type: TYPE_BOX
   id: "player_stamina"
-  parent: "root"
+  parent: "attributes"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "iosevka_main"
+  id: "player_stamina_value"
+  pivot: PIVOT_E
+  parent: "player_stamina"
+}
+nodes {
+  position {
+    x: -150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  font: "iosevka_main"
+  id: "player_stamina_title"
+  pivot: PIVOT_W
+  parent: "player_stamina"
+}
+nodes {
+  position {
+    y: -30.0
+  }
+  size {
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_BOX
+  id: "player_strength"
+  parent: "attributes"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "iosevka_main"
+  id: "player_strength_value"
+  pivot: PIVOT_E
+  parent: "player_strength"
+}
+nodes {
+  position {
+    x: -150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "<text>"
+  font: "iosevka_main"
+  id: "player_strength_title"
+  pivot: PIVOT_W
+  parent: "player_strength"
+}
+nodes {
+  position {
+    y: -60.0
+  }
+  size {
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_BOX
+  id: "player_intellect"
+  parent: "attributes"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: 150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  text: "\n"
+  ""
+  font: "iosevka_main"
+  id: "player_intellect_value"
+  pivot: PIVOT_E
+  parent: "player_intellect"
+}
+nodes {
+  position {
+    x: -150.0
+  }
+  size {
+    x: 150.0
+    y: 30.0
+  }
+  type: TYPE_TEXT
+  font: "iosevka_main"
+  id: "player_intellect_title"
+  pivot: PIVOT_W
+  parent: "player_intellect"
+}
+nodes {
+  position {
+    y: 60.0
+  }
+  size {
+    x: 300.0
+    y: 30.0
+  }
+  type: TYPE_BOX
+  id: "attributes_title"
+  parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 300.0
+    y: 30.0
   }
   type: TYPE_TEXT
-  text: "<text>"
-  font: "gui_title"
-  id: "player_stamina_text"
-  parent: "player_stamina"
+  text: "\320\236\321\201\320\275\320\276\320\262\320\275\321\213\320\265 \321\205\320\260\321\200\320\260\320\272\321\202\320\265\321\200\320\270\321\201\321\202\320\270\320\272\320\270\n"
+  ""
+  font: "iosevka_main"
+  id: "text"
+  parent: "attributes_title"
+  inherit_alpha: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

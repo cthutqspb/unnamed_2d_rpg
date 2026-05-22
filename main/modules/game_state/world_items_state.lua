@@ -21,6 +21,11 @@ function M.remove(uid)
     M.registry[uid] = nil
 end
 
+function M.get_item_by_uid(uid)
+    -- Если uid пустой или записи нет, вернет nil
+    return M.registry[uid]
+end
+
 function M.get_all()
     return M.registry
 end

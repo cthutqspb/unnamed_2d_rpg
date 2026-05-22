@@ -20,16 +20,15 @@ nodes {
     y: 100.0
   }
   color {
-    x: 0.0
-    y: 0.0
-    z: 0.0
+    x: 0.3019608
+    y: 0.3019608
+    z: 0.3019608
   }
   type: TYPE_BOX
   id: "background"
   pivot: PIVOT_NW
   parent: "root"
   alpha: 0.72
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
@@ -41,25 +40,23 @@ nodes {
   pivot: PIVOT_NW
   parent: "background"
   alpha: 0.0
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
-    x: 240.0
-    y: 24.0
+    x: 236.0
+    y: 40.0
   }
   color {
-    x: 0.101960786
-    y: 0.101960786
-    z: 0.101960786
+    x: 0.0
+    y: 0.0
+    z: 0.0
   }
   type: TYPE_BOX
   id: "action_field"
   pivot: PIVOT_NW
   parent: "action_list"
-  size_mode: SIZE_MODE_AUTO
+  alpha: 0.72
   enabled: false
-  visible: false
 }
 nodes {
   position {
@@ -67,7 +64,12 @@ nodes {
   }
   size {
     x: 220.0
-    y: 24.0
+    y: 40.0
+  }
+  color {
+    x: 0.5019608
+    y: 0.5019608
+    z: 0.5019608
   }
   type: TYPE_TEXT
   text: "\n"
@@ -76,7 +78,6 @@ nodes {
   id: "action_text"
   pivot: PIVOT_NW
   parent: "action_field"
-  inherit_alpha: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

@@ -1,7 +1,15 @@
 local broadcast = require("main.modules.system.broadcast")
 local M = {}
 
--- 1. ОТМЕНА: Просто перерисовываем источник
+-- Вспомогательная функция: вытягивает данные из чего угодно (окно или таблица)
+local function get_ds(provider)
+    if not provider then return nil end
+    -- Если у объекта есть метод get_data_source, вызываем его. Иначе считаем, что это и есть DS.
+    if type(provider) == "table" and provider.get_data_source then
+        return provider:get_data_source()
+    end
+    return provider
+end
 
 function M.cancel_transfer(source_comp)
     if source_comp and source_comp.request_refresh then
@@ -10,9 +18,8 @@ function M.cancel_transfer(source_comp)
 end
 
 function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
-    print("DROP to world")
+    local source = get_ds(source_comp) -- Безопасное получение данных
 
-    -- 1. Спавним именно то количество, что было на курсоре (item.amount)
     msg.post("world", "spawn_dropped_item", {
         item_id = item.item_id,
         amount = item.amount,
@@ -20,11 +27,7 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
         mouse_y = mouse_y
     })
     
-    local source = source_comp:get_data_source()
-
-    -- 2. ЛОГИКА УДАЛЕНИЯ ИЗ ИНВЕНТАРЯ
     if item.source_split_slot then
-        -- Если это сплит (выбрасываем часть), вычитаем из исходного слота в модели
         local original_item = source:get_item(item.source_split_slot)
         if original_item then
             original_item.amount = original_item.amount - item.amount
@@ -33,43 +36,34 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
             end
         end
     else
-        -- Если обычный драг (выбрасываем всё), просто зануляем слот
         source:set_item(source_slot, nil)
     end
     
-    -- 3. Обновляем визуал
     M.finalize(source_comp)
 end
 
--- 2. ГЛАВНЫЙ МЕТОД ПЕРЕНОСА
 function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, item, item_cfg)
-    local source = source_comp:get_data_source()
-    local target = target_comp:get_data_source()
+    -- Теперь нам плевать, открыты окна или нет
+    local source = get_ds(source_comp)
+    local target = get_ds(target_comp)
     
-    print('execute_transfer', source_slot, target_slot, item, item_cfg)
-    ---------------------------------------------------------------------------
-    -- 0. ОБРАБОТКА СПЛИТА (Должна быть первой!)
-    ---------------------------------------------------------------------------
-    if item and item.source_split_slot then
-        -- Вызываем метод сплита у ЦЕЛЕВОЙ модели
-        local success = target:split_stack(source, item.source_split_slot, target_slot, item.amount, item_cfg)
+    if not source or not target then return end
 
+    -- 0. ОБРАБОТКА СПЛИТА
+    if item and item.source_split_slot then
+        local success = target:split_stack(source, item.source_split_slot, target_slot, item.amount, item_cfg)
         if success then
             M.finalize(source_comp, target_comp)
-            return -- ВАЖНО: выходим, чтобы не сработал свап ниже!
+            return 
         else
-            -- Если сплит не удался (например, в целевом слоте чужой предмет)
             M.cancel_transfer(source_comp)
             return
         end
     end
 
-    ---------------------------------------------------------------------------
     -- 1. ПРОВЕРКА КУКЛЫ
-    ---------------------------------------------------------------------------
     if target.can_equip_item then
         if not target:can_equip_item(item.item_id, target_slot) then
-            print("TRANSFER: This item doesn't fit in " .. target_slot)
             M.cancel_transfer(source_comp)
             return
         end
@@ -93,43 +87,16 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
     M.finalize(source_comp, target_comp)
 end
 
-function M.transfer_to_paperdoll(source_comp, target_comp, slot_index, target_slot_type)
-    print('transfer_to_paperdoll')
-    local source = source_comp:get_data_source()
-    local target = target_comp:get_data_source()
-    print(source, target)
-    if target.can_equip_item then
-        if not target:can_equip_item(item.item_id, target_slot) then
-            print("TRANSFER: This item doesn't fit in " .. target_slot)
-            M.cancel_transfer(source_comp)
-            return
-        end
-    end
-
-    -- if not stacked then
-    --     local item_a = source:get_item(source_slot)
-    --     local item_b = target:get_item(target_slot)
-    --
-    --     target:set_item(target_slot, item_a)
-    --     source:set_item(source_slot, item_b)
-    -- end
-    --
-    M.finalize(source_comp, target_comp)
-end
-
-
 function M.finalize(source_comp, target_comp)
-    -- 1. Обновляем локальный скрипт (тот, в который бросили предмет)
-    -- msg.post(".", "refresh")
-    -- 2. Вместо поиска URL, шлем глобальный сигнал всем окнам
-    -- Все открытые GUI-скрипты должны быть подписаны на это
-    print("FROM TRANSFER MANAGER REFFRESH ALL")
-    if source_comp and source_comp.request_refresh then
+    -- Если окна открыты — просим их обновиться
+    if source_comp and type(source_comp) == "table" and source_comp.request_refresh then
         source_comp:request_refresh()
     end
-    if target_comp and target_comp.request_refresh then
+    if target_comp and type(target_comp) == "table" and target_comp.request_refresh then
         target_comp:request_refresh()
     end
+    
+    -- Глобальный сигнал: все, кто слушает (даже закрытые окна при открытии), обновятся
     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
 end
 

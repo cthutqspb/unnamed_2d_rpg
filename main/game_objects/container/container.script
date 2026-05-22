@@ -1,3 +1,4 @@
+go.property("container_uid", hash(""))
 go.property("container_id", hash("chest_common"))
 go.property("container_name", hash("container_common_chest_name"))
 go.property("columns", 6)
@@ -9,13 +10,14 @@ go.property("loot_table_id", hash("empty"))
 local interaction = require("main.modules.interaction")
 local loot_tables = require("main.modules.data.loot_tables")
 local containers_state = require("main.modules.game_state.containers_state")
-local strings = require("main.modules.data.strings")
+local locales = require("main.modules.data.locales.locale_manager")
+
 local broadcast = require("main.modules.system.broadcast")
 
 local function apply_container_visual(self)
     -- Устанавливаем текст как в lootable_item
     print('name', self.container_name)
-    label.set_text("#container_name", strings.get(self.container_name))
+    label.set_text("#container_name", locales.get(self.container_name))
     -- msg.post("#container_name", "disable")
 end
 
@@ -76,19 +78,22 @@ end
 function init(self)
 	  -- msg.post(".", "acquire_input_focus")
     self.go_id = go.get_id()
-    self.container_id = tostring(self.go_id)
 
-    -- Сначала проверяем: может этот сундук уже есть в памяти?
-    local existing_state = containers_state.get(self.container_id)
+    -- Если в редакторе пусто, используем координаты как UID (авто-заплатка)
+    if self.container_uid == hash("") then
+        local p = go.get_position()
+        self.container_uid = hash(string.format("c_%d_%d", p.x, p.y))
+    end
 
+    -- Регистрируем в стейте
+    local existing_state = containers_state.get(self.container_uid)
     if not existing_state then
-        -- Если его нет (первый спавн), только тогда регистрируем
-        containers_state.init(self.container_id, {
+        containers_state.init(self.container_uid, {
             items = {},
             columns = self.columns,
             rows = self.rows,
             is_looted = false,
-            loot_table_id = self.loot_table_id
+            loot_table_id = self.container_id
         })
     end
 
@@ -123,20 +128,18 @@ function final(self)
 end
 
 function update(self, dt)
-
 end
 
 function late_update(self, dt)
-
 end
 
 function fixed_update(self, dt)
-
 end
 
 function on_message(self, message_id, message, sender)
 	  if message_id == hash("click") then
         interaction.handle_click(self, 50, function()
+            print('container_uid', self.container_uid)
             open_container(self)
         end)
     end
@@ -144,23 +147,21 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("close_window") then
         close_container()
     end
+
+    if message_id == hash("get_uid") then
+        -- Отвечаем тому, кто спросил
+        print("get_uid", self.container_uid)
+        msg.post(sender, "uid_response", { 
+            uid = self.container_uid or self.uid, 
+            kind = self.container_uid and "container" or "loot" 
+        })
+    end
 end
 
 function on_input(self, action_id, action)
-    -- if action_id == nil then -- просто движение мыши
-    --     if mouse_is_over_this_object(action.x, action.y) then
-    --         tooltip_manager.show("unit", self.unit_id, { hp = self.hp })
-    --     else
-    --         -- Важно: скрывать только если МЫ его показали
-    --         if tooltip_manager.get_current() and tooltip_manager.get_current().id == self.unit_id then
-    --             tooltip_manager.hide()
-    --         end
-    --     end
-    -- end
 end
 
 function on_reload(self)
-
 end
 
 

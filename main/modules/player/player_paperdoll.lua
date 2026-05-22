@@ -1,4 +1,7 @@
 local items_db = require("main.modules.data.items_db")
+local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
+local character_data = require("main.modules.character.character_data")
+
 
 local M = {}
 
@@ -26,9 +29,20 @@ function M:can_equip_item(item_id, slot_type)
     local cfg = items_db.get_item(item_id)
     if not cfg then return false end
 
-    -- Сверяем тип предмета (например, "HEAD") с ключом слота ("HEAD")
-    -- В базе данных тип должен называться так же, как ключи в M.slots
-    return cfg.equip_slot == slot_type
+    -- 1. Сверяем тип слота (как и было)
+    if cfg.equip_slot ~= slot_type then
+        return false
+    end
+
+    -- 2. Сверяем требования (наш новый блок)
+    local check = item_requirements_manager.check(cfg, character_data.player)
+    if not check.is_ok then
+        print("REQUIREMENTS FAILED: Cannot equip " .. item_id)
+        -- Можно здесь кинуть broadcast, чтобы показать надпись игроку
+        return false
+    end
+
+    return true
 end
 
 -- СИСТЕМНЫЕ МЕТОДЫ

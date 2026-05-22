@@ -1,0 +1,31 @@
+return {
+    --items
+    ["item_iron_sword_name"] = "Железный меч",
+    ["item_iron_sword_desc"] = "Обычный стальной клинок. Подойдет для тренировок.",
+    ["item_crystal_sword_name"] = "Кристальный меч",
+    ["item_crystal_sword_desc"] = "Сквозь него все выглядит смешнее. Кому вообще взбрело в голову делать меч из стекла? .",
+
+    ["item_leather_helmet_name"] = "Кожаный шлем",
+    ["item_leather_helmet_desc"] = "Простой шлем из кожи",
+
+    ["item_clown_hat_name"] = "Клоунская шапка",
+    ["item_clown_hat_desc"] = "Один из важнейших атрибутов каждого уважющего себя скомороха.",
+
+    ["item_lesser_mana_potion_name"] = "Малое зелье маны",
+    ["item_lesser_mana_potion_desc"] = "Это зелье восстанавливает немного маны.",
+
+    ["item_potion_name"] = "Зелье здоровья",
+
+    --world containers
+    ["container_common_chest_name"] = "Простой сундук",
+    ["container_status_empty"] = "Пусто",
+
+    -- item effects
+
+    ["effect_restore_mana"] = "Восстанавливает %d - %d маны",
+    ["effect_increase_max_health"] = "Максимальное здоровье +%d",
+    ["effect_chance_to_critical_hit"] = "Шанс критического удара +%d",
+    ["effect_mana_leach_on_hit"] = "При ударе восстанавливает %d маны",
+    ["effect_mana_leech_on_hit_chance"] = "При ударе восстанавливает %d маны№%s",
+
+}

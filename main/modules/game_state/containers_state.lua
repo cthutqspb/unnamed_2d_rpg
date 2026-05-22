@@ -3,15 +3,19 @@ local M = {}
 M.registry = {}
 
 function M.init(id, data)
-    M.registry[id] = data
+    -- Превращаем хеш в строку, чтобы Lua не ругался, а sys.save работал
+    local key = tostring(id)
+    M.registry[key] = data
 end
 
 function M.get(id)
-    return M.registry[id]
+    local key = tostring(id)
+    return M.registry[key]
 end
 
 function M.remove(id)
-    M.registry[id] = nil
+    local key = tostring(id)
+    M.registry[key] = nil
 end
 
 function M.clear()

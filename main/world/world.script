@@ -1,9 +1,11 @@
+local locales = require("main.modules.data.locales.locale_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local settings = require("main.modules.data.settings")
+local interaction = require("main.modules.interaction")
 
 local GRID_SIZE = 32
 local DROP_OFFSETS = {
@@ -15,22 +17,22 @@ local DROP_OFFSETS = {
 
 local function spawn_saved_items(self)
     local saved_items = world_items_state.get_all()
-    
+
     for uid, data in pairs(saved_items) do
         local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
         local item_id = data.item_id
-        
+
         local item_cfg = items_db.get_item(item_id)
         if item_cfg then
             local item_go = factory.create("#pickup_factory", pos)
-            
+
             -- Передаем данные в скрипт предмета, включая его сохраненный UID
             msg.post(item_go, "set_item_id", {
                 item_id = item_id,
                 amount = data.amount,
                 uid = uid
             })
-            
+
             -- Ставим спрайт
             local sprite_url = msg.url(nil, item_go, "sprite")
             sprite.play_flipbook(sprite_url, hash(item_cfg.animation or item_cfg.icon))
@@ -43,6 +45,7 @@ function init(self)
     print("World initialized")
     self.player_direction = 1  -- по умолчанию вправо
     self.drag_active = false
+    self.last_hovered_id = nil
     msg.post(".", "acquire_input_focus")
 end
 
@@ -51,9 +54,9 @@ function final(self)
 end
 
 function update(self, dt)
-    -- Сбрасываем флаг в начале каждого кадра
-    window_manager.is_over_ui = false
-    -- Если используешь таблицу:
+    -- -- Сбрасываем флаг в начале каждого кадра
+    -- window_manager.is_over_ui = false
+    -- -- Если используешь таблицу:
     for url, _ in pairs(window_manager.hovered_states) do
         window_manager.hovered_states[url] = false
     end
@@ -154,32 +157,74 @@ function on_message(self, message_id, message, sender)
     end
 end
 
+local function get_world_mouse_pos(self, action_x, action_y)
+    local player_pos = go.get_position("player")
+    local screen = settings.resolution
+    
+    -- Твоя рабочая формула из spawn_dropped_item:
+    local world_x = player_pos.x + (action_x - screen.width / 2)
+    local world_y = player_pos.y + (action_y - screen.height / 2)
+    
+    return vmath.vector3(world_x, world_y, 0)
+end
+
+-- function on_input(self, action_id, action)
+--     -- Движение мыши
+--     if not action_id then
+--         tooltip_manager.update_mouse(action.x, action.y)
+--         window_manager.update_mouse(action.x, action.y)
+--           
+--
+--
+--
+--     if result then
+--         -- Мы попали в объект!
+--         print("Навели на:", result.id)
+--         
+--         -- Показываем тултип (достаем name_key из объекта)
+--         local ok, name_hash = pcall(go.get, result.id, "name_key")
+--         if ok then
+--             tooltip_manager.show("world_object", { 
+--                 id = result.id, 
+--                 name = locales.get(name_hash) 
+--             })
+--         end
+--     else
+--         -- Если ничего не нашли — скрываем мировой тултип
+--         if tooltip_manager.get_current_type() == "world_object" then
+--             tooltip_manager.hide()
+--         end
+--     end
+--     end
+-- end
+
+-- В начале файла, если еще нет
+
 function on_input(self, action_id, action)
     if not action_id then
+        -- 1. Обновляем координаты
         tooltip_manager.update_mouse(action.x, action.y)
         window_manager.update_mouse(action.x, action.y)
+
+        local player_pos = go.get_position("player")
+        local cx, cy = settings.get_center()
+        local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
+
+        local res = interaction.get_target_under_cursor(world_pos)
+        
+        if res then
+            -- Мир просит показать тултип, но менеджер (из Шага 1) 
+            -- проигнорирует это, если сейчас открыто окно с предметом
+            tooltip_manager.show("world_object", { id = tostring(res), name = "OBJECT_TEST" })
+        else
+            -- Скрываем, ТОЛЬКО если сейчас показывается именно мировой тултип
+            if tooltip_manager.get_current_type() == "world_object" then
+                tooltip_manager.hide()
+            end
+        end
     end
-    -- if action_id == hash("touch") and action.pressed then
-    --     -- 1. Get mouse position in world space
-    --     local mouse_pos = vmath.vector3(action.x, action.y, 0)
-    --     
-    --     -- 2. Define a tiny ray (or a long ray)
-    --     -- Raycast needs a start and end point
-    --     local to = mouse_pos
-    --     local from = mouse_pos
-    --     from.z = 1 -- Start in front
-    --     to.z = -1  -- End behind
-    --
-    --     -- 3. Perform raycast against the 'items' group
-    --     local result = physics.raycast(from, to, {hash("items")})
-    --
-    --     -- 4. Check result
-    --     if result then
-    --         print("Clicked on: " .. result.id)
-    --         -- result.position gives exact click point
-    --     end
-    -- end
 end
+
 
 function on_reload(self)
 

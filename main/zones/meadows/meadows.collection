@@ -1,21 +1,5 @@
 name: "meadows"
 instances {
-  id: "lootable_item"
-  prototype: "/main/game_objects/world_item/world_item.go"
-  component_properties {
-    id: "world_item"
-    properties {
-      id: "item_id"
-      value: "crystal_sword"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
-  id: "items_container"
-  prototype: "/main/game_objects/container/container.go"
-}
-instances {
   id: "lootable_item1"
   prototype: "/main/game_objects/container/container.go"
   position {
@@ -23,9 +7,17 @@ instances {
     y: 2578.0
     z: 1.0
   }
+  component_properties {
+    id: "items_container"
+    properties {
+      id: "container_uid"
+      value: "container_003"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
 }
 instances {
-  id: "items_container1"
+  id: "123"
   prototype: "/main/game_objects/container/container.go"
   position {
     x: 4847.0
@@ -35,6 +27,11 @@ instances {
   component_properties {
     id: "items_container"
     properties {
+      id: "container_uid"
+      value: "container_001"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "loot_table_id"
       value: "chest_common"
       type: PROPERTY_TYPE_HASH
@@ -42,7 +39,7 @@ instances {
   }
 }
 instances {
-  id: "items_container2"
+  id: "1234"
   prototype: "/main/game_objects/container/container.go"
   position {
     x: 5022.0
@@ -52,8 +49,13 @@ instances {
   component_properties {
     id: "items_container"
     properties {
+      id: "container_uid"
+      value: "container_002"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "loot_table_id"
-      value: "chest_common"
+      value: ""
       type: PROPERTY_TYPE_HASH
     }
   }
@@ -61,8 +63,17 @@ instances {
 instances {
   id: "world_item"
   prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 5475.0
+    y: 2873.0
+  }
   component_properties {
     id: "world_item"
+    properties {
+      id: "uid"
+      value: "leather_helmet_001"
+      type: PROPERTY_TYPE_HASH
+    }
     properties {
       id: "item_id"
       value: "leather_helmet"
@@ -70,48 +81,38 @@ instances {
     }
   }
 }
+instances {
+  id: "lootable_item"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 5098.0
+    y: 2398.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "uid"
+      value: "leather_helmet_002"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "item_id"
+      value: "crystal_sword"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
-  children: "crystal_sword"
-  children: "items_container1"
-  children: "items_container2"
-  children: "leather_helmet"
+  children: "123"
+  children: "1234"
+  children: "lootable_item"
   children: "lootable_item1"
-  children: "testing_chest"
+  children: "world_item"
   data: "components {\n"
   "  id: \"chunk_meadows\"\n"
   "  component: \"/main/tilemaps/meadow.tilemap\"\n"
   "}\n"
   ""
-}
-embedded_instances {
-  id: "testing_chest"
-  children: "items_container"
-  data: ""
-  position {
-    x: 4882.0
-    y: 2516.0
-    z: 1.0
-  }
-}
-embedded_instances {
-  id: "crystal_sword"
-  children: "lootable_item"
-  data: ""
-  position {
-    x: 5237.0
-    y: 2351.0
-    z: 1.0
-  }
-}
-embedded_instances {
-  id: "leather_helmet"
-  children: "world_item"
-  data: ""
-  position {
-    x: 5243.0
-    y: 2871.0
-    z: 1.0
-  }
 }

@@ -78,7 +78,7 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("open_split_window") then
         print('ON MESSAGE IN SPLIT_WINDOW: ACTIVE!')
-        window_manager.push(msg.url(), hash("close_window"))
+        window_manager.push(self, msg.url(), hash("close_window"))
         msg.post(".", "acquire_input_focus")
         
         self.sender_url = sender

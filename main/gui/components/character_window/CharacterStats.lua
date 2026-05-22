@@ -1,4 +1,5 @@
 local component = require("druid.component")
+local locales = require("main.modules.data.locales.locale_manager")
 local character_data = require("main.modules.character.character_data")
 
 ---@class CharacterStats : druid.component
@@ -14,17 +15,24 @@ function M:init(template_id)
     end
 
     self.nodes = {
-        name = get_node("player_name_text"),
-        race = get_node("player_race_text"),
-        class = get_node("player_class_text"),
-        level = get_node("player_level_text"),
-        health = get_node("player_health_text")
+        --keys         
+        stamina = get_node("player_stamina_title"),
+        agility = get_node("player_agility_title"),
+        strength = get_node("player_strength_title"),
+        intellect = get_node("player_intellect_title"),
+
+        -- values
+        name = get_node("player_name_value"),
+        race = get_node("player_race_value"),
+        class = get_node("player_class_value"),
+        level = get_node("player_level_value"),
+        health = get_node("player_health_value")
     }
 
     -- Динамически собираем ноды статов на основе данных из модуля
     self.stat_nodes = {}
     for stat_id, _ in pairs(character_data.player.stats) do
-        local path = template_id .. "/player_" .. stat_id .. "_text"
+        local path = template_id .. "/player_" .. stat_id .. "_value"
         -- Проверяем наличие ноды один раз при инициализации
         local ok, node = pcall(gui.get_node, path)
         if ok then
@@ -36,8 +44,14 @@ function M:init(template_id)
 end
 
 function M:update_display()
-  print("STATS")
     local player = character_data.player
+    
+    -- keys
+    gui.set_text(self.nodes.stamina, locales.get("stat_stamina"))
+    gui.set_text(self.nodes.agility, locales.get("stat_agility"))
+    gui.set_text(self.nodes.strength, locales.get("stat_strength"))
+    gui.set_text(self.nodes.intellect, locales.get("stat_intellect"))
+
 
     gui.set_text(self.nodes.name, player.name)
     gui.set_text(self.nodes.race, player.race)

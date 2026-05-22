@@ -9,7 +9,7 @@ embedded_components {
   "  x: 128.0\n"
   "  y: 32.0\n"
   "}\n"
-  "font: \"/assets/fonts/gui_title.font\"\n"
+  "font: \"/assets/fonts/iosevka_main.font\"\n"
   "material: \"/builtins/fonts/label-df.material\"\n"
   ""
   position {
