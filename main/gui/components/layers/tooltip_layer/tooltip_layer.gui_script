@@ -105,7 +105,7 @@ local function clear_tooltip(self)
 end
 
 -- Выносим отрисовку предметов
-local function render_item(self, item_context)
+local function render_item(self, item_context, context)
     local cfg = items_db.get_item(item_context.item_id or item_context.id)
     if not cfg then return end
 
@@ -223,20 +223,83 @@ local function render_item(self, item_context)
     -- add_line(self, w_label, p_label, vmath.vector4(0.5, 0.5, 0.5, 1))
 end
 
+-- local function render_world_object(self, info, context)
+--     if not info then return end
+--
+--     local display_name = "Unknown"
+--
+--     -- 1. Если это ПРЕДМЕТ (Loot)
+--     if context.kind == "loot" then
+--         local item_cfg = items_db.get_item(info.item_id)
+--         if item_cfg then
+--             display_name = locales.get(item_cfg.name_key)
+--         end
+--         -- Рисуем название предмета (например, Белым)
+--         self:add_text(display_name, self.colors.WHITE)
+--         self:add_text("Количество: " .. (info.amount or 1))
+--
+--     -- 2. Если это КОНТЕЙНЕР
+--     elseif context.kind == "container" then
+--         -- У контейнера ключ локализации лежит прямо в поле name (это твой container_name)
+--         display_name = locales.get(info.name or "container_unknown")
+--         
+--         self:add_text(display_name, self.colors.GOLD)
+--         
+--         -- Если сундук уже лутали, покажем сколько там слотов
+--         if info.columns and info.rows then
+--              -- ... логика подсчета предметов ...
+--              self:add_text("Слотов: " .. count .. "/" .. (info.columns * info.rows))
+--         end
+--     end
+-- end
+
 -- Выносим отрисовку объектов мира
-local function render_world_object(self, info)
-    add_line(self, info.name, nil, vmath.vector4(1, 1, 1, 1), true)
-    if info.kind == "container" then
-        local color = info.item_count > 0 and vmath.vector4(0.4, 1, 0.4, 1) or vmath.vector4(0.6, 0.6, 0.6, 1)
-        local txt = info.item_count > 0 and ("Предметов: " .. info.item_count) or "Пусто"
-        add_line(self, txt, nil, color)
+local function render_world_object(self, info, context)
+    if not info then return end
+
+    local display_name = "Unknown"
+
+    for key, v in pairs(info) do
+        print("KEY V", key, v)
+    end
+    --print('ITEM ID', info.item_id, info.uid)
+  -- add_line(self, info.name, nil, vmath.vector4(1, 1, 1, 1), true)
+    -- 1. Если это ПРЕДМЕТ (Loot)
+    if context.kind == "loot" then
+        print("id", info.item_id)
+        local item_cfg = items_db.get_item(info.item_id)
+        
+        if item_cfg then
+            display_name = locales.get(item_cfg.name_key)
+        end
+        local name_color = QUALITY_COLORS[item_cfg.quality] or QUALITY_COLORS.common
+        print('display_name', display_name)
+        -- Рисуем название предмета (например, Белым)
+        add_line(self, display_name, nil, name_color)
+        --self:add_text(display_name, self.colors.WHITE)
+        -- self:add_text("Количество: " .. (info.amount or 1))
+
+    -- 2. Если это КОНТЕЙНЕР
+    elseif context.kind == "container" then
+        -- local item_cfg = items_db.get_item(info.item_id)
+        -- if item_cfg then
+        --     display_name = locales.get(item_cfg.container_name)
+        -- end
+        if info.name then
+            display_name = locales.get(info.name)
+        end
+        -- print('display_name', display_name)
+        add_line(self, display_name, nil, QUALITY_COLORS.common)
+        --local color = info.item_count > 0 and vmath.vector4(0.4, 1, 0.4, 1) or vmath.vector4(0.6, 0.6, 0.6, 1)
+        --local txt = info.item_count > 0 and ("Предметов: " .. info.item_count) or "Пусто"
+        --add_line(self, txt, nil, color)
     end
 end
 
 
 function update(self, dt)
-    local data = tooltip_manager.get_current()
-    if not data or drag_manager.is_dragging() then
+    local pack = tooltip_manager.get_current()
+    if not pack or drag_manager.is_dragging() then
         if gui.is_enabled(self.root) then
             clear_tooltip(self)
             gui.set_enabled(self.root, false)
@@ -251,22 +314,25 @@ function update(self, dt)
     gui.set_render_order(constants_ui.LAYERS.TOOLTIP)
 
     -- 2. Сравнение по ссылке на таблицу данных (самый надежный способ)
-    if data == self.current_data_ref then
+    if pack == self.current_data_ref then
         return
     end
 
-    self.current_data_ref = data 
+    self.current_data_ref = pack 
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
-
-    if data.type == "item" then
-        render_item(self, data.data)
-    elseif data.type == "world_object" then
-        render_world_object(self, data.data)
+    -- print('PACK', pack.type)
+    -- for key, v in pairs(pack) do
+    --     print("KEY V", key, v)
+    -- end
+    if pack.type == "item" then
+        render_item(self, pack.info, pack.context)
+    elseif pack.type == "world_object" then
+        render_world_object(self, pack.info, pack.context)
     end
 
     -- ПОДГОНКА ФОНА
     local final_h = math.abs(self.current_y) + 6
     gui.set_size(self.background, vmath.vector3(320, final_h, 0))
-    
+
 end

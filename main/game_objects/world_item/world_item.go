@@ -48,7 +48,7 @@ embedded_components {
   "  x: 96.0\n"
   "  y: 24.0\n"
   "}\n"
-  "font: \"/assets/fonts/iosevka_main.font\"\n"
+  "font: \"/assets/fonts/font_regular_16.font\"\n"
   "material: \"/builtins/fonts/label-df.material\"\n"
   ""
   position {
@@ -63,7 +63,7 @@ embedded_components {
   "  x: 12.0\n"
   "  y: 12.0\n"
   "}\n"
-  "font: \"/assets/fonts/iosevka_main.font\"\n"
+  "font: \"/assets/fonts/font_regular_16.font\"\n"
   "material: \"/builtins/fonts/label-df.material\"\n"
   ""
   position {

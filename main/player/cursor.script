@@ -39,20 +39,20 @@ end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("collision_response") and self.pressed then
-        print("Clicked on:", message.other_id)
-        
-        -- Проверяем дистанцию до предмета
-        local player_pos = go.get_world_position(msg.url("/player"))
-        local item_pos = go.get_world_position(go.get_id()) 
-        local dist = vmath.length(player_pos - item_pos)
-        
-        if dist < 50 then
-            -- Близко — сразу подбираем
-            msg.post(message.other_id, "click")
-        else
-            -- Далеко — отправляем игрока к предмету
-            msg.post("player", "move_to_item", { item_id = message.other_id })
-        end
+        -- print("Clicked on:", message.other_id)
+        -- 
+        -- -- Проверяем дистанцию до предмета
+        -- local player_pos = go.get_world_position(msg.url("/player"))
+        -- local item_pos = go.get_world_position(go.get_id()) 
+        -- local dist = vmath.length(player_pos - item_pos)
+        -- 
+        -- if dist < 50 then
+        --     -- Близко — сразу подбираем
+        --     msg.post(message.other_id, "click")
+        -- else
+        --     -- Далеко — отправляем игрока к предмету
+        --     msg.post("player", "move_to_item", { item_id = message.other_id })
+        -- end
     end	  
 end
 

@@ -4,6 +4,7 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
+local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
 local interaction = require("main.modules.interaction")
 
@@ -81,19 +82,12 @@ function on_message(self, message_id, message, sender)
 
     elseif message_id == hash("spawn_dropped_item") then
         local player_pos = go.get_position("player")
+        local screen = settings.resolution
 
         -- Получаем экранные координаты мыши
         local mouse_x = message.mouse_x
         local mouse_y = message.mouse_y
 
- --        -- Преобразуем экранные координаты в мировые
- --        local w = sys.get_config("display.width")
- --        local h = sys.get_config("display.height")
- --
- -- 
- --        local world_mouse_x = player_pos.x + (mouse_x - w / 2)
- --        local world_mouse_y = player_pos.y + (mouse_y - h / 2)
-        local screen = settings.resolution
         local world_mouse_x = player_pos.x + (mouse_x - screen.width / 2)
         local world_mouse_y = player_pos.y + (mouse_y - screen.height / 2)
 
@@ -105,22 +99,24 @@ function on_message(self, message_id, message, sender)
         local drop_distance = 40
         local drop_pos = player_pos + dir_norm * drop_distance
 
-        -- Создаём предмет
-        local data = items_db.get_item(message.item_id)
+        local item_id = message.item_id
+        local uid = world_items_state.add(item_id, drop_pos, message.amount)
+         -- Создаем объект
+        local item_go = factory.create("#pickup_factory", drop_pos, nil, { uid = hash(uid) })
+
+        -- Шлем данные. ВАЖНО: set_item_id должен вызвать register в instances, 
+        -- если это не сделано в init!
+        msg.post(item_go, "set_item_id", {
+            item_id = item_id,
+            amount = message.amount,
+            uid = uid
+        })
+
+        -- Визуал
+        local data = items_db.get_item(item_id)
         if data then
-            local item_go = factory.create("#pickup_factory", drop_pos)
-
-            local item_id = message.item_id
-            local uid = world_items_state.add(item_id, drop_pos, message.amount)
-
-            msg.post(item_go, "set_item_id", {
-                item_id = message.item_id,
-                amount = message.amount,
-                uid = uid
-            })
             local sprite_url = msg.url(nil, item_go, "sprite")
             sprite.play_flipbook(sprite_url, hash(data.animation or data.icon))
-
             if data.scale then
                 go.set_scale(vmath.vector3(data.scale, data.scale, 1), item_go)
             end
@@ -199,31 +195,98 @@ end
 -- end
 
 -- В начале файла, если еще нет
+--
+-- function on_input(self, action_id, action)
+--     if not action_id then
+--         -- 1. Обновляем координаты
+--         tooltip_manager.update_mouse(action.x, action.y)
+--         window_manager.update_mouse(action.x, action.y)
+--
+--         if window_manager.is_over_ui() then
+--             -- Выключаем тултип мира, если он горел
+--             if tooltip_manager.get_current_type() == "world_object" then
+--                 tooltip_manager.hide()
+--             end
+--             return -- ПРЕРЫВАЕМ выполнение: рейкаст не случится
+--         end
+--
+--         local player_pos = go.get_position("player")
+--         local cx, cy = settings.get_center()
+--         local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
+--
+--         local res = interaction.get_target_under_cursor(world_pos)
+--         
+--         if res then
+--             -- Мир просит показать тултип, но менеджер (из Шага 1) 
+--             -- проигнорирует это, если сейчас открыто окно с предметом
+--             tooltip_manager.show("world_object", { id = tostring(res), name = "OBJECT_TEST" })
+--         else
+--             -- Скрываем, ТОЛЬКО если сейчас показывается именно мировой тултип
+--             if tooltip_manager.get_current_type() == "world_object" then
+--                 tooltip_manager.hide()
+--             end
+--         end
+--     end
+-- end
+
 
 function on_input(self, action_id, action)
+    -- ПРОВЕРКА: Если это не мышь (движение или клик), выходим сразу
+    -- У событий мыши ВСЕГДА есть поле x
+    if not action.x then
+        return false
+    end
+
+    -- 1. Обновляем координаты (теперь тут 100% есть числа)
+    tooltip_manager.update_mouse(action.x, action.y)
+    window_manager.update_mouse(action.x, action.y)
+
+    -- Расчет мировых координат
+    local player_pos = go.get_position("player")
+    local cx, cy = settings.get_center()
+    local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
+
+    -- 2. Логика тултипа (только при движении мыши, когда action_id == nil)
     if not action_id then
-        -- 1. Обновляем координаты
-        tooltip_manager.update_mouse(action.x, action.y)
-        window_manager.update_mouse(action.x, action.y)
+        if window_manager.is_over_ui() then
+            if tooltip_manager.get_current_type() == "world_object" then tooltip_manager.hide() end
+            return
+        end
 
-        local player_pos = go.get_position("player")
-        local cx, cy = settings.get_center()
-        local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
-
-        local res = interaction.get_target_under_cursor(world_pos)
-        
-        if res then
-            -- Мир просит показать тултип, но менеджер (из Шага 1) 
-            -- проигнорирует это, если сейчас открыто окно с предметом
-            tooltip_manager.show("world_object", { id = tostring(res), name = "OBJECT_TEST" })
+        local hits = interaction.get_all_targets_under_cursor(world_pos)
+        if hits then
+          -- hits[1] - это самый верхний объект (ближайший к камере)
+            local top_object = hits[1]
+            -- Для теста показываем количество и ID верхнего
+            --print("HITS FOUND:", #hits)
+            local kind, uid = game_state.get_entity_info(top_object.id)
+            if kind then
+                print('kind', kind, uid)
+                local state_data = game_state.get_data_by_type(kind, uid)
+                print('state_data', state_data)
+                tooltip_manager.show("world_object", state_data, { uid = uid, kind = kind })
+            end
         else
-            -- Скрываем, ТОЛЬКО если сейчас показывается именно мировой тултип
             if tooltip_manager.get_current_type() == "world_object" then
                 tooltip_manager.hide()
             end
         end
     end
+
+    -- 3. Логика клика (рейкаст по клику)
+    if action_id == hash("touch") and action.pressed then
+        if window_manager.is_over_ui() then return end
+
+        local res = interaction.get_target_under_cursor(world_pos)
+        if res then
+            msg.post(res, "click")
+        else
+            -- Клик в пустоту — бежим
+            msg.post("player", "move_to", { position = world_pos })
+        end
+    end
 end
+
 
 
 function on_reload(self)

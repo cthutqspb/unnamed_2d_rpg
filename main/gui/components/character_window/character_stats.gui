@@ -1,6 +1,6 @@
 fonts {
   name: "iosevka_main"
-  font: "/assets/fonts/iosevka_main.font"
+  font: "/assets/fonts/font_regular_16.font"
 }
 nodes {
   size {

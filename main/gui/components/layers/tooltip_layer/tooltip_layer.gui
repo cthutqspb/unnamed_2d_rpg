@@ -1,7 +1,7 @@
 script: "/main/gui/components/layers/tooltip_layer/tooltip_layer.gui_script"
 fonts {
   name: "iosevka_main"
-  font: "/assets/fonts/iosevka_main.font"
+  font: "/assets/fonts/font_regular_16.font"
 }
 nodes {
   size {

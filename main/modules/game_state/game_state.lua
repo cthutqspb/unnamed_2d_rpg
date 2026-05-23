@@ -4,6 +4,19 @@ local containers = require("main.modules.game_state.containers_state")
 
 local M = {}
 
+function M.get_entity_info(go_id)
+    -- Спрашиваем контейнеры
+    local c_uid = containers.instances[go_id]
+    if c_uid then return "container", c_uid end
+
+    -- Спрашиваем лут
+    local l_uid = world_items.instances[go_id]
+    if l_uid then return "loot", l_uid end
+
+    return nil
+end
+
+
 ---------------------------
 -- СИСТЕМНЫЕ ФУНКЦИИ (Сохранение/Загрузка)
 ---------------------------

@@ -2,6 +2,7 @@ local M = {}
 
 -- Стек открытых окон (список URL скриптов)
 local stack = {}
+M.hovered_states = {}
 
 M.mouse_x = 0
 M.mouse_y = 0
@@ -77,6 +78,18 @@ function M.reorder_focus()
         msg.post(win.url, "release_input_focus")
         msg.post(win.url, "acquire_input_focus")
     end
+end
+
+function M.set_hover_status(url, is_over)
+    M.hovered_states[tostring(url)] = is_over
+end
+
+function M.is_over_ui()
+    -- Если хотя бы одно окно говорит, что оно под мышкой — возвращаем true
+    for url, is_over in pairs(M.hovered_states) do
+        if is_over then return true end
+    end
+    return false
 end
 
 

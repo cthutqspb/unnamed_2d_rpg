@@ -1,42 +1,51 @@
 local M = {}
 
-M.registry = {}
+M.registry = {}       -- Динамика: предметы, статус "лутался/нет" (для сейва)
+M.static_configs = {} -- Статика: размеры, имена, типы (НЕ для сейва)
+M.instances = {}      -- Связи: go_id -> uid (для рейкаста)
 
-function M.init(id, data)
-    -- Превращаем хеш в строку, чтобы Lua не ругался, а sys.save работал
-    local key = tostring(id)
-    M.registry[key] = data
+local function to_key(id)
+    return type(id) == "userdata" and tostring(id) or id
 end
 
-function M.get(id)
-    local key = tostring(id)
-    return M.registry[key]
+-- Регистрация физического тела в мире
+function M.register(id, uid)
+    M.instances[id] = to_key(uid)
 end
 
-function M.remove(id)
-    local key = tostring(id)
-    M.registry[key] = nil
+function M.unregister(id)
+    M.instances[id] = nil
+end
+
+-- Регистрация "Чертежа" (вызываем в init)
+function M.register_static_config(uid, config)
+    M.static_configs[to_key(uid)] = config
+end
+
+-- Инициализация динамики (вызываем при лутании или загрузке)
+function M.init(uid, data)
+    M.registry[to_key(uid)] = data
+end
+
+-- УМНЫЙ ГЕТТЕР
+function M.get(uid)
+    local key = to_key(uid)
+    -- Если сундук уже лутали, берем из реестра. 
+    -- Если нет — отдаем его статический "чертеж".
+    return M.registry[key] or M.static_configs[key]
 end
 
 function M.clear()
+    -- При новой игре стираем только прогресс лутания
     M.registry = {}
+    -- Статику и инстансы не трогаем, они привязаны к текущей сцене!
 end
 
--- Для сохранения: просто отдаем всю таблицу
-function M.get_all()
-    return M.registry
-end
+function M.get_all() return M.registry end
 
--- Для загрузки: аккуратно обновляем только те данные, которые реально записаны в файле
 function M.restore_all(data)
-    -- Если из файла прилетела пустая таблица или nil, вообще ничего не трогаем,
-    -- пусть в мире остается дефолтный стартовый лут!
     if not data then return end
-
-    -- Бежим циклом только по сохраненным сундукам и обновляем их в реестре
-    for container_uid, container_data in pairs(data) do
-        M.registry[container_uid] = container_data
-    end
+    M.registry = data
 end
 
 return M

@@ -1,7 +1,7 @@
 script: "/main/gui/main_menu/main_menu.gui_script"
 fonts {
-  name: "gui_title"
-  font: "/assets/fonts/gui_title.font"
+  name: "font_regular_24"
+  font: "/assets/fonts/font_regular_24.font"
 }
 nodes {
   size {
@@ -53,7 +53,7 @@ nodes {
     z: 0.2
   }
   type: TYPE_TEXT
-  font: "gui_title"
+  font: "font_regular_24"
   id: "btn_new_game_title"
   parent: "btn_new_game"
   inherit_alpha: true
@@ -92,7 +92,7 @@ nodes {
     z: 0.2
   }
   type: TYPE_TEXT
-  font: "gui_title"
+  font: "font_regular_24"
   id: "btn_continue_game_title"
   parent: "btn_continue_game"
   inherit_alpha: true
@@ -130,7 +130,7 @@ nodes {
   type: TYPE_TEXT
   text: "\n"
   ""
-  font: "gui_title"
+  font: "font_regular_24"
   id: "btn_save_game_title"
   parent: "btn_save_game"
   inherit_alpha: true
@@ -171,7 +171,7 @@ nodes {
   type: TYPE_TEXT
   text: "\n"
   ""
-  font: "gui_title"
+  font: "font_regular_24"
   id: "btn_load_game_title"
   parent: "btn_load_game"
   inherit_alpha: true
@@ -210,7 +210,7 @@ nodes {
     z: 0.2
   }
   type: TYPE_TEXT
-  font: "gui_title"
+  font: "font_regular_24"
   id: "btn_exit_game_title"
   parent: "btn_exit_game"
   inherit_alpha: true

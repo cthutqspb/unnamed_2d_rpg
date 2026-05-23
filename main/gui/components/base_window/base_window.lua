@@ -66,7 +66,16 @@ function M.request_refresh(self)
 end
 
 function M.update(self, dt, mx, my)
-    -- УБРАЛИ set_hover_status. Теперь менеджер сам опрашивает окна через is_over_window
+    -- Проверяем видимость и нахождение мыши над телом окна
+    local is_over = false
+    if M.is_visible(self) then
+        is_over = gui.pick_node(self.body, mx, my)
+    end
+    
+    -- Сообщаем менеджеру актуальный статус
+    -- Это безопасно, так как вызывается из GUI контекста
+    window_manager.set_hover_status(msg.url(), is_over)
+
     if self._dirty then
         if self.refresh_all then self:refresh_all() end
         self._dirty = false
@@ -118,7 +127,7 @@ end
 function M.toggle(self)
     local is_visible = M.is_visible(self)
     local new_visible = not is_visible
-    
+
     M.set_visible(self, new_visible)
 
     if new_visible then
@@ -140,6 +149,11 @@ end
 
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
+      
+    -- Если окно скрывается, оно ДОЛЖНО обнулить свой статус ховера
+    if not visible then
+        window_manager.set_hover_status(msg.url(), false)
+    end
 
     if visible and self.callbacks.on_show then
         self.callbacks.on_show()
@@ -155,11 +169,16 @@ function M.is_visible(self)
 end
 
 function M.close(self)
+    -- 1. Скрываем
     M.set_visible(self, false)
-    -- УБРАЛИ обнуление render_order, чтобы не ломать Z-слой окна
+
+    -- 2. Убираем из стека
     window_manager.pop(msg.url())
+
     msg.post(".", "release_input_focus")
+    window_manager.reorder_focus()
 end
+
 
 function M.set_title(self, text)
     if self.window_title then

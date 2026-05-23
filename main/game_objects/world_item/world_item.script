@@ -36,26 +36,27 @@ end
 function init(self)
     msg.post(".", "acquire_input_focus")
 
-    -- СОХРАНЯЕМ ID этого конкретного предмета в self
     self.go_id = go.get_id()
 
-    -- 1. ЛОГИКА UID (как в контейнере)
+    -- ГАРАНТИРУЕМ, что у нас есть строковый UID
+    local s_uid = tostring(self.uid)
+
     if self.uid == hash("") then
         local p = go.get_position()
-        -- Генерируем "паспорт" для предмета из редактора
-        local s_uid = string.format("i_%d_%d", p.x, p.y)
+        s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
         self.uid = hash(s_uid)
-        
-        -- 2. РЕГИСТРИРУЕМ В СТЕЙТЕ
-        -- Если его там еще нет (первый запуск), добавляем вручную
-        if not world_items_state.get_item_by_uid(s_uid) then
-            world_items_state.registry[s_uid] = {
-                item_id = tostring(self.item_id),
-                pos = { x = p.x, y = p.y },
-                amount = self.amount or 1
-            }
-        end
-    end    -- self.amount = 1
+    end
+
+    -- 1. Регистрируем чертеж (всегда как строку)
+    world_items_state.register_static_config(s_uid, {
+        item_id = self.item_id,
+        amount = self.amount,
+        pos = go.get_position()
+    })
+
+    -- 2. Регистрируем связь (всегда как строку)
+    world_items_state.register(self.go_id, s_uid)
+
     self.is_interactable = true
 
     if self.item_id ~= hash("unknown") then
@@ -85,6 +86,8 @@ function init(self)
 end
 
 function final(self)
+    -- ⚡️ ВЫПИСЫВАЕМСЯ ИЗ РЕЕСТРА
+    world_items_state.unregister(self.go_id)
     broadcast.unsubscribe("world_events", self.broadcast_handler)
 end
 
@@ -111,7 +114,9 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("set_item_id") then
         self.item_id = message.item_id
         self.amount = message.amount or 1
-        self.uid = message.uid -- СОХРАНЯЕМ UID!
+        self.uid = message.uid 
+        
+        world_items_state.register(self.go_id, self.uid)
 
         local data = items_db.get_item(self.item_id)
         local item_name = locales.get(data.name_key)

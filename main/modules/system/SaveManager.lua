@@ -29,6 +29,8 @@ function M.new_game()
     player_paperdoll.clear()
     containers_state.clear()
     world_items_state.clear()
+
+    broadcast.send("world_events", { message_id = hash("re_register_entities") })
     
     -- 2. ВОТ ЗДЕСЬ выдаем начальные предметы в чистый инвентарь
     player_inventory.init() -- заполняем ячейки пустышками

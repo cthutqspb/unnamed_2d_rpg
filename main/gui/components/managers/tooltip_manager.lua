@@ -8,12 +8,11 @@ M.mouse_y = 0
 
 local current_data = nil
 
-function M.show(type, data, extra_data)
-    print('MSHOW', type, data)
+function M.show(type, info, context)
     current_data = {
-        type = type,
-        data = data,
-        extra = extra_data
+        type = type,     -- "item" или "world_object"
+        info = info,     -- сами данные (предмет или стейт сундука)
+        context = context -- откуда пришло (инвентарь, мир, магазин)
     }
 end
 

@@ -1,7 +1,7 @@
 script: "/main/gui/components/character_window/character_window.gui_script"
 fonts {
   name: "iosevka_header"
-  font: "/assets/fonts/iosevka_header.font"
+  font: "/assets/fonts/font_regular_24.font"
 }
 nodes {
   position {

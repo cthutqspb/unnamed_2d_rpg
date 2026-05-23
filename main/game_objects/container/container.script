@@ -22,54 +22,40 @@ local function apply_container_visual(self)
 end
 
 local function open_container(self)
-    local state = containers_state.get(self.container_uid)
-    print("container_id:", self.container_id)
-    print("Opening container:", self.container_name)
-
-    ---------------------------------------------------------------------------
-    -- НАШ ФИКС: Если сундука нет в глобальной памяти (Новая игра), создаем структуру
-    ---------------------------------------------------------------------------
-    if not state then
+    -- 1. Пытаемся взять данные из динамического реестра (был ли он уже открыт в этой сессии?)
+    local state = containers_state.registry[tostring(self.container_uid)]
+    
+    -- 2. Если в реестре пусто - значит это ПЕРВОЕ открытие после New Game или билда
+    if not state or not state.is_looted then
+        print("First time opening or New Game reset. Generating loot...")
+        
+        -- Генерируем лут по таблице из свойств объекта
+        local items = loot_tables.get_loot(self.loot_table_id)
+        
+        -- Формируем полноценную запись для реестра
         state = {
-            is_looted = false,
-            items = {}
+            is_looted = true,
+            items = items,
+            columns = self.columns,
+            rows = self.rows
         }
         
-        -- Заполняем сетку сундука пустышками {item_id = nil, amount = 0} 
-        -- на основе его размеров, чтобы drag_manager не падал при обращении к слотам
-        local total_slots = self.columns * self.rows
-        for i = 1, total_slots do
-            state.items[i] = { item_id = nil, amount = 0 }
-        end
-        
-        -- Сразу регистрируем эту чистую структуру в памяти
-        containers_state.init(self.container_id, state)
-    end
-    ---------------------------------------------------------------------------
-
-    -- Твой родной рабочий код генерации лута:
-    if not state.is_looted then
-        -- генерируем лут в state.items
-        local items = loot_tables.get_loot(self.loot_table_id)
-        for i, item in ipairs(items) do
-            state.items[i] = item
-        end
-        state.is_looted = true
-        -- обновляем реестр
+        -- Записываем в динамическую память (теперь это сохранится при save_game)
         containers_state.init(self.container_uid, state)
     end
 
-    -- Передаём в GUI ссылку на state.items
+    -- 3. Теперь state точно содержит предметы
     msg.post("main:/container_window#gui", "open_container_window", {
-        container_uid = self.container_uid, -- уникальный айди
+        container_uid = self.container_uid,
         container_id = self.container_id,
-        container_items = state.items,  -- передаём ссылку на предметы
-        columns = self.columns,
-        rows = self.rows,
+        container_items = state.items, 
+        columns = state.columns,
+        rows = state.rows,
         position = go.get_world_position(),
         player_pos = go.get_position("/player")
     })
 end
+
 
 local function close_container(self)
     -- Закрыть окно
@@ -85,19 +71,29 @@ function init(self)
         local p = go.get_position()
         self.container_uid = hash(string.format("c_%d_%d", p.x, p.y))
     end
-
-    -- Регистрируем в стейте
-    local existing_state = containers_state.get(self.container_uid)
-    if not existing_state then
-        containers_state.init(self.container_uid, {
-            items = {},
-            columns = self.columns,
-            rows = self.rows,
-            is_looted = false,
-            loot_table_id = self.container_id
-        })
-    end
-
+      
+    containers_state.register_static_config(self.container_uid, {
+        name = self.container_name,
+        columns = self.columns,
+        rows = self.rows,
+        loot_table_id = self.container_id,
+        items = {} -- пусто по умолчанию
+    })
+    -- -- Регистрируем в стейте
+    -- local existing_state = containers_state.get(self.container_uid)
+    -- if not existing_state then
+    --     containers_state.init(self.container_uid, {
+    --         items = {},
+    --         columns = self.columns,
+    --         rows = self.rows,
+    --         is_looted = false,
+    --         loot_table_id = self.container_id
+    --     })
+    -- end
+    
+    -- 3. РЕГИСТРАЦИЯ СВЯЗИ (всегда!)
+    -- Чтобы рейкаст мог найти UID этого конкретного сундука прямо сейчас
+    containers_state.register(self.go_id, self.container_uid)
     apply_container_visual(self)
 
     msg.post("#container_name", "disable")
@@ -123,9 +119,8 @@ function init(self)
 end
 
 function final(self)
-	  -- broadcast.unsubscribe(self.broadcast_handler)
-    broadcast.unsubscribe("world_events", self.broadcast_handler)
-    -- containers_state.remove(self.container_id)
+	containers_state.unregister(self.go_id)
+  broadcast.unsubscribe("world_events", self.broadcast_handler)
 end
 
 function update(self, dt)
@@ -147,15 +142,6 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("close_window") then
         close_container()
-    end
-
-    if message_id == hash("get_uid") then
-        -- Отвечаем тому, кто спросил
-        print("get_uid", self.container_uid)
-        msg.post(sender, "uid_response", { 
-            uid = self.container_uid or self.uid, 
-            kind = self.container_uid and "container" or "loot" 
-        })
     end
 end
 
