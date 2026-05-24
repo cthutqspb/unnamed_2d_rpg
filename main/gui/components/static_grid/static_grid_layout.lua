@@ -8,7 +8,7 @@ function M.create_slots(self)
 
     local path_root  = hash(base_path .. "/root")
     local path_icon  = hash(base_path .. "/icon")
-    local path_count = hash(base_path .. "/count")
+    local path_amount = hash(base_path .. "/amount")
 
     for i = 1, self.columns * self.rows do
         local nodes = gui.clone_tree(prefab_root)
@@ -23,7 +23,7 @@ function M.create_slots(self)
         table.insert(self.slots, {
             root = slot_root,
             icon = nodes[path_icon],
-            count = nodes[path_count]
+            amount = nodes[path_amount]
         })
     end
 end
@@ -40,8 +40,8 @@ function M.draw_slot(self, index, item_id, amount)
         gui.play_flipbook(slot.icon, hash(data.animation or data.icon))
 
         local is_stack = amount and amount > 1
-        gui.set_enabled(slot.count, is_stack)
-        if is_stack then gui.set_text(slot.count, tostring(amount)) end
+        gui.set_enabled(slot.amount, is_stack)
+        if is_stack then gui.set_text(slot.amount, tostring(amount)) end
     end
 end
 
@@ -49,7 +49,7 @@ function M.clear_slot_visual(self, index)
     local slot = self.slots[index]
     if slot then
         gui.set_enabled(slot.icon, false)
-        gui.set_enabled(slot.count, false)
+        gui.set_enabled(slot.amount, false)
     end
 end
 

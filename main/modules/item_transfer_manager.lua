@@ -27,7 +27,7 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
         mouse_x = mouse_x,
         mouse_y = mouse_y
     })
-    
+
     if item.source_split_slot then
         local original_item = source:get_item(item.source_split_slot)
         if original_item then
@@ -39,7 +39,7 @@ function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
     else
         source:set_item(source_slot, nil)
     end
-    
+
     M.finalize(source_comp)
 end
 
@@ -47,7 +47,7 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
     -- Теперь нам плевать, открыты окна или нет
     local source = get_ds(source_comp)
     local target = get_ds(target_comp)
-    
+
     if not source or not target then return end
 
     -- 0. ОБРАБОТКА СПЛИТА
@@ -72,7 +72,9 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
 
     -- Дополнительно: проверка куклы для обратного обмена (если на кукле уже что-то висит)
     local item_b = target:get_item(target_slot)
-    if item_b and source.can_equip_item then
+    -- Если в цели РЕАЛЬНО что-то лежит (есть ID)
+    if item_b and item_b.item_id and source.can_equip_item then
+        -- Проверяем, может ли ИСТОЧНИК (кукла) принять этот предмет обратно
         if not source:can_equip_item(item_b, source_slot) then
             M.cancel_transfer(source_comp)
             return

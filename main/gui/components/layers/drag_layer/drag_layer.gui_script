@@ -5,7 +5,9 @@ function init(self)
     -- Мы не запрашиваем фокус ввода! Этот слой только для отрисовки.
     gui.set_render_order(constants_ui.LAYERS.DRAG)
     self.icon = gui.get_node("icon")
+    self.amount = gui.get_node("amount")
     gui.set_enabled(self.icon, false)
+    gui.set_enabled(self.amount, false)
 end
 
 function final(self)
@@ -28,6 +30,12 @@ function update(self, dt)
             gui.set_texture(self.icon, d.texture)
             gui.play_flipbook(self.icon, d.animation)
         end
+        
+        -- amount
+        if d.amount > 1 then
+            gui.set_enabled(self.amount, true)
+            gui.set_text(self.amount, d.amount)
+        end
 
         -- ПРОВЕРКА 3: Наличие координат
         local x = d.x or 0
@@ -37,6 +45,7 @@ function update(self, dt)
         -- Если не тащим — гарантированно выключаем
         if gui.is_enabled(self.icon) then
             gui.set_enabled(self.icon, false)
+            gui.set_enabled(self.amount, false)
         end
     end
 end

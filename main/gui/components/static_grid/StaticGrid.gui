@@ -46,7 +46,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_prefab/count"
+  id: "slot_prefab/amount"
   parent: "slot_prefab/root"
   template_node_child: true
 }

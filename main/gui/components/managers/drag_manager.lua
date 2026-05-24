@@ -14,11 +14,12 @@ function M.start(source, slot, item, item_cfg)
         slot = slot,
         item = item,
         item_cfg = item_cfg,
+        amount = item.amount,
         texture = item_cfg.texture,
         animation = hash(animation_name),
         x = 0, y = 0
     }
-    print("Drag started")
+    print("Drag started with amount:", item.amount)
 end
 
 function M.update(x, y)

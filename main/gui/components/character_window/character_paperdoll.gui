@@ -33,7 +33,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_head/count"
+  id: "slot_head/amount"
   parent: "slot_head/root"
   template_node_child: true
 }
@@ -61,7 +61,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_chest/count"
+  id: "slot_chest/amount"
   parent: "slot_chest/root"
   template_node_child: true
 }
@@ -89,7 +89,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_legs/count"
+  id: "slot_legs/amount"
   parent: "slot_legs/root"
   template_node_child: true
 }
@@ -118,7 +118,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_main_hand/count"
+  id: "slot_main_hand/amount"
   parent: "slot_main_hand/root"
   template_node_child: true
 }
@@ -147,7 +147,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "slot_off_hand/count"
+  id: "slot_off_hand/amount"
   parent: "slot_off_hand/root"
   template_node_child: true
 }

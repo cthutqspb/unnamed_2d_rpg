@@ -89,6 +89,7 @@ function M.on_item_drag_start(self, index)
         drag_manager.start(self, index, item_data, cfg)
         -- Скрываем иконку на время драга
         gui.set_enabled(self.slots[index].icon, false)
+        gui.set_enabled(self.slots[index].amount, false)
     end
 end
 

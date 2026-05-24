@@ -18,7 +18,7 @@ end
 
 local function confirm(self)
     if self.sender_url then
-      print('aself.current_amoun',  self.current_amount)
+        print('aself.current_amoun',  self.current_amount)
 
         msg.post(self.sender_url, "split_confirmed", {
             slot_index = self.source_slot,
@@ -83,11 +83,11 @@ function on_message(self, message_id, message, sender)
         print('ON MESSAGE IN SPLIT_WINDOW: ACTIVE!')
         window_manager.push(self, msg.url(), self.render_order)
         msg.post(".", "acquire_input_focus")
-        
+
         self.sender_url = sender
         self.source_slot = message.slot_index
         self.max_amount = message.item_data.amount or 1
-        
+
         -- По классике открываемся ровно на половине стака
         self.current_amount = math.floor(self.max_amount / 2)
         if self.current_amount < 1 then self.current_amount = 1 end
@@ -107,12 +107,13 @@ function on_message(self, message_id, message, sender)
             local anim = item_cfg.animation or item_cfg.icon
             gui.set_texture(self.icon_from, item_cfg.texture)
             gui.play_flipbook(self.icon_from, hash(anim))
-            
+
             gui.set_texture(self.icon_to, item_cfg.texture)
             gui.play_flipbook(self.icon_to, hash(anim))
         end
 
         update_ui(self)
+        gui.set_render_order(constants_ui.LAYERS.POPUP)
         gui.set_enabled(self.root, true)
     end
 end

@@ -1,10 +1,14 @@
 local items_db = require("main.modules.data.items_db")
 
+---@class Inventory
 local M = {}
 
 M.max_slots = 48
+---@type Item[]
 M.items = {}
 
+---@param item_id any
+---@return string|any
 local function get_clean_id(item_id)
     if type(item_id) == "userdata" then
         return tostring(item_id):match("%[(.-)%]") or item_id
@@ -13,6 +17,7 @@ local function get_clean_id(item_id)
 end
 
 -- Вспомогательная функция для пустой ячейки
+---@return Item
 local function empty_slot()
     return { item_id = nil, amount = 0, uid = nil } -- Добавь uid = nil
 end
@@ -24,14 +29,23 @@ function M.init()
 end
 
 -- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (для StaticGrid и TransferManager)
+---@param idx number
+---@return Item
 function M:get_item(idx)
-    return self.items[idx]
+    -- Добавляем fallback на пустой слот, чтобы убрать "return-type-mismatch"
+    return self.items[idx] or empty_slot()
 end
 
+---@param idx number
+---@param data Item|nil
 function M:set_item(idx, data)
     self.items[idx] = data or empty_slot()
 end
 
+---@param item_id hash|string
+---@param amount number
+---@param uid string|nil
+---@return boolean
 function M.add_item(item_id, amount, uid) -- Добавили uid
     local data = items_db.get_item(item_id)
     if not data then return false end
@@ -44,8 +58,9 @@ function M.add_item(item_id, amount, uid) -- Добавили uid
     if data.stackable then
         for i = 1, M.max_slots do
             local slot = M.items[i]
-            if slot.item_id == item_hash and slot.amount < max_stack then
+            if slot and slot.item_id == item_hash and slot.amount < max_stack then
                 local add = math.min(remaining, max_stack - slot.amount)
+                ---@diagnostic disable-next-line: assign-type-mismatch
                 slot.amount = slot.amount + add
                 remaining = remaining - add
                 -- При стаке UID не сохраняем, т.к. это "расходник"
@@ -57,9 +72,10 @@ function M.add_item(item_id, amount, uid) -- Добавили uid
     -- 2. ЛОГИКА ДЛЯ НОВЫХ СЛОТОВ (Мечи, броня или остатки стака)
     for i = 1, M.max_slots do
         local slot = M.items[i]
-        if not slot.item_id then
+        if slot and not slot.item_id then
             local add = math.min(remaining, max_stack)
             slot.item_id = item_hash
+            ---@diagnostic disable-next-line: assign-type-mismatch
             slot.amount = add
             -- ВАЖНО: сохраняем UID только если это первый предмет в слоте
             -- и если это не стакаемый хлам (либо стак из 1 предмета)
@@ -72,47 +88,20 @@ function M.add_item(item_id, amount, uid) -- Добавили uid
     return remaining <= 0
 end
 
-
--- function M.add_item(item_id, amount)
---     -- Оставляем старую логику добавления (использует M.items напрямую для игрока)
---     local data = items_db.get_item(item_id)
---     if not data then return false end
---
---     local remaining = amount
---     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
---     local max_stack = data.max_stack or 1
---
---     if data.stackable then
---         for i = 1, M.max_slots do
---             local slot = M.items[i]
---             if slot.item_id == item_hash and slot.amount < max_stack then
---                 local add = math.min(remaining, max_stack - slot.amount)
---                 slot.amount = slot.amount + add
---                 remaining = remaining - add
---                 if remaining <= 0 then return true end
---             end
---         end
---     end
---
---     for i = 1, M.max_slots do
---         local slot = M.items[i]
---         if not slot.item_id then
---             local add = math.min(remaining, max_stack)
---             slot.item_id = item_hash
---             slot.amount = add
---             remaining = remaining - add
---             if remaining <= 0 then return true end
---         end
---     end
---     return remaining <= 0
--- end
-
--- Методы контекстного меню
-function M.equip_item(item)
-    
+---@param _item Item
+---@param _slot_idx number
+---@return boolean
+function M:can_equip_item(_item, _slot_idx)
+    -- Инвентарю плевать, что в него кладут. Всегда true.
+    return true
 end
 
--- В player_inventory.lua
+---@param _item Item
+function M.equip_item(_item)
+    -- Будущая логика контекстного меню
+end
+
+---@return number|nil
 function M:get_first_empty_slot()
     for i = 1, self.max_slots do
         if not self.items[i] or not self.items[i].item_id then
@@ -124,10 +113,16 @@ end
 
 
 -- УНИВЕРСАЛЬНЫЕ МЕТОДЫ (теперь через self.items)
+---@param from_idx number
+---@param to_idx number
 function M:swap_slots(from_idx, to_idx)
     self.items[from_idx], self.items[to_idx] = self.items[to_idx], self.items[from_idx]
 end
 
+---@param from_index number
+---@param to_index number
+---@param item_cfg table
+---@return boolean
 function M:try_stack_items(from_index, to_index, item_cfg)
     local from_item = self.items[from_index]
     local to_item = self.items[to_index]
@@ -150,7 +145,9 @@ function M:try_stack_items(from_index, to_index, item_cfg)
     if space_left <= 0 then return false end
 
     local to_add = math.min(from_item.amount, space_left)
+    ---@diagnostic disable-next-line: assign-type-mismatch
     to_item.amount = to_item.amount + to_add
+    ---@diagnostic disable-next-line: assign-type-mismatch
     from_item.amount = from_item.amount - to_add
 
     if from_item.amount <= 0 then
@@ -160,6 +157,11 @@ function M:try_stack_items(from_index, to_index, item_cfg)
     return true
 end
 
+---@param other_model Inventory
+---@param from_idx number
+---@param to_idx number
+---@param item_cfg table
+---@return boolean
 function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
     local from_item = other_model:get_item(from_idx)
     local to_item = self:get_item(to_idx)
@@ -170,7 +172,7 @@ function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
 
     -- Твоя логика проверки ID и stackable
     if not item_cfg or not item_cfg.stackable then return false end
-    
+
     -- Сравниваем ID (используй свою функцию get_clean_id)
     if get_clean_id(from_item.item_id) ~= get_clean_id(to_item.item_id) then
         return false
@@ -181,7 +183,9 @@ function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
     if space_left <= 0 then return false end
 
     local to_add = math.min(from_item.amount, space_left)
+    ---@diagnostic disable-next-line: assign-type-mismatch
     to_item.amount = to_item.amount + to_add
+    ---@diagnostic disable-next-line: assign-type-mismatch
     from_item.amount = from_item.amount - to_add
 
     -- Если в источнике ничего не осталось — зануляем его там
@@ -192,8 +196,12 @@ function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
     return true
 end
 
--- В player_inventory.lua
-
+---@param other_model Inventory
+---@param from_idx number
+---@param to_idx number
+---@param new_amount number
+---@param item_cfg table
+---@return boolean
 function M:split_stack(other_model, from_idx, to_idx, new_amount, item_cfg)
     local from_item = other_model:get_item(from_idx) -- Берем из ИСТОЧНИКА
     local to_item = self:get_item(to_idx)           -- Кладем в СЕБЯ (цель)
@@ -202,12 +210,17 @@ function M:split_stack(other_model, from_idx, to_idx, new_amount, item_cfg)
 
     -- 1. СЦЕНАРИЙ: В пустой слот
     if not to_item or not to_item.item_id or to_item.amount <= 0 then
-        self:set_item(to_idx, {
+        ---@type Item
+        local new_item = {
             item_id = from_item.item_id,
-            amount = new_amount
-        })
-        
+            ---@diagnostic disable-next-line: assign-type-mismatch
+            amount = new_amount,
+            uid = from_item.uid
+        }
+        self:set_item(to_idx, new_item)
+
         -- Вычитаем из источника
+        ---@diagnostic disable-next-line: assign-type-mismatch
         from_item.amount = from_item.amount - new_amount
         if from_item.amount <= 0 then
             other_model:set_item(from_idx, nil)
@@ -225,10 +238,12 @@ function M:split_stack(other_model, from_idx, to_idx, new_amount, item_cfg)
 
         if space_left > 0 then
             local to_add = math.min(new_amount, space_left)
-            
+
+            ---@diagnostic disable-next-line: assign-type-mismatch
             to_item.amount = to_item.amount + to_add
+            ---@diagnostic disable-next-line: assign-type-mismatch
             from_item.amount = from_item.amount - to_add
-            
+
             if from_item.amount <= 0 then
                 other_model:set_item(from_idx, nil)
             end
@@ -246,16 +261,16 @@ function M.clear()
     M.init()
 end
 
-
+---@return table
 function M.get_save_data()
     local data = {}
     for i = 1, M.max_slots do
         local item = M.items[i]
         if item and item.item_id then
             local id_str = tostring(item.item_id):match("%[(.-)%]") or tostring(item.item_id)
-            data[i] = { 
-                id = id_str, 
-                amount = item.amount, 
+            data[i] = {
+                id = id_str,
+                amount = item.amount,
                 uid = item.uid -- СОХРАНЯЕМ UID
             }
         else
@@ -265,15 +280,16 @@ function M.get_save_data()
     return data
 end
 
+---@param data table
 function M.load_save_data(data)
     M.init()
     if not data then return end
     for index, saved in pairs(data) do
         local i = tonumber(index)
         if i and saved and saved.id then
-            M.items[i] = { 
-                item_id = hash(saved.id), 
-                amount = saved.amount, 
+            M.items[i] = {
+                item_id = hash(saved.id),
+                amount = saved.amount,
                 uid = saved.uid -- ВОССТАНАВЛИВАЕМ UID
             }
         end

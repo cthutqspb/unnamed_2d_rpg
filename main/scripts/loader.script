@@ -1,0 +1,30 @@
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    print("LOADER STARTED. PROXY ID: game_proxy")
+    -- Обращаемся к прокси через #
+    msg.post("#game_proxy", "load")
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("reload_game") then
+        self.pending_pos = message.last_pos -- Берем только X и Y
+        msg.post("#game_proxy", "unload")
+
+    elseif message_id == hash("proxy_unloaded") then
+        timer.delay(0.1, false, function() msg.post("#game_proxy", "load") end)
+
+    elseif message_id == hash("proxy_loaded") then
+        msg.post(sender, "enable")
+        msg.post(sender, "acquire_input_focus")
+        
+        -- Сцена готова. Теперь просто "втыкаем" игрока и спавним лут
+        if self.pending_pos then
+            msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_pos.x, self.pending_pos.y, 1) })
+            msg.post("game_scene:/world#world", "spawn_all_saved_items")
+            self.pending_pos = nil
+        end
+    end
+end
+
+
+

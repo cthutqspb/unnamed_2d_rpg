@@ -33,7 +33,7 @@ function M:init(template_id)
         self.slots[slot_type] = {
             root = slot_root,
             icon = gui.get_node(path .. "/icon"),
-            count = gui.get_node(path .. "/count")
+            amount = gui.get_node(path .. "/amount")
         }
 
         local drag = self.druid:new_drag(slot_root)
@@ -47,6 +47,7 @@ function M:init(template_id)
                 if data then
                     drag_manager.start(self, slot_type, item_data, data)
                     gui.set_enabled(self.slots[slot_type].icon, false)
+                    gui.set_enabled(self.slots[slot_type].amount, false)
                 end
             end
         end)

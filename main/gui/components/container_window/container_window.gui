@@ -135,7 +135,7 @@ nodes {
 }
 nodes {
   type: TYPE_TEXT
-  id: "static_grid/slot_prefab/count"
+  id: "static_grid/slot_prefab/amount"
   parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }

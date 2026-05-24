@@ -51,7 +51,7 @@ function M.create_slots(self)
     
     local path_root  = hash(base_path .. "/root")
     local path_icon  = hash(base_path .. "/icon")
-    local path_count = hash(base_path .. "/count")
+    local path_amount = hash(base_path .. "/amount")
 
     local druid_inst = self:get_druid()
 
@@ -59,7 +59,7 @@ function M.create_slots(self)
         local nodes = gui.clone_tree(prefab_root)
         local slot_root  = nodes[path_root]
         local slot_icon  = nodes[path_icon]
-        local slot_count = nodes[path_count]
+        local slot_amount = nodes[path_amount]
 
         if slot_root then
             gui.set_enabled(slot_root, true)
@@ -100,13 +100,13 @@ function M.create_slots(self)
             table.insert(self.slots, {
                 root   = slot_root,
                 icon   = slot_icon,
-                count  = slot_count,
+                amount = slot_amount,
                 button = btn,
                 drag   = drag
             })
 
             gui.set_enabled(slot_icon, false)
-            gui.set_enabled(slot_count, false)
+            gui.set_enabled(slot_amount, false)
         end
     end
 end
@@ -137,9 +137,9 @@ function M.update_slot_visual(self, slot_index, item_id, amount)
         gui.play_flipbook(slot.icon, hash(data.animation))
 
         local is_stack = amount and amount > 1
-        gui.set_enabled(slot.count, is_stack)
+        gui.set_enabled(slot.amount, is_stack)
         if is_stack then
-            gui.set_text(slot.count, tostring(amount))
+            gui.set_text(slot.amount, tostring(amount))
         end
     end
 end
@@ -153,7 +153,7 @@ function M.on_item_drag_start(self, index)
 
     local slot = self.slots[index]
     gui.set_enabled(slot.icon, false)
-    gui.set_enabled(slot.count, false)
+    gui.set_enabled(slot.amount, false)
 end
 
 function M.on_item_drag_end(self, _)
@@ -167,13 +167,13 @@ function M.clear_slot_visual(self, slot_index)
     local slot = self.slots[slot_index]
     if slot then
         gui.set_enabled(slot.icon, false)
-        gui.set_enabled(slot.count, false)
+        gui.set_enabled(slot.amount, false)
     end
 end
 
 function M.on_slot_click(self, index)
     local item_data = self:get_data_source().items[index]
-    
+
     if self.is_shift_pressed and item_data and item_data.item_id and item_data.amount > 1 then
         msg.post(SPLIT_WINDOW_URL, "open_split_window", {
             item_data = item_data,

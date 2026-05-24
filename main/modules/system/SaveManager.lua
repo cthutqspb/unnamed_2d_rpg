@@ -124,13 +124,13 @@ function M.save_game()
     local path = sys.get_save_file("MyAwesomeRPG", "save_01.json")
     local file = io.open(path, "w+")
     if file then
-        print("!!! DEEP CHECK BEFORE SAVE !!!")
-local check_data = game_state.get_full_save_data()
-if check_data.world_items_state then
-    local count = 0
-    for _ in pairs(check_data.world_items_state) do count = count + 1 end
-    print("Items in world_items_state registry:", count)
-end
+--         print("!!! DEEP CHECK BEFORE SAVE !!!")
+-- local check_data = game_state.get_full_save_data()
+-- if check_data.world_items_state then
+--     local count = 0
+--     for _ in pairs(check_data.world_items_state) do count = count + 1 end
+--     print("Items in world_items_state registry:", count)
+-- end
         file:write(json.encode(data))
         file:close()
         print("SUCCESS: Game Saved (JSON)")
@@ -197,7 +197,7 @@ function M.load_game()
         is_load = true,
         last_pos = data.player.last_pos 
     })
-
+    broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     return true
 end
 
