@@ -1,6 +1,7 @@
 local gui_utils = require("main.gui.gui_utils")
 local window_manager = require("main.gui.components.managers.window_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 
 local M = {}
 
@@ -149,10 +150,14 @@ end
 
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
-      
+
     -- Если окно скрывается, оно ДОЛЖНО обнулить свой статус ховера
     if not visible then
         window_manager.set_hover_status(msg.url(), false)
+
+        if tooltip_manager.get_current_type() == "item" then
+            tooltip_manager.hide()
+        end
     end
 
     if visible and self.callbacks.on_show then

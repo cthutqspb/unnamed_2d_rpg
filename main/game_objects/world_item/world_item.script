@@ -1,6 +1,7 @@
 go.property("uid", hash("")) -- Для предметов из редактора
 go.property("item_id",  hash("unknown"))
 go.property("amount", 1)
+go.property("is_from_factory", false) -- В редакторе всегда false
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interaction = require("main.modules.interaction")
@@ -34,62 +35,123 @@ local function apply_item_visual(self)
 end
 
 function init(self)
-    msg.post(".", "acquire_input_focus")
-
     self.go_id = go.get_id()
+    
+    -- 1. Получаем чистый строковый UID
+    local s_uid = tostring(self.uid):match("%[(.+)%]") or tostring(self.uid)
 
-    -- ГАРАНТИРУЕМ, что у нас есть строковый UID
-    local s_uid = tostring(self.uid)
+    -- 2. Если это ПРЕДМЕТ ИЗ РЕДАКТОРА (is_from_factory == false)
+    if not self.is_from_factory then
+        -- Если UID пустой, генерируем по координатам
+        if self.uid == hash("") or s_uid == "" then
+            local p = go.get_position()
+            s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
+            self.uid = hash(s_uid)
+        end
 
-    if self.uid == hash("") then
-        local p = go.get_position()
-        s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
-        self.uid = hash(s_uid)
+        -- ⚡️ ПРОВЕРКА BG3:
+        -- Если мы из редактора, мы ПЕРВЫМ ДЕЛОМ проверяем реестр.
+        -- Если реестр уже существует (загрузка) и НАС ТАМ НЕТ — значит, мы уже собраны.
+        -- Важно: SaveManager должен гарантировать, что при загрузке реестр НЕ пустой.
+        if world_items_state.is_loaded_from_save and not world_items_state.exists(s_uid) then
+            go.delete()
+            return
+        end
+
+        -- Если мы выжили, регистрируем себя как статику (если нас еще нет в базе)
+        if not world_items_state.exists(s_uid) then
+            world_items_state.registry[s_uid] = {
+                item_id = self.item_id,
+                pos = { x = go.get_position().x, y = go.get_position().y },
+                amount = self.amount or 1,
+                is_dynamic = false
+            }
+        end
     end
+    -- Регистрируем связь для рейкаста
+    world_items_state.register(self.go_id, tostring(self.uid):match("%[(.+)%]") or tostring(self.uid))
 
-    -- 1. Регистрируем чертеж (всегда как строку)
-    world_items_state.register_static_config(s_uid, {
-        item_id = self.item_id,
-        amount = self.amount,
-        pos = go.get_position()
-    })
-
-    -- 2. Регистрируем связь (всегда как строку)
-    world_items_state.register(self.go_id, s_uid)
-
+    -- Визуал и подписки
     self.is_interactable = true
-
     if self.item_id ~= hash("unknown") then
         apply_item_visual(self)
     end
 
-    -- Скрываем имя по умолчанию
     msg.post("#item_name", "disable")
 
-    -- Передаем этот ID внутрь замыкания
     self.broadcast_handler = function(data)
         if data.message_id == hash("toggle_interactable_highlight") then
-
-            if data.show then
-                show_highlight(self, self.go_id) -- передаем сохраненный ID
-            else
-                hide_highlight(self, self.go_id)
-            end
+            if data.show then show_highlight(self, self.go_id) else hide_highlight(self, self.go_id) end
         end
     end
-
     broadcast.subscribe("world_events", self.broadcast_handler)
-
-    print("Lootable item type:", self.type)
-    self.highlight_node = nil
-    self.normal_color = vmath.vector4(1,1,1,1)
 end
+
+
+-- function init(self)
+--     msg.post(".", "acquire_input_focus")
+--
+--     self.go_id = go.get_id()
+--
+--     -- ГАРАНТИРУЕМ, что у нас есть строковый UID
+--     local s_uid = tostring(self.uid)
+--
+--     if self.uid == hash("") then
+--         local p = go.get_position()
+--         s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
+--         self.uid = hash(s_uid)
+--     end
+--
+--     -- 1. Регистрируем чертеж (всегда как строку)
+--     world_items_state.register_static_config(s_uid, {
+--         item_id = self.item_id,
+--         amount = self.amount,
+--         pos = go.get_position()
+--     })
+--
+--     -- 2. Регистрируем связь (всегда как строку)
+--     world_items_state.register(self.go_id, s_uid)
+--
+--     self.is_interactable = true
+--
+--     if self.item_id ~= hash("unknown") then
+--         apply_item_visual(self)
+--     end
+--
+--     -- Скрываем имя по умолчанию
+--     msg.post("#item_name", "disable")
+--
+--     -- Передаем этот ID внутрь замыкания
+--     self.broadcast_handler = function(data)
+--         if data.message_id == hash("toggle_interactable_highlight") then
+--
+--             if data.show then
+--                 show_highlight(self, self.go_id) -- передаем сохраненный ID
+--             else
+--                 hide_highlight(self, self.go_id)
+--             end
+--         end
+--     end
+--
+--     broadcast.subscribe("world_events", self.broadcast_handler)
+--
+--     print("Lootable item type:", self.type)
+--     self.highlight_node = nil
+--     self.normal_color = vmath.vector4(1,1,1,1)
+-- end
 
 function final(self)
-    -- ⚡️ ВЫПИСЫВАЕМСЯ ИЗ РЕЕСТРА
-    world_items_state.unregister(self.go_id)
-    broadcast.unsubscribe("world_events", self.broadcast_handler)
+    -- ⚡️ ВЫПИСЫВАЕМСЯ ИЗ РЕЕСТРА (проверяем метод)
+    if world_items_state.unregister then
+        world_items_state.unregister(self.go_id)
+    end
+
+    -- ГЛАВНЫЙ ФИКС: отписываемся только если подписка была создана
+    if self.broadcast_handler then
+        broadcast.unsubscribe("world_events", self.broadcast_handler)
+    end
 end
+
 
 function update(self, dt)
 
@@ -117,6 +179,7 @@ function on_message(self, message_id, message, sender)
         self.uid = message.uid 
         
         world_items_state.register(self.go_id, self.uid)
+                apply_item_visual(self)
 
         local data = items_db.get_item(self.item_id)
         local item_name = locales.get(data.name_key)

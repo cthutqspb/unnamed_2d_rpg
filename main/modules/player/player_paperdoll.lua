@@ -16,29 +16,50 @@ M.slots = {
 -- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (для MVC)
 
 function M:get_item(slot_type)
-    return self.slots[slot_type]
+    local slot = self.slots[slot_type]
+    -- Если в слоте нет ID, возвращаем nil, чтобы было удобно писать:
+    -- if paperdoll:get_item("head") then ...
+    if not slot or not slot.item_id then
+        return nil
+    end
+    return slot
 end
 
+
 function M:set_item(slot_type, item_data)
-    -- Если передали nil, создаем пустышку
-    self.slots[slot_type] = item_data or {item_id = nil, amount = 0}
+    if not item_data or not item_data.item_id then
+        -- Если снимаем предмет, зачищаем слот полностью
+        self.slots[slot_type] = { item_id = nil, amount = 0, uid = nil }
+    else
+        -- Если надеваем, копируем только нужные поля
+        self.slots[slot_type] = {
+            item_id = item_data.item_id,
+            amount = item_data.amount or 1,
+            uid = item_data.uid -- Передаем паспорт предмета в куклу
+        }
+    end
 end
 
 -- ВАЛИДАЦИЯ
-function M:can_equip_item(item_id, slot_type)
-    local cfg = items_db.get_item(item_id)
+function M:can_equip_item(item, slot_type)
+    -- item — это { item_id = hash("..."), amount = 1, uid = "..." }
+    if not item or not item.item_id then return false end
+
+    local cfg = items_db.get_item(item.item_id)
     if not cfg then return false end
 
-    -- 1. Сверяем тип слота (как и было)
+    -- 1. Проверка соответствия слота (из БД)
     if cfg.equip_slot ~= slot_type then
         return false
     end
 
-    -- 2. Сверяем требования (наш новый блок)
-    local check = item_requirements_manager.check(cfg, character_data.player)
+    -- 2. Проверка требований (передаем item целиком на будущее)
+    -- Даже если сейчас там только item_id, завтра ты добавишь проверку прочности по uid
+    local check = item_requirements_manager.check(cfg, character_data.player, item)
+    
     if not check.is_ok then
-        print("REQUIREMENTS FAILED: Cannot equip " .. item_id)
-        -- Можно здесь кинуть broadcast, чтобы показать надпись игроку
+        -- Выводим причину, если нужно (например, в HUD)
+        print("CANNOT EQUIP: " .. (check.reason or "low stats"))
         return false
     end
 
@@ -51,12 +72,23 @@ function M.get_save_data()
 end
 
 function M.load_save_data(data)
-    if data then M.slots = data end
+    if not data then return end
+    
+    -- Вместо прямой замены M.slots = data, лучше обновить значения, 
+    -- чтобы не потерять мета-таблицы или ссылки, если они есть.
+    for slot_type, slot_data in pairs(data) do
+        if M.slots[slot_type] then
+            M.slots[slot_type].item_id = slot_data.item_id
+            M.slots[slot_type].amount = slot_data.amount or 0
+            M.slots[slot_type].uid = slot_data.uid -- Восстанавливаем паспорт
+        end
+    end
 end
 
 function M.clear()
     for slot_type, _ in pairs(M.slots) do
-        M.slots[slot_type] = { item_id = nil, amount = 0 }
+        -- Обнуляем всё, включая UID
+        M.slots[slot_type] = { item_id = nil, amount = 0, uid = nil }
     end
 end
 

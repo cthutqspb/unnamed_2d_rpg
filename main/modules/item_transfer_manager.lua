@@ -20,7 +20,8 @@ end
 function M.drop_to_world(source_comp, source_slot, item, mouse_x, mouse_y)
     local source = get_ds(source_comp) -- Безопасное получение данных
 
-    msg.post("world", "spawn_dropped_item", {
+    msg.post("game_scene:/world", "spawn_dropped_item", {
+        item_uid = item.uid,
         item_id = item.item_id,
         amount = item.amount,
         mouse_x = mouse_x,
@@ -63,7 +64,16 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
 
     -- 1. ПРОВЕРКА КУКЛЫ
     if target.can_equip_item then
-        if not target:can_equip_item(item.item_id, target_slot) then
+        if not target:can_equip_item(item, target_slot) then
+            M.cancel_transfer(source_comp)
+            return
+        end
+    end
+
+    -- Дополнительно: проверка куклы для обратного обмена (если на кукле уже что-то висит)
+    local item_b = target:get_item(target_slot)
+    if item_b and source.can_equip_item then
+        if not source:can_equip_item(item_b, source_slot) then
             M.cancel_transfer(source_comp)
             return
         end
@@ -78,7 +88,6 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
     -- 3. СВАП
     if not stacked then
         local item_a = source:get_item(source_slot)
-        local item_b = target:get_item(target_slot)
 
         target:set_item(target_slot, item_a)
         source:set_item(source_slot, item_b)

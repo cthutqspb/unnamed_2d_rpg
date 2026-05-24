@@ -189,10 +189,10 @@ function on_input(self, action_id, action)
     if action_id == hash("key_alt") then
         if action.pressed then
             self.show_interactable = true
-            msg.post("world", "toggle_interactable_highlight", { show = true })
+            msg.post("game_scene:/world", "toggle_interactable_highlight", { show = true })
         elseif action.released then
             self.show_interactable = false
-            msg.post("world", "toggle_interactable_highlight", { show = false })
+            msg.post("game_scene:/world", "toggle_interactable_highlight", { show = false })
         end
     end
 end

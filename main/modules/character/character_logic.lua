@@ -43,8 +43,8 @@ function M.update_derived_stats()
     data.player.max_health = M.calculate_max_health()
     data.player.max_mana = M.calculate_max_mana()
 
-    msg.post("/gui_manager#hud", "update_health", { percentage = data.player.health / data.player.max_health })
-    msg.post("/player", "stats_changed")
+    msg.post("main:/gui_manager#hud", "update_health", { percentage = data.player.health / data.player.max_health })
+    msg.post("game_scene:/player", "stats_changed")
 end
 
 function M.take_damage(amount)

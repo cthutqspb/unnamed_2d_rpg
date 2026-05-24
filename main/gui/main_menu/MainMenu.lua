@@ -65,7 +65,7 @@ function M:on_new_game()
     -- Здесь будет логика сброса всех модулей (инвентарь, статы) в nil
     SaveManager.new_game();
     self:set_visible(false)
-    msg.post("world", "start_game") -- Сигнал миру "погнали"
+    msg.post("game_scene:/world", "start_game") -- Сигнал миру "погнали"
 end
 
 function M:on_continue()
@@ -79,14 +79,14 @@ function M:on_save_game()
     print("Saving game...")
     SaveManager.save_game();
     self:set_visible(false)
-    msg.post("world", "save_game")
+    msg.post("game_scene:/world", "save_game")
 end
 
 function M:on_load_game()
     print("Loading saving game...")
     SaveManager.load_game();
     self:set_visible(false)
-    msg.post("world", "load_game")
+    msg.post("game_scene:/world", "load_game")
 end
 
 return M

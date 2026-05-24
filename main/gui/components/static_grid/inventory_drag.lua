@@ -157,7 +157,7 @@ function M.on_item_drag_start(self, index)
 end
 
 function M.on_item_drag_end(self, _)
-    msg.post("world", WORLD_DRAG_END)
+    msg.post("game_scene:/world", WORLD_DRAG_END)
     self.dragging_index = nil
 end
 

@@ -13,7 +13,7 @@ function M.handle_click(self, interaction_range, callback)
         return
     end
 
-    local player_pos = go.get_position("/player")
+    local player_pos = go.get_position("game_scene:/player")
     local my_pos = go.get_world_position()
     local dist = vmath.length(player_pos - my_pos)
     
@@ -22,7 +22,7 @@ function M.handle_click(self, interaction_range, callback)
     else
         print("Too far:", dist)
         -- Передаем только ID цели. Никаких функций!
-        msg.post("/player", "move_to_item", { item_id = go.get_id() })
+        msg.post("game_scene:/player", "move_to_item", { item_id = go.get_id() })
     end
 end
 

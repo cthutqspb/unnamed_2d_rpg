@@ -15,31 +15,87 @@ local DROP_OFFSETS = {
     [2] = { 0, GRID_SIZE },   -- вверх
     [-2] = { 0, -GRID_SIZE }  -- вниз
 }
-
 local function spawn_saved_items(self)
     local saved_items = world_items_state.get_all()
 
     for uid, data in pairs(saved_items) do
-        local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
-        local item_id = data.item_id
+        -- Спавним только ДИНАМИКУ (дроп). Статика сама разберется в своем init.
+        if data.is_dynamic then
+            local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
+            local item_id = data.item_id
+            local item_cfg = items_db.get_item(item_id)
 
-        local item_cfg = items_db.get_item(item_id)
-        if item_cfg then
-            local item_go = factory.create("#pickup_factory", pos)
+            if item_cfg then
+                local item_go = factory.create("#pickup_factory", pos, nil, { is_from_factory = true })
 
-            -- Передаем данные в скрипт предмета, включая его сохраненный UID
-            msg.post(item_go, "set_item_id", {
-                item_id = item_id,
-                amount = data.amount,
-                uid = uid
-            })
+                -- 2. Настраиваем логику (ID, количество, UID)
+                msg.post(item_go, "set_item_id", {
+                    item_id = item_id,
+                    amount = data.amount,
+                    uid = uid
+                })
 
-            -- Ставим спрайт
-            local sprite_url = msg.url(nil, item_go, "sprite")
-            sprite.play_flipbook(sprite_url, hash(item_cfg.animation or item_cfg.icon))
+                -- 3. Настраиваем ВИЗУАЛ (Спрайт)
+                local sprite_url = msg.url(nil, item_go, "sprite")
+                local anim = item_cfg.animation or item_cfg.icon
+                sprite.play_flipbook(sprite_url, hash(anim))
+
+                -- 4. Настраиваем ТЕКСТ (Название и Количество)
+                local item_name = locales.get(item_cfg.name_key)
+                label.set_text(msg.url(nil, item_go, "item_name"), item_name)
+                
+                if data.amount > 1 then
+                    label.set_text(msg.url(nil, item_go, "amount"), tostring(data.amount))
+                else
+                    label.set_text(msg.url(nil, item_go, "amount"), "")
+                end
+
+                -- 5. Настраиваем МАСШТАБ (если прописан в базе)
+                if item_cfg.scale then
+                    go.set_scale(vmath.vector3(item_cfg.scale, item_cfg.scale, 1), item_go)
+                end
+
+                print("SPAWNED DYNAMIC ITEM WITH VISUALS:", uid)
+            end
         end
     end
 end
+
+-- local function spawn_saved_items(self)
+--     -- Получаем текущий реестр живых предметов
+--     local saved_items = world_items_state.get_all()
+--
+--     for uid, data in pairs(saved_items) do
+--         -- ГРАНИТНОЕ УСЛОВИЕ:
+--         -- Мы спавним через фабрику ТОЛЬКО динамические предметы (дроп).
+--         -- Статика (is_dynamic = false) создается движком из файла коллекции, 
+--         -- поэтому её мы здесь ИГНОРИРУЕМ, чтобы не было дубликатов.
+--         if data.is_dynamic then
+--             local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
+--             local item_id = data.item_id
+--             local item_cfg = items_db.get_item(item_id)
+--
+--             if item_cfg then
+--                 -- Создаем физическое тело предмета
+--                 local item_go = factory.create("#pickup_factory", pos)
+--
+--                 -- Настраиваем скрипт предмета (передаем UID, чтобы он мог себя удалить при подборе)
+--                 msg.post(item_go, "set_item_id", {
+--                     item_id = item_id,
+--                     amount = data.amount,
+--                     uid = uid
+--                 })
+--
+--                 -- Устанавливаем визуальный облик
+--                 local sprite_url = msg.url(nil, item_go, "sprite")
+--                 local anim = item_cfg.animation or item_cfg.icon
+--                 sprite.play_flipbook(sprite_url, hash(anim))
+--                 
+--                 print("SPAWNED DYNAMIC ITEM:", uid)
+--             end
+--         end
+--     end
+-- end
 
 function init(self)
 	  math.randomseed(os.time())
@@ -100,9 +156,9 @@ function on_message(self, message_id, message, sender)
         local drop_pos = player_pos + dir_norm * drop_distance
 
         local item_id = message.item_id
-        local uid = world_items_state.add(item_id, drop_pos, message.amount)
+        local uid = world_items_state.add(item_id, drop_pos, message.amount, true)
          -- Создаем объект
-        local item_go = factory.create("#pickup_factory", drop_pos, nil, { uid = hash(uid) })
+        local item_go = factory.create("#pickup_factory", drop_pos, nil, { is_from_factory = true })
 
         -- Шлем данные. ВАЖНО: set_item_id должен вызвать register в instances, 
         -- если это не сделано в init!

@@ -3,7 +3,7 @@ local items_db = require("main.modules.data.items_db")
 local M = {}
 
 M.max_slots = 48
-M.items = {} 
+M.items = {}
 
 local function get_clean_id(item_id)
     if type(item_id) == "userdata" then
@@ -14,7 +14,7 @@ end
 
 -- Вспомогательная функция для пустой ячейки
 local function empty_slot()
-    return { item_id = nil, amount = 0 }
+    return { item_id = nil, amount = 0, uid = nil } -- Добавь uid = nil
 end
 
 function M.init()
@@ -32,8 +32,7 @@ function M:set_item(idx, data)
     self.items[idx] = data or empty_slot()
 end
 
-function M.add_item(item_id, amount)
-    -- Оставляем старую логику добавления (использует M.items напрямую для игрока)
+function M.add_item(item_id, amount, uid) -- Добавили uid
     local data = items_db.get_item(item_id)
     if not data then return false end
 
@@ -41,6 +40,7 @@ function M.add_item(item_id, amount)
     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
     local max_stack = data.max_stack or 1
 
+    -- 1. ЛОГИКА ДЛЯ СТАКАЕМЫХ (Зелья, стрелы)
     if data.stackable then
         for i = 1, M.max_slots do
             local slot = M.items[i]
@@ -48,23 +48,64 @@ function M.add_item(item_id, amount)
                 local add = math.min(remaining, max_stack - slot.amount)
                 slot.amount = slot.amount + add
                 remaining = remaining - add
+                -- При стаке UID не сохраняем, т.к. это "расходник"
                 if remaining <= 0 then return true end
             end
         end
     end
 
+    -- 2. ЛОГИКА ДЛЯ НОВЫХ СЛОТОВ (Мечи, броня или остатки стака)
     for i = 1, M.max_slots do
         local slot = M.items[i]
         if not slot.item_id then
             local add = math.min(remaining, max_stack)
             slot.item_id = item_hash
             slot.amount = add
+            -- ВАЖНО: сохраняем UID только если это первый предмет в слоте
+            -- и если это не стакаемый хлам (либо стак из 1 предмета)
+            slot.uid = uid
+
             remaining = remaining - add
             if remaining <= 0 then return true end
         end
     end
     return remaining <= 0
 end
+
+
+-- function M.add_item(item_id, amount)
+--     -- Оставляем старую логику добавления (использует M.items напрямую для игрока)
+--     local data = items_db.get_item(item_id)
+--     if not data then return false end
+--
+--     local remaining = amount
+--     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
+--     local max_stack = data.max_stack or 1
+--
+--     if data.stackable then
+--         for i = 1, M.max_slots do
+--             local slot = M.items[i]
+--             if slot.item_id == item_hash and slot.amount < max_stack then
+--                 local add = math.min(remaining, max_stack - slot.amount)
+--                 slot.amount = slot.amount + add
+--                 remaining = remaining - add
+--                 if remaining <= 0 then return true end
+--             end
+--         end
+--     end
+--
+--     for i = 1, M.max_slots do
+--         local slot = M.items[i]
+--         if not slot.item_id then
+--             local add = math.min(remaining, max_stack)
+--             slot.item_id = item_hash
+--             slot.amount = add
+--             remaining = remaining - add
+--             if remaining <= 0 then return true end
+--         end
+--     end
+--     return remaining <= 0
+-- end
 
 -- Методы контекстного меню
 function M.equip_item(item)
@@ -201,8 +242,10 @@ end
 
 -- СИСТЕМНЫЕ МЕТОДЫ
 function M.clear()
+    -- Просто вызываем уже готовую логику создания пустых слотов
     M.init()
 end
+
 
 function M.get_save_data()
     local data = {}
@@ -210,9 +253,13 @@ function M.get_save_data()
         local item = M.items[i]
         if item and item.item_id then
             local id_str = tostring(item.item_id):match("%[(.-)%]") or tostring(item.item_id)
-            data[i] = { id = id_str, amount = item.amount }
+            data[i] = { 
+                id = id_str, 
+                amount = item.amount, 
+                uid = item.uid -- СОХРАНЯЕМ UID
+            }
         else
-            data[i] = { id = nil, amount = 0 }
+            data[i] = { id = nil, amount = 0, uid = nil }
         end
     end
     return data
@@ -224,7 +271,11 @@ function M.load_save_data(data)
     for index, saved in pairs(data) do
         local i = tonumber(index)
         if i and saved and saved.id then
-            M.items[i] = { item_id = hash(saved.id), amount = saved.amount }
+            M.items[i] = { 
+                item_id = hash(saved.id), 
+                amount = saved.amount, 
+                uid = saved.uid -- ВОССТАНАВЛИВАЕМ UID
+            }
         end
     end
 end

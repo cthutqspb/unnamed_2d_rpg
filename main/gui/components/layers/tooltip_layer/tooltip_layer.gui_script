@@ -259,9 +259,9 @@ local function render_world_object(self, info, context)
 
     local display_name = "Unknown"
 
-    for key, v in pairs(info) do
-        print("KEY V", key, v)
-    end
+    -- for key, v in pairs(info) do
+    --     print("KEY V", key, v)
+    -- end
     --print('ITEM ID', info.item_id, info.uid)
   -- add_line(self, info.name, nil, vmath.vector4(1, 1, 1, 1), true)
     -- 1. Если это ПРЕДМЕТ (Loot)

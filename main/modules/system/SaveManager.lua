@@ -3,8 +3,7 @@ local broadcast = require("main.modules.system.broadcast")
 local player_inventory = require("main.modules.player.player_inventory")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
 local character_data = require("main.modules.character.character_data")
-local world_items_state = require("main.modules.game_state.world_items_state")
-local containers_state = require("main.modules.game_state.containers_state")
+local game_state = require("main.modules.game_state.game_state")
 local character_logic = require("main.modules.character.character_logic")
 
 local M = {}
@@ -24,15 +23,10 @@ function M.exists()
 end
 
 function M.new_game()
-    -- 1. Полностью очищаем все модули данных (чистим старый прогресс)
+    -- 1. Стираем данные в Lua-модулях
+    game_state.clear_all()
     player_inventory.clear()
-    player_paperdoll.clear()
-    containers_state.clear()
-    world_items_state.clear()
 
-    broadcast.send("world_events", { message_id = hash("re_register_entities") })
-    
-    -- 2. ВОТ ЗДЕСЬ выдаем начальные предметы в чистый инвентарь
     player_inventory.init() -- заполняем ячейки пустышками
     player_inventory.add_item("iron_sword", 1)
     player_inventory.add_item("lesser_mana_potion", 10)
@@ -40,25 +34,51 @@ function M.new_game()
     player_inventory.add_item("clown_hat", 1)
     player_inventory.add_item("crystal_sword", 1)
 
-
-    -- 3. Сбрасываем статы персонажа на дефолтные значения (1 уровень, полное ХП)
-    character_data.player.level = 1
-    character_data.player.experience = 0
-    character_data.player.health = 100
     
-    -- 4. Телепортируем игрока в начальную точку мира
-    local start_pos = vmath.vector3(500, 500, 1)
-    msg.post("/player", "teleport_to", { position = start_pos })
-
-    -- 5. Принудительно пересчитываем статы (чтобы шлем сразу дал прибавку)
-    character_logic.update_derived_stats()
-
-    -- 6. Сразу ЖЕ сохраняем этот чистый старт на диск, перезаписывая старый сейв!
-    M.save_game()
-
-    -- 7. Сообщаем интерфейсу, что мир готов и нужно обновить картинки
-    broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+    -- 2. ГОВОРИМ ЛОАДЕРУ: Перезагрузи всю сцену
+    msg.post("main:/loader#script", "reload_game")
+    
+  
+    -- Всё! При старте новой сцены все init() сработают на чистых данных
 end
+
+
+-- function M.new_game()
+--     -- 1. Полностью очищаем все модули данных (чистим старый прогресс)
+--     player_inventory.clear()
+--     player_paperdoll.clear()
+--
+--     game_state.clear_all()
+--
+--     broadcast.send("world_events", { message_id = hash("re_register_entities") })
+--
+--     -- 2. ВОТ ЗДЕСЬ выдаем начальные предметы в чистый инвентарь
+--     player_inventory.init() -- заполняем ячейки пустышками
+--     player_inventory.add_item("iron_sword", 1)
+--     player_inventory.add_item("lesser_mana_potion", 10)
+--     player_inventory.add_item("leather_helmet", 1)
+--     player_inventory.add_item("clown_hat", 1)
+--     player_inventory.add_item("crystal_sword", 1)
+--
+--
+--     -- 3. Сбрасываем статы персонажа на дефолтные значения (1 уровень, полное ХП)
+--     character_data.player.level = 1
+--     character_data.player.experience = 0
+--     character_data.player.health = 100
+--
+--     -- 4. Телепортируем игрока в начальную точку мира
+--     local start_pos = vmath.vector3(500, 500, 1)
+--     msg.post("/player", "teleport_to", { position = start_pos })
+--
+--     -- 5. Принудительно пересчитываем статы (чтобы шлем сразу дал прибавку)
+--     character_logic.update_derived_stats()
+--
+--     -- 6. Сразу ЖЕ сохраняем этот чистый старт на диск, перезаписывая старый сейв!
+--     M.save_game()
+--
+--     -- 7. Сообщаем интерфейсу, что мир готов и нужно обновить картинки
+--     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+-- end
 
 -- function M.new_game()
 --     player_inventory.clear()
@@ -85,10 +105,8 @@ end
 -- end
 
 
--- СОХРАНЕНИЕ
+-- СОХРАНЕНИЕ\
 function M.save_game()
-    local player_data = character_data.player
-
     local data = {
         version = 1,
         time = os.time(),
@@ -98,108 +116,89 @@ function M.save_game()
             level = character_data.player.level,
             experience = character_data.player.experience,
             health = character_data.player.health,
-            max_health = character_data.player.max_health,
-            last_pos = player_data.last_pos
+            last_pos = character_data.player.last_pos
         },
-        world = {
-            containers_state = containers_state.get_all(),
-            world_items_state = world_items_state.get_all()
-        }
+        world = game_state.get_full_save_data()
     }
 
-    local ok = sys.save(SAVE_PATH, data)
-    print(ok and "SUCCESS: Game Saved" or "ERROR: Save Failed")
-    return ok
+    local path = sys.get_save_file("MyAwesomeRPG", "save_01.json")
+    local file = io.open(path, "w+")
+    if file then
+        print("!!! DEEP CHECK BEFORE SAVE !!!")
+local check_data = game_state.get_full_save_data()
+if check_data.world_items_state then
+    local count = 0
+    for _ in pairs(check_data.world_items_state) do count = count + 1 end
+    print("Items in world_items_state registry:", count)
+end
+        file:write(json.encode(data))
+        file:close()
+        print("SUCCESS: Game Saved (JSON)")
+        return true
+    end
+    print("ERROR: Save Failed")
+    return false
 end
 
--- ЗАГРУЗКА
-function M.load_game()
-    local data = sys.load(SAVE_PATH)
-    if not next(data) then return false end
+-- function M.save_game()
+--     local player_data = character_data.player
+--     local world_data = game_state.get_full_save_data()
+--
+--     local data = {
+--         version = 1,
+--         time = os.time(),
+--         inventory = player_inventory.get_save_data(),
+--         paperdoll = player_paperdoll.get_save_data(),
+--         player = {
+--             level = character_data.player.level,
+--             experience = character_data.player.experience,
+--             health = character_data.player.health,
+--             max_health = character_data.player.max_health,
+--             last_pos = player_data.last_pos
+--         },
+--         world = {
+--             world = world_data
+--         }
+--     }
+--
+--     -- Замени sys.save на это:
+-- local ok, err = pcall(function()
+--     local path = sys.get_save_file("MyAwesomeRPG", "save_01.json")
+--     local file = io.open(path, "w+")
+--     file:write(json.encode(data))
+--     file:close()
+-- end)
+-- print(ok and "SUCCESS: Game Saved" or "ERROR: Save Failed: " .. tostring(err))
+--
+--     return ok
+-- end
 
-    -- 1. СНАЧАЛА восстанавливаем все сырые данные и шмотки из файла
+
+function M.load_game()
+    local path = sys.get_save_file("MyAwesomeRPG", "save_01.json")
+    local file = io.open(path, "r")
+    if not file then return false end
+
+    local content = file:read("*all")
+    file:close()
+    
+    local data = json.decode(content)
+    if not data then return false end
+
+    -- Дальше твоя обычная логика восстановления
     player_inventory.load_save_data(data.inventory)
     player_paperdoll.load_save_data(data.paperdoll)
-    containers_state.restore_all(data.world.containers_state)
-    world_items_state.restore_all(data.world.world_items_state)
-
-    -- 2. Накатываем базовый прогресс игрока из сейва
-    character_data.player.level = data.player.level
-    character_data.player.experience = data.player.experience
+    game_state.restore_all(data.world)
     
-    -- ВАЖНО: ХП берем пока просто как число, максимумы пересчитаем ниже
-    character_data.player.health = data.player.health
-    -- character_data.player.max_health = data.player.max_health
-
-
-    -- 3. Телепортируем игрока в сохраненную точку
-    local p = data.player.last_pos
-    msg.post("/player", "teleport_to", { position = vmath.vector3(p.x, p.y, 1) })
-    msg.post("/world#world", "spawn_all_saved_items")
-
-    -- 4. ТЕПЕРЬ запускаем пересчет статов. 
-    -- Он увидит загруженные шмотки, посчитает правильный max_health 
-    -- и САМ отправит правильный msg.post("/gui_manager#hud", "update_health") в HUD!
-    character_logic.update_derived_stats()
-
-    -- 5. Дублируем обновление для всех остальных окон интерфейса через бродкаст
-    broadcast.send("inventory_events", { message_id = hash("refresh_all") })
+    -- character_data.player.last_pos = data.player.last_pos
+    -- ...
     
-    print('Game loaded successfully with proper stats recalculation')
+    msg.post("main:/loader#script", "reload_game", { 
+        is_load = true,
+        last_pos = data.player.last_pos 
+    })
+
     return true
 end
 
 return M
-
-
--- local broadcast = require("main.modules.system.broadcast")
---
--- local M = {}
---
--- -- Путь к файлу (Defold сам найдет нужную папку в системе)
--- local SAVE_PATH = sys.get_save_config("my_game", "save.dat")
---
--- function M.save()
---     local data = {
---         version = 1, -- Чтобы старые сейвы не ломали игру при обновлениях
---         inventory = require("main.modules.player.player_inventory").get_save_data(),
---         paperdoll = require("main.modules.player.player_paperdoll").get_save_data(),
---         stats = require("main.modules.character.character_data").player,
---         world = {
---             containers = require("main.modules.game_state.containers_state").get_all()
---         }
---     }
---
---     -- Добавляем позицию игрока
---     local p_pos = go.get_position("/player")
---     data.player_pos = { x = p_pos.x, y = p_pos.y }
---
---     local ok = sys.save(SAVE_PATH, data)
---     if ok then print("Игра сохранена!") end
--- end
---
--- function M.load()
---     local data = sys.load(SAVE_PATH)
---     if not next(data) then
---         print("Файл сохранения не найден или пуст")
---         return false
---     end
---
---     -- Раскладываем данные обратно
---     require("main.modules.player.player_inventory").load_save_data(data.inventory)
---     require("main.modules.player.player_paperdoll").load_save_data(data.paperdoll)
---     require("main.modules.game_state.containers_state").restore_all(data.world.containers)
---
---     -- ... и так далее для всех модулей
---
---     -- Ставим игрока на место
---     go.set_position(vmath.vector3(data.player_pos.x, data.player_pos.y, 0), "/player")
---
---     -- Кричим всем GUI: "Обновитесь!"
---     broadcast.send("inventory_events", { message_id = hash("refresh_all") })
---
---     return true
--- end
---
--- return M
---

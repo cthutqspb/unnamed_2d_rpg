@@ -52,7 +52,7 @@ local function open_container(self)
         columns = state.columns,
         rows = state.rows,
         position = go.get_world_position(),
-        player_pos = go.get_position("/player")
+        player_pos = go.get_position("game_scene:/player")
     })
 end
 

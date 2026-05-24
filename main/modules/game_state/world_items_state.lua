@@ -1,59 +1,70 @@
 local M = {}
 
-M.registry = {}       -- Динамика
-M.static_configs = {} -- Статика
-M.instances = {}      -- Маппинг
+M.registry = {}
+M.is_loaded_from_save = false -- Тот самый флаг
+M.instances = {} -- Телефонная книга для рейкаста [id] = uid
 
-local function to_key(id)
+-- Функция-чистильщик: превращает hash("item") в строку "item"
+local function to_str(id)
     if not id then return nil end
-    return type(id) == "userdata" and tostring(id) or id
+    local s = tostring(id)
+    return s:match("%[(.+)%]") or s
 end
 
 function M.register(id, uid)
-    M.instances[id] = to_key(uid)
+    M.instances[id] = to_str(uid)
 end
 
-function M.unregister(id)
-    if M.instances then M.instances[id] = nil end
-end
-
-function M.register_static_config(uid, config)
-    M.static_configs[to_key(uid)] = config
-end
-
-function M.get_item_by_uid(uid)
-    local key = to_key(uid)
-    return M.registry[key] or M.static_configs[key]
-end
-
-function M.add(item_id, pos, amount)
+function M.add(item_id, pos, amount, is_dynamic, existing_uid)
     local salt = math.random(1000, 9999)
-    -- UID создаем как СТРОКУ
-    local uid = string.format("%s_%d_%d", tostring(item_id), os.time(), salt)
+    -- Генерируем UID как чистую СТРОКУ
+    local s_item_id = to_str(item_id)
+    local uid = existing_uid or string.format("%s_%d_%d", s_item_id, os.time(), salt)
 
     M.registry[uid] = {
-        item_id = item_id,
+        item_id = s_item_id, -- пишем СТРОКУ
         pos = { x = pos.x, y = pos.y },
-        amount = amount or 1
+        amount = amount or 1,
+        is_dynamic = (is_dynamic == true)
     }
     return uid
 end
 
-function M.remove(uid)
-    -- Используем to_key, чтобы точно попасть в нужную строку в registry
-    local key = type(uid) == "userdata" and tostring(uid) or uid
-    M.registry[key] = nil
-    print("REMOVED FROM STATE:", key)
+function M.exists(uid)
+    -- Приводим входящий UID к чистой строке (убираем hash: [])
+    local key = tostring(uid):match("%[(.+)%]") or tostring(uid)
+    
+    -- Если в реестре живых объектов есть такая запись — возвращаем true
+    return M.registry[key] ~= nil
 end
 
+
+function M.get_item_by_uid(uid)
+    return M.registry[to_str(uid)]
+end
+
+function M.remove(uid)
+    M.registry[to_str(uid)] = nil
+end
 
 function M.clear()
     M.registry = {}
+    M.is_loaded_from_save = false -- Сбрасываем при новой игре
 end
 
+function M.unregister(id)
+    if M.instances then
+        M.instances[id] = nil
+    end
+end
+
+-- Системные
 function M.get_all() return M.registry end
-function M.restore_all(data) M.registry = data or {} end
+
+function M.restore_all(data)
+    M.registry = data or {}
+    M.is_loaded_from_save = true -- Поднимаем при загрузке
+end
 
 return M
-
 
