@@ -49,6 +49,36 @@ function M.execute_transfer(source_comp, source_slot, target_comp, target_slot, 
     local target = get_ds(target_comp)
 
     if not source or not target then return end
+    
+        -- ⚡️ АВТО-ЛУТ (если не указан слот назначения)
+    if target_slot == nil then
+        -- 1. Пытаемся распихать по стакам (если предмет стакается)
+        if item_cfg.stackable and target.try_stack_item_anywhere then
+            -- Обновляем количество в самом объекте предмета
+            item.amount = target:try_stack_item_anywhere(item.item_id, item.amount, item_cfg)
+        end
+
+        -- 2. Проверяем, осталось ли что-то после попытки стаканья
+        if item.amount > 0 then
+            local free_idx = target:get_first_empty_slot()
+            if free_idx then
+                -- Кладём остаток в новый пустой слот
+                target:set_item(free_idx, item)
+                -- И полностью удаляем из источника (т.к. всё, что было, распределилось)
+                source:set_item(source_slot, nil)
+            else
+                -- Если места в рюкзаке нет, возвращаем остаток в исходный слот (сундук)
+                source:set_item(source_slot, item)
+                print("Inventory full! Item stayed in container.")
+            end
+        else
+            -- Если после стаканья item.amount == 0, значит всё успешно «впиталось»
+            source:set_item(source_slot, nil)
+        end
+
+        M.finalize(source_comp, target_comp)
+        return
+    end
 
     -- 0. ОБРАБОТКА СПЛИТА
     if item and item.source_split_slot then

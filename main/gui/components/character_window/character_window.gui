@@ -410,27 +410,13 @@ nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll"
   parent: "paperdoll _anchor"
+  inherit_alpha: true
   template: "/main/gui/components/character_window/character_paperdoll.gui"
 }
 nodes {
-  size {
-    x: 300.0
-    y: 500.0
-  }
-  color {
-    x: 0.101960786
-    y: 0.101960786
-    z: 0.101960786
-  }
   type: TYPE_BOX
   id: "character_paperdoll/root"
   parent: "character_paperdoll"
-  inherit_alpha: true
-  alpha: 0.0
-  overridden_fields: 4
-  overridden_fields: 5
-  overridden_fields: 21
-  overridden_fields: 30
   template_node_child: true
 }
 nodes {

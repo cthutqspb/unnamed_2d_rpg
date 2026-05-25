@@ -4,6 +4,7 @@ local BaseWindow = require("main.gui.components.base_window.base_window")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local InventoryModel = require("main.modules.inventory_model")
 local containers_state = require("main.modules.game_state.containers_state")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 local gui_utils = require("main.gui.gui_utils")
 
 ---@class ContainerWindow : druid.component
@@ -27,9 +28,32 @@ function M:init(template_id, config)
     self.render_order = constants_ui.LAYERS.LOOT -- 30
     self.is_static = false
 
+    -- Создаём вложенный грид инвентаря
+    self.static_grid = d:new(StaticGrid, get_id(template_id, "static_grid"), {
+        columns = config.columns or 6,
+        rows = config.rows or 4,
+        item_size = config.item_size or 48,
+        spacing = config.spacing or 4,
+        on_double_click = function(index, item)
+            -- Мы находимся в контексте CharacterWindow
+            -- Просто шлем сообщение самому себе (в скрипт, где лежит CharacterWindow)
+            msg.post(".", "item_action", {
+                event = "loot_item",
+                data = {
+                    slot_index = index,
+                    item_id = item.item_id
+                }
+            })
+        end
+    })
+
     BaseWindow.init(self, template_id, {
         on_show = function ()
             self.static_grid:refresh()
+            interaction_manager.set_focus(self.static_grid:get_data_source())
+        end,
+        on_hide = function ()
+            interaction_manager.clear_focus()
         end
     })
 
@@ -46,14 +70,6 @@ function M:init(template_id, config)
     self.is_over_window = BaseWindow.is_over_window
     self.handle_hover = BaseWindow.handle_hover
     -- self.take_all = M.take_all
-
-    -- Создаём вложенный грид инвентаря
-    self.static_grid = d:new(StaticGrid, get_id(template_id, "static_grid"), {
-        columns = config.columns or 6,
-        rows = config.rows or 4,
-        item_size = config.item_size or 48,
-        spacing = config.spacing or 4
-    })
 
     -- Кнопк
     -- d:new_button(self.btn_close, self.close)
@@ -80,6 +96,7 @@ function M:open(container_uid, container_id, columns, rows, world_pos, player_po
 
     -- 1. Устанавливаем данные
     local model = InventoryModel.wrap(container_data)
+
     model.max_slots = columns * rows
     self:set_data_source(model)
 

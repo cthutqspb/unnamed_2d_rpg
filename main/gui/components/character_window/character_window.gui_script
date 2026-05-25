@@ -7,6 +7,7 @@ local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 local items_db = require("main.modules.data.items_db")
 
 local h_touch = hash("touch")
@@ -75,10 +76,18 @@ function on_message(self, message_id, message, sender)
         local slot_index, current_amount = message.slot_index, message.current_amount
         local data_source = self.character_window.static_grid:get_data_source()
         local item = data_source:get_item(slot_index)
-
+        
+        local remaining = item.amount - message.current_amount
         if item and item.item_id then
+            -- if remaining > 0 then
+            --     item.amount = remaining
+            -- end
+            self.character_window.static_grid:set_slot_amount_visual(slot_index, remaining)
+            -- self.character_window.static_grid:request_refresh()
+             --broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
             local item_cfg = items_db.get_item(item.item_id)
             local split_item = {
+                item_uid = item.uid,
                 item_id = item.item_id,
                 amount = current_amount,
                 source_split_slot = slot_index
@@ -86,23 +95,52 @@ function on_message(self, message_id, message, sender)
             drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
         end
 
-    elseif message_id == hash("context_menu_action") then
-        if message.event == "equip_item" then
-            local slot_index = message.data.slot_index -- индекс в инвентаре
+    elseif message_id == hash("context_menu_action") or message_id == hash("item_action") then
+        print('action', message.event)
+        -- if message.event == "equip_item" then
+        --     local slot_index = message.data.slot_index -- индекс в инвентаре
+        --     local item_id = message.data.item_id
+        --
+        --     -- 1. Узнаем из базы, в какой слот куклы должен лечь предмет
+        --     local item_cfg = items_db.get_item(item_id)
+        --     local target_slot_type = item_cfg.equip_slot -- например, "HEAD"
+        --
+        --     local data_source = self.character_window.static_grid:get_data_source()
+        --     local item = data_source:get_item(slot_index)
+        --
+        --     -- 2. Вызываем трансфер
+        --     -- Передаем: откуда (сетка), куда (кукла), индекс слота, ТИП слота куклы
+        --     item_transfer_manager.execute_transfer(self.character_window.static_grid, slot_index, self.character_window.paperdoll, target_slot_type, item , item_cfg)
+        -- end
+        if message.event == "item_transfer" then
+            local slot_index = message.data.slot_index
             local item_id = message.data.item_id
-
-            -- 1. Узнаем из базы, в какой слот куклы должен лечь предмет
             local item_cfg = items_db.get_item(item_id)
-            local target_slot_type = item_cfg.equip_slot -- например, "HEAD"
+            
+            -- 1. Кто отдает? (Тут всегда инвентарь игрока)
+            local source = self.character_window.static_grid
+            local item = source:get_data_source():get_item(slot_index)
 
-            local data_source = self.character_window.static_grid:get_data_source()
-            local item = data_source:get_item(slot_index)
-
-            -- 2. Вызываем трансфер
-            -- Передаем: откуда (сетка), куда (кукла), индекс слота, ТИП слота куклы
-            item_transfer_manager.execute_transfer(self.character_window.static_grid, slot_index, self.character_window.paperdoll, target_slot_type, item , item_cfg)
+            -- 2. Кто принимает? Спрашиваем у менеджера фокуса
+            local target_focus = interaction_manager.get_focus()
+            print('target_focus', target_focus)
+            if target_focus then
+                -- СЦЕНАРИЙ: Открыта бочка/сундук/торговец
+                -- Передаем target_focus (это и есть сетка или модель контейнера)
+                item_transfer_manager.execute_transfer(
+                    source, slot_index, 
+                    target_focus, nil, -- nil = авто-поиск слота в сундуке
+                    item, item_cfg
+                )
+            else
+                -- СЦЕНАРИЙ: Ничего не открыто -> Экипируем на себя
+                item_transfer_manager.execute_transfer(
+                    source, slot_index, 
+                    self.character_window.paperdoll, item_cfg.equip_slot, 
+                    item, item_cfg
+                )
+            end
         end
-
         if message.event == "unequip_item" then
             local slot_type = message.data.slot_index -- например, "HEAD" (строка)
             local item_id = message.data.item_id

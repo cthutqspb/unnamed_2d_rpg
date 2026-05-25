@@ -12,7 +12,8 @@ local h_touch = hash("touch")
 function init(self)
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
-
+    
+    
     -- Создаем окно как Druid-компонент
     -- Пустая строка "" вторым аргументом, так как внутри компонента мы ищем ноды напрямую или через префиксы
     self.container_window = self.druid:new(ContainerWindow, "", {
@@ -72,7 +73,7 @@ function on_message(self, message_id, message, sender)
             message.player_pos
         )
         print("OPENING CONTAINER WITH Z:", self.container_window.render_order)
-        self.container_window:toggle()
+        self.container_window:toggle() 
     end
 
     -- ЗАКРЫТИЕ (от ESC или менеджера окон)
@@ -90,9 +91,10 @@ function on_message(self, message_id, message, sender)
         if item then
             local item_cfg = items_db.get_item(item.item_id)
             local split_item = {
+                item_uid = item.uid,
                 item_id = item.item_id,
                 amount = current_amount,
-                source_split_slot = slot_index
+                source_split_slot = slot_index,         
             }
             drag_manager.start(self.container_window.static_grid, slot_index, split_item, item_cfg)
         end
@@ -100,8 +102,8 @@ function on_message(self, message_id, message, sender)
     -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
     elseif message_id == hash("refresh") then
         self.container_window.static_grid:refresh()
-    elseif message_id == hash("context_menu_action") then
-      if message.event == "equip_item" then
+    elseif message_id == hash("context_menu_action") or message_id == hash("item_action") then
+        if message.event == "equip_item" then
             local slot_index = message.data.slot_index
             local item_id = message.data.item_id
             local item_cfg = items_db.get_item(item_id)
@@ -125,6 +127,30 @@ function on_message(self, message_id, message, sender)
             -- Менеджер сам поймет: обновить визуал куклы (если открыта) или просто сменить данные
             item_transfer_manager.execute_transfer(source, slot_index, target, item_cfg.equip_slot, item, item_cfg)
         end
+        if message.event == "loot_item" then
+            print("message", message.data.item_id, message.data.slot_index)
+            local slot_index = message.data.slot_index
+            local item_id = message.data.item_id
+            local item_cfg = items_db.get_item(item_id)
+             print("item_cfg", item_cfg)
+            -- 1. ИСТОЧНИК: Сетка этого контейнера
+            -- Она всегда открыта, раз мы жмем в ней ПКМ
+            local source = self.container_window.static_grid
+            local item = source:get_data_source():get_item(slot_index)
+            
+            -- 2. ЦЕЛЬ: Кукла игрока
+            local target = nil
+            -- Пытаемся найти открытое окно через глобальную ссылку (самый быстрый путь)
+            if _G.CHARACTER_WINDOW then
+                target = _G.CHARACTER_WINDOW.static_grid
+            else
+                -- Окно закрыто, работаем напрямую с данными
+                target = require("main.modules.player.player_inventory")
+            end
+            print("LOOT_item", item_cfg.equip_slot)
+            item_transfer_manager.execute_transfer(source, slot_index, target, nil, item, item_cfg)
+        end
+      
     end
 end
 

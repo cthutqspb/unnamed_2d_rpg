@@ -21,6 +21,8 @@ function M:init(template_id, config)
 
     self.is_shift_pressed = false
 
+    self.on_double_click_handler = config.on_double_click
+
     self.grid = self.druid:new(static_grid, self.container, template_id .. "/slot_prefab/root", self.columns)
     self.grid:set_item_size(self.item_size + self.spacing, self.item_size + self.spacing)
 
@@ -124,6 +126,10 @@ function M:get_slot_at_position(x, y)
         if gui.pick_node(slot.root, x, y) then return i end
     end
     return nil
+end
+
+function M:set_slot_amount_visual(index, amount)
+    Layout.set_slot_amount_visual(self, index, amount)
 end
 
 function M:on_drop(x, y)

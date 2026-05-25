@@ -3,6 +3,10 @@ local window_manager = require("main.gui.components.managers.window_manager")
 
 local M = {}
 
+local last_click_time = 0
+local last_click_id = nil
+local DOUBLE_CLICK_THRESHOLD = 0.3
+
 -- Выносим константы, чтобы не "мусорить" в памяти каждый кадр
 local GROUPS = { hash("interactable"), hash("loot"), hash("enemy") }
 local OFFSET = 10
@@ -24,6 +28,21 @@ function M.handle_click(self, interaction_range, callback)
         -- Передаем только ID цели. Никаких функций!
         msg.post("game_scene:/player", "move_to_item", { item_id = go.get_id() })
     end
+end
+
+function M.is_double_click(id)
+    local current_time = os.clock()
+    local success = false
+    
+    if id == last_click_id and (current_time - last_click_time) < DOUBLE_CLICK_THRESHOLD then
+        success = true
+        last_click_id = nil -- Сброс
+    else
+        last_click_id = id
+        last_click_time = current_time
+    end
+    
+    return success
 end
 
 -- function M.get_target_under_cursor(self)
@@ -74,7 +93,5 @@ function M.get_all_targets_under_cursor(world_pos)
     
     return nil
 end
-
-
 
 return M

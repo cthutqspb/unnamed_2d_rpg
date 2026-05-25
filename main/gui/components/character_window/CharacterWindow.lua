@@ -39,7 +39,16 @@ local TABS_CONFIG = {
                     columns = 7,
                     rows = 12,
                     item_size = 40,
-                    spacing = 2
+                    spacing = 2,
+                    on_double_click = function(index, item)
+                        msg.post(".", "item_action", {
+                            event = "item_transfer",
+                            data = {
+                                slot_index = index,
+                                item_id = item.item_id
+                            }
+                        })
+                    end
                 }
             }
         }
@@ -181,44 +190,6 @@ function M:update_all_displays()
         end
     end
 end
-
--- Вариант колбэка
--- function M:handle_input(action_id, action)
---     -- Вызываем базу и передаем ей функцию проверки "куда дропнули"
---     return BaseWindow.handle_input_flow(self, action_id, action, function(x, y)
---         -- Специфика этого окна:
---         if self.static_grid:on_drop(x, y) then return true end
---         if self.paperdoll and self.paperdoll:on_drop(x, y) then return true end
---         return false
---     end)
--- end
-
-
--- -- Раньше это был get_hover_status, теперь get_hover_data
--- function M:get_hover_data(mx, my)
---     if not mx or not my then return false end
---
---     local hovered = false
---
---     -- Проверяем инвентарь
---     if self.active_tab == "character" and self.static_grid then
---         hovered = self.static_grid:update_hover(mx, my)
---     end
---
---     -- Если над инвентарем нет, проверяем куклу
---     if not hovered and self.paperdoll then
---         hovered = self.paperdoll:update_hover(mx, my)
---     end
---
---     -- Возвращаем результат (пока это true/false, но в будущем сможем вернуть данные)
---     return hovered
--- end
-
-
--- function M:set_visible(visible)
---     gui.set_enabled(self.root, visible)
---     if visible then self:refresh_all() end
--- end
 
 function M:get_slot_at_position(x, y)
     if self.static_grid and self.active_tab == "character" then

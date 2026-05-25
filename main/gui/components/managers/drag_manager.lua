@@ -59,24 +59,53 @@ function M.finish(target_component, target_slot)
     local item = d.item 
     local item_cfg = d.item_cfg
 
-    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но мимо слотов)
+    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI мимо слотов или за пределы окон)
     if not target_component and is_over_any_gui then
-        print("Cancel drag: mouse over GUI but no slot")
-        item_transfer_manager.cancel_transfer(source)
+        -- Нам вообще плевать, сплит это или нет. 
+        -- Просто вызываем finalize, чтобы сбросить визуал к реальным данным.
+        item_transfer_manager.finalize(source)
 
-    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Внутри одного окна или между разными)
+    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Успешный перенос)
     elseif target_component then
         item_transfer_manager.execute_transfer(source, source_slot, target_component, target_slot, item, item_cfg)
 
-    -- 3. СЛУЧАЙ: ДРОП В МИР (Бросили на землю)
+    -- 3. СЛУЧАЙ: ДРОП В МИР
     else
         item_transfer_manager.drop_to_world(source, source_slot, item, d.x, d.y)
     end
 
-    -- СБРОС СИСТЕМНЫХ ФЛАГОВ И ГЛОБАЛЬНЫЙ ВИЗУАЛЬНЫЙ ОБНОВИТЕЛЬ
     is_over_any_gui = false
-
-    item_transfer_manager.finalize(source_comp, target_comp)
 end
+
+-- function M.finish(target_component, target_slot)
+--     if not active_drag then return end
+--
+--     local d = active_drag
+--     active_drag = nil
+--
+--     local source = d.source
+--     local source_slot = d.slot
+--     local item = d.item 
+--     local item_cfg = d.item_cfg
+--
+--     -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI, но мимо слотов)
+--     if not target_component and is_over_any_gui then
+--         print("Cancel drag: mouse over GUI but no slot")
+--         item_transfer_manager.cancel_transfer(source)
+--
+--     -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Внутри одного окна или между разными)
+--     elseif target_component then
+--         item_transfer_manager.execute_transfer(source, source_slot, target_component, target_slot, item, item_cfg)
+--
+--     -- 3. СЛУЧАЙ: ДРОП В МИР (Бросили на землю)
+--     else
+--         item_transfer_manager.drop_to_world(source, source_slot, item, d.x, d.y)
+--     end
+--
+--     -- СБРОС СИСТЕМНЫХ ФЛАГОВ И ГЛОБАЛЬНЫЙ ВИЗУАЛЬНЫЙ ОБНОВИТЕЛЬ
+--     is_over_any_gui = false
+--
+--     item_transfer_manager.finalize(source_comp, target_comp)
+-- end
 
 return M

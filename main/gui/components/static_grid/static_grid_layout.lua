@@ -53,6 +53,22 @@ function M.clear_slot_visual(self, index)
     end
 end
 
+function M.set_slot_amount_visual(self, index, amount)
+    local slot = self.slots[index]
+    if not slot then return end
+
+    if amount and amount > 1 then
+        gui.set_enabled(slot.amount, true)
+        gui.set_text(slot.amount, tostring(amount))
+    elseif amount and amount <= 1 then
+        -- Если остался 1 или меньше, скрываем цифру (как в draw_slot)
+        gui.set_enabled(slot.amount, false)
+    else
+        -- Если вдруг 0 (хотя для визуального остатка это вряд ли)
+        gui.set_enabled(slot.amount, false)
+    end
+end
+
 return M
 
 

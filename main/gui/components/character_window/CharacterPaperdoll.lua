@@ -1,4 +1,5 @@
 local component = require("druid.component")
+local interaction = require("main.modules.interaction")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local drag_manager = require("main.gui.components.managers.drag_manager")
@@ -36,6 +37,10 @@ function M:init(template_id)
             amount = gui.get_node(path .. "/amount")
         }
 
+        self.druid:new_button(slot_root, function()
+            self:handle_slot_click(slot_type)
+        end)
+
         local drag = self.druid:new_drag(slot_root)
 
         drag.on_drag_start:subscribe(function()
@@ -51,6 +56,17 @@ function M:init(template_id)
                 end
             end
         end)
+    end
+end
+
+function M:handle_slot_click(index)
+    if interaction.is_double_click(index) then
+        msg.post(".", "item_action", {
+            event = "unequip_item",
+            data = {
+                slot_index = index
+            }
+        })
     end
 end
 

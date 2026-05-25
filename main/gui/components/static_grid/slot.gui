@@ -24,11 +24,6 @@ nodes {
     x: 36.0
     y: 36.0
   }
-  color {
-    x: 0.3019608
-    y: 0.101960786
-    z: 0.3019608
-  }
   type: TYPE_BOX
   texture: "items_project_utumno/anim"
   id: "icon"

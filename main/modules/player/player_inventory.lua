@@ -196,6 +196,36 @@ function M:try_stack_items_from(other_model, from_idx, to_idx, item_cfg)
     return true
 end
 
+---@param item_id hash|string
+---@param amount number
+---@param item_cfg table
+---@return number @Возвращает остаток (0 если всё стакнулось)
+function M:try_stack_item_anywhere(item_id, amount, item_cfg)
+    local remaining = amount
+    local target_id = type(item_id) == "string" and hash(item_id) or item_id
+    
+    for i = 1, self.max_slots do
+        local slot = self.items[i]
+        
+        -- 🚩 ВОТ ЭТА СТРОКА УБИРАЕТ ВСЕ ОШИБКИ ЛИНТЕРА НИЖЕ
+        if slot and slot.item_id == target_id then
+            local max_stack = item_cfg.max_stack or 64
+            local space = max_stack - slot.amount
+            
+            if space > 0 then
+                local to_add = math.min(remaining, space)
+                -- Теперь тут не будет "slot may be nil"
+                ---@diagnostic disable-next-line: assign-type-mismatch
+                slot.amount = slot.amount + to_add
+                remaining = remaining - to_add
+            end
+        end
+        
+        if remaining <= 0 then return 0 end
+    end
+    return remaining
+end
+
 ---@param other_model Inventory
 ---@param from_idx number
 ---@param to_idx number
