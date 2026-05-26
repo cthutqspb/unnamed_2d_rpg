@@ -88,31 +88,36 @@ function M.finish(target_component, target_slot)
     local d = active_drag
     active_drag = nil
 
-    local source = d.source
+    -- 🎯 ПЕРЕВОД ПРОВАЙДЕРА В МОДЕЛЬ ДАННЫХ (View -> Model)
+    local source_model = d.source
+    if type(source_model) == "table" and source_model.get_data_source then
+        source_model = source_model:get_data_source()
+    end
+
     local source_slot = d.slot
-    local item = d.item
+    local item = d.item 
     local item_cfg = d.item_cfg
 
     -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI мимо слотов или за пределы окон)
     if not target_component and is_over_any_gui then
-        -- 🚩 ФИКС: Сбрасываем визуал источника
-        item_transfer_manager.finalize(source)
-
-        -- 🚩 ФИКС: Достаем активный фокус через наш interaction_manager
-        -- и тоже заставляем его обновиться, чтобы сбросить стейт Друида!
-        ---@type any
-        local active_focus = interaction_manager.get_focus()
-        if active_focus then
-            item_transfer_manager.finalize(active_focus)
-        end
+        -- Вызываем finalize() без аргументов. Он кинет бродкаст, 
+        -- и все открытые окна (включая фокусное) обновятся и отлипнут!
+        item_transfer_manager.finalize()
 
     -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Успешный перенос)
     elseif target_component then
-        item_transfer_manager.execute_transfer(source, source_slot, target_component, target_slot, item, item_cfg)
+        -- 🎯 ПЕРЕВОД ЦЕЛИ В МОДЕЛЬ ДАННЫХ (View -> Model)
+        local target_model = target_component
+        if type(target_model) == "table" and target_model.get_data_source then
+            target_model = target_model:get_data_source()
+        end
+
+        -- Передаем в ядро строго модели данных
+        item_transfer_manager.execute_transfer(source_model, source_slot, target_model, target_slot, item, item_cfg)
 
     -- 3. СЛУЧАЙ: ДРОП В МИР
     else
-        item_transfer_manager.drop_to_world(source, source_slot, item, d.x, d.y)
+        item_transfer_manager.drop_to_world(source_model, source_slot, item, d.x, d.y)
     end
 
     is_over_any_gui = false

@@ -10,20 +10,32 @@ local CharacterInventory = require("main.gui.components.static_grid.StaticGrid")
 local CharacterJournal = require("main.gui.components.character_window.CharacterJournal")
 local CharacterTalents = require("main.gui.components.character_window.CharacterTalents")
 
+---@class CharacterWindowTab
+---@field window_title string Ключ локализации для заголовка окна
+---@field btn node Узел кнопки переключения на эту вкладку
+---@field container node Узел-контейнер визуальной страницы вкладки
+---@field modules table[] Список инициализированных Druid-компонентов внутри вкладки
+
 ---@class CharacterWindow : druid.component
----@field init fun(self: CharacterWindow, template_id: string, player_inventory: table)
----@field static_grid StaticGrid
----@field paperdoll CharacterPaperdoll | nil
----@field character_stats CharacterStats | nil
----@field root node
----@field body node
----@field header node
+---@field template_id string
+---@field render_order number
+---@field is_static boolean
+---@field static_grid StaticGrid|nil Компонент сетки инвентаря
+---@field paperdoll CharacterPaperdoll|nil Компонент куклы персонажа
+---@field character_stats CharacterStats|nil Компонент характеристик персонажа
+---@field root node Корневой узел окна
+---@field body node Узел тела окна
+---@field header node Узел шапки окна
+---@field tabs table<string, CharacterWindowTab> Реестр собранных вкладок
+---@field active_tab string|nil Имя текущей активной вкладки
+---@field modules table[] Основной список дочерних модулей для BaseWindow
 local M = component.create("CharacterWindow")
 
 local TOTAL_WIDTH = 900
 local WINDOW_HEIGHT = 600
 
--- Конфигурация вкладок остается прежней
+-- Конфигурация вкладок
+---@type table<string, table>
 local TABS_CONFIG = {
     character = {
         window_title = "character_window",
@@ -69,13 +81,17 @@ local TABS_CONFIG = {
     }
 }
 
+---@param template_id string
+---@param player_inventory table Чистая Lua-модель инвентаря игрока
 function M:init(template_id, player_inventory)
     self.render_order = constants_ui.LAYERS.WINDOW
     self.is_static = false
 
     BaseWindow.init(self, template_id, {
         on_show = function ()
-            self.static_grid:refresh()
+            if self.static_grid then
+                self.static_grid:refresh()
+            end
         end
     })
 
@@ -112,13 +128,18 @@ function M:init(template_id, player_inventory)
                     sub_config.data_source = player_inventory
                 end
 
+                 ---@type any
                 local instance = self.druid:new(sub.class, sub.template, sub_config)
                 table.insert(self.tabs[name].modules, instance)
 
                 -- Сохраняем прямые ссылки для быстрого доступа
-                if sub.template == "static_grid" then self.static_grid = instance
-                elseif sub.template == "character_paperdoll" then self.paperdoll = instance
-                elseif sub.template == "character_stats" then self.character_stats = instance end
+                if sub.template == "static_grid" then
+                    self.static_grid = instance
+                elseif sub.template == "character_paperdoll" then
+                    self.paperdoll = instance
+                elseif sub.template == "character_stats" then
+                    self.character_stats = instance
+                end
             end
         elseif cfg.component then
             local instance = self.druid:new(cfg.component, cfg.template_id)
@@ -143,6 +164,7 @@ function M:init(template_id, player_inventory)
     self:set_visible(false)
 end
 
+---@param tab_name string Имя вкладки из TABS_CONFIG
 function M:switch_tab(tab_name)
     local active_tab_data = self.tabs[tab_name]
     if not active_tab_data then return end
@@ -180,7 +202,7 @@ end
 
 function M:update_all_displays()
     -- Проходим по всем вкладкам, которые мы создали в init
-    for name, tab in pairs(self.tabs) do
+    for _, tab in pairs(self.tabs) do
         -- Проходим по всем модулям (статы, кукла, грид) внутри вкладки
         for _, module in ipairs(tab.modules) do
             -- Если у модуля есть метод обновления текста/визуала - вызываем
@@ -191,6 +213,9 @@ function M:update_all_displays()
     end
 end
 
+---@param x number
+---@param y number
+---@return number|nil
 function M:get_slot_at_position(x, y)
     if self.static_grid and self.active_tab == "character" then
         return self.static_grid:get_slot_at_position(x, y)

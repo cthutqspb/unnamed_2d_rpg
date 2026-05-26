@@ -4,14 +4,20 @@ local player_paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 
+---@class CharacterPaperdollSlot
+---@field root node
+---@field icon node
+---@field amount node
+
 ---@class CharacterPaperdoll : druid.component
----@field druid table
----@field slots table
+---@field druid druid.instance
+---@field slots table<string, CharacterPaperdollSlot>
 ---@field root node
 ---@field template_id string
 ---@field is_shift_pressed boolean
 local M = component.create("CharacterPaperdoll")
 
+---@param template_id string
 function M:init(template_id)
     self.template_id = template_id
     self.druid = self:get_druid()
@@ -38,10 +44,12 @@ function M:init(template_id)
         }
 
         self.druid:new_button(slot_root, function()
-            self:handle_slot_click(slot_type)
+            self.handle_slot_click(slot_type)
         end)
 
         local drag = self.druid:new_drag(slot_root)
+        ---@diagnostic disable-next-line: inject-field
+        drag.drag_threshold = 4 -- Быстрый подцеп
 
         drag.on_drag_start:subscribe(function()
             ---@type any
@@ -59,12 +67,15 @@ function M:init(template_id)
     end
 end
 
-function M:handle_slot_click(index)
+---@param index string
+function M.handle_slot_click(index)
     if interaction.is_double_click(index) then
         msg.post(".", "item_action", {
-            event = "unequip_item",
+            event = "item_transfer",
             data = {
-                slot_index = index
+                slot_index = index,
+                item_id = nil,
+                from_paperdoll = true
             }
         })
     end
@@ -81,14 +92,17 @@ function M:on_input(action_id, action)
     if action_id == hash("mouse_right") and action.released then
         for slot_type, nodes in pairs(self.slots) do
             if gui.pick_node(nodes.root, action.x, action.y) then
-                self:handle_right_click(slot_type, action.x, action.y)
+                self.handle_right_click(slot_type, action.x, action.y)
             end
         end
     end
 end
 
-function M:handle_right_click( index, x, y)
-    local item_data = self:get_data_source():get_item(index)
+---@param index string
+---@param x number
+---@param y number
+function M.handle_right_click(index, x, y)
+    local item_data = player_paperdoll.slots[index]
 
     if not item_data or not item_data.item_id then
         print("RIGHT CLICK: Slot is empty")
@@ -131,6 +145,9 @@ function M:handle_right_click( index, x, y)
     -- })
 end
 
+---@param x number
+---@param y number
+---@return boolean
 function M:on_drop(x, y)
     if not gui.is_enabled(self.root, true) then return false end
 
@@ -142,10 +159,6 @@ function M:on_drop(x, y)
         end
     end
     return false
-end
-
-function M:get_data_source()
-    return player_paperdoll
 end
 
 function M:refresh()
@@ -166,17 +179,21 @@ function M:refresh()
     end
 end
 
+---@param visible boolean
 function M:set_visible(visible)
     gui.set_enabled(self.root, visible)
     if visible then self:refresh() end
 end
 
+---@param mx number
+---@param my number
+---@return table|nil
 function M:get_hover_data(mx, my)
     -- 2. Кукла — это СЛОВАРЬ, используем pairs
     for slot_type, nodes in pairs(self.slots) do
         if gui.pick_node(nodes.root, mx, my) then
             ---@type table|nil
-            local item_data = self:get_data_source().slots[slot_type]
+            local item_data = player_paperdoll.slots[slot_type]
             if item_data and item_data.item_id then
                 return { type = "item", item = item_data }
             end

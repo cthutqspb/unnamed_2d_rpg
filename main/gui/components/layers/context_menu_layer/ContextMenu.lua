@@ -58,6 +58,7 @@ function M:create_menu_button(action, index, data, config)
 
     -- 2. ЛОГИКА КЛИКА
     local btn_instance = self.druid:new_button(btn_node, function()
+        print("context click")
         msg.post(data.source_url, "context_menu_action", { event = action.event, data = data })
         self:hide()
     end)

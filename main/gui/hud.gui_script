@@ -70,22 +70,6 @@ function on_message(self, message_id, message, sender)
         msg.post("main:/character_window#gui", "refresh")
         msg.post("main:/inventory_window#gui", "refresh")
     end
-    
-    -- if message_id == hash("context_menu_action") then 
-    --     print('CONTEXT MENU ACTION', message.event)
-    --     if message.event == "equip_item" then
-    --         local slot_index = message.data.slot_index -- индекс в инвентаре
-    --         local item_id = message.data.item_id
-    --         
-    --         -- 1. Узнаем из базы, в какой слот куклы должен лечь предмет
-    --         local item_cfg = items_db.get_item(item_id)
-    --         local target_slot_type = item_cfg.equip_slot -- например, "HEAD"
-    --
-    --         -- 2. Вызываем трансфер
-    --         -- Передаем: откуда (сетка), куда (кукла), индекс слота, ТИП слота куклы
-    --         item_transfer_manager.transfer_to_paperdoll(self.character_window.static_grid, self.character_window.paperdoll, slot_index, target_slot_type)
-    --     end
-    -- end
 end
 
 function on_input(self, action_id, action)

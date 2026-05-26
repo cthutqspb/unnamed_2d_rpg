@@ -119,14 +119,13 @@ function on_message(self, message_id, message, sender)
         local item_id = message.data.item_id
         local item_cfg = items_db.get_item(item_id)
 
-        local source = self.container_window.static_grid
-        local item = source:get_data_source():get_item(slot_index)
+        local source = self.container_window.static_grid:get_data_source()
+        local item = source:get_item(slot_index)
 
-        if message.event == "equip_item" then
+        if message.event == "item_transfer" then
             -- 🎯 ЦЕЛЬ: Кукла (Paperdoll)
             -- Пытаемся взять открытую куклу через window_manager или напрямую модуль
             local target = interaction_manager.get_player_paperdoll()
-
             item_transfer_manager.execute_transfer(
                 source,
                 slot_index,
@@ -136,7 +135,7 @@ function on_message(self, message_id, message, sender)
                 item_cfg
             )
 
-        elseif message.event == "loot_item" then
+        elseif message.event == "item_loot" then
             -- 🎯 ЦЕЛЬ: Инвентарь игрока
             local target = interaction_manager.get_player_inventory()
             item_transfer_manager.execute_transfer(
@@ -149,11 +148,9 @@ function on_message(self, message_id, message, sender)
             )
 
         elseif message.event == "loot_item_all" then
-            local ds = source:get_data_source()
             local target = interaction_manager.get_player_inventory()
-
-            for i = 1, ds.max_slots do
-                local _item = ds:get_item(i)
+            for i = 1, source.max_slots do
+                local _item = source:get_item(i)
                 if _item and _item.item_id then
                     local _item_cfg = items_db.get_item(_item.item_id)
                     item_transfer_manager.execute_transfer(
