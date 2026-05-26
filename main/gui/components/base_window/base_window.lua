@@ -3,8 +3,17 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 
+---@class WindowCallbacks
+---@field on_show function|nil Коллбэк, вызываемый при открытии окна
+---@field on_hide function|nil Коллбэк, вызываемый при закрытии окна
+
+---@class BaseWindow
 local M = {}
 
+---Инициализация базовой разметки и системных кнопок окна
+---@param self table|any Контекст наследующего Druid-компонента окна (CharacterWindow, ContainerWindow)
+---@param template_id string Строковый ID GUI-шаблона (префикс путей нод)
+---@param callbacks WindowCallbacks|nil Таблица кастомных жизненных коллбэков
 function M.init(self, template_id, callbacks)
     self.callbacks = callbacks or {}
     self.druid = self:get_druid()
@@ -18,6 +27,7 @@ function M.init(self, template_id, callbacks)
     self.root = gui.get_node(prefix .. "root")
     self.body = gui.get_node(prefix .. "body")
     self.header = gui.get_node(prefix .. "header")
+    self.footer = gui.get_node(prefix .. "footer")
     self.btn_close = gui.get_node(prefix .. "btn_close")
     self.window_title = gui.get_node(prefix .. "window_title")
     self._dirty = false
@@ -30,6 +40,7 @@ function M.init(self, template_id, callbacks)
     self.window_title = ok_wt and node_wt or nil
 
     self.drag = self.druid:new_drag(self.header, function(_, dx, dy)
+        -- window_manager.handle_window_click(self, msg.url())
         local pos = gui.get_position(self.root)
         local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
         -- Используем body для вычисления границ, а двигаем root
@@ -62,44 +73,71 @@ function M.init(self, template_id, callbacks)
     end
 end
 
+---Поставить флаг отложенного обновления интерфейса (Dirty Flag)
+---@param self table|any
 function M.request_refresh(self)
     self._dirty = true
 end
 
+---Системный апдейт ховера и логики отрисовки
+---@param self table|any
+---@param dt number Дельта времени кадра
+---@param mx number Текущая координата X мыши
+---@param my number Текущая координата Y мыши
 function M.update(self, dt, mx, my)
     -- Проверяем видимость и нахождение мыши над телом окна
     local is_over = false
     if M.is_visible(self) then
-        is_over = gui.pick_node(self.body, mx, my)
+        is_over = M.is_over_window(self, mx, my)
     end
-    
+
     -- Сообщаем менеджеру актуальный статус
     -- Это безопасно, так как вызывается из GUI контекста
     window_manager.set_hover_status(msg.url(), is_over)
 
     if self._dirty then
-        if self.refresh_all then self:refresh_all() end
+        if self.refresh_all then
+            self:refresh_all()
+        end
         self._dirty = false
     end
 end
 
--- В BaseWindow.lua
+---Проверить, находится ли курсор мыши над реальными элементами макета окна
+---@param self table|any Экземпляр окна
+---@param x number Координата мыши X
+---@param y number Координата мыши Y
+---@return boolean true -- если мышь находится над осязаемой частью интерфейса
 function M.is_over_window(self, x, y)
-    -- Если root выключен, окно ВООБЩЕ не должно существовать для логики
+    -- Если корневой узел скрыт — окна физически нет на экране
     if not self.root or not gui.is_enabled(self.root, true) then
         return false
     end
-    -- Только если включено, проверяем координаты
-    return gui.pick_node(self.body, x, y)
+
+    -- 1. Проверяем шапку (заголовок, крестик закрытия)
+    if self.header and gui.pick_node(self.header, x, y) then return true end
+
+    -- 2. Проверяем главное тело окна (контент, табы, слоты)
+    if self.body and gui.pick_node(self.body, x, y) then return true end
+
+    -- 3. Проверяем подвал (системные кнопки вроде "Принять / Закрыть")
+    if self.footer and gui.pick_node(self.footer, x, y) then return true end
+
+    -- Мышь находится в пустоте за пределами элементов окна
+    return false
 end
 
-
+---Обработать ховер мыши над дочерними интерактивными модулями окна (слоты, кукла)
+---@param self table|any
+---@param mx number Координата мыши X
+---@param my number Координата мыши Y
+---@return table|nil Возвращает структуру данных ховера (например, {type="item", item=data}) или nil
 function M.handle_hover(self, mx, my)
     -- 1. Сначала проверяем координаты (защита от nil и 0)
     if not mx or not my or mx == 0 or my == 0 then return nil end
 
     if drag_manager.is_dragging() then return nil end
-    
+
     if window_manager.is_context_menu_open() then return nil end
 
 
@@ -125,6 +163,9 @@ function M.handle_hover(self, mx, my)
     return nil
 end
 
+---Переключить состояние видимости окна (открыть/закрыть) с перестройкой стека фокуса
+---@param self table|any
+---@return boolean Новое состояние видимости окна (true - открыто, false - закрыто)
 function M.toggle(self)
     local is_visible = M.is_visible(self)
     local new_visible = not is_visible
@@ -146,8 +187,9 @@ function M.toggle(self)
     return new_visible
 end
 
-
-
+---Прямо установить видимость окна на экране и вызвать соответствующие коллбэки
+---@param self table|any
+---@param visible boolean Флаг видимости
 function M.set_visible(self, visible)
     gui.set_enabled(self.root, visible)
 
@@ -165,14 +207,15 @@ function M.set_visible(self, visible)
     elseif not visible and self.callbacks.on_hide then
         self.callbacks.on_hide()
     end
-    -- Если надо будет то переопределим в character_window, пока без этого работает
-    -- if visible then self:refresh_all() end
 end
 
+---@param self table|any
+---@return boolean true
 function M.is_visible(self)
     return gui.is_enabled(self.root)
 end
 
+---@param self table|any
 function M.close(self)
     -- 1. Скрываем
     M.set_visible(self, false)
@@ -184,10 +227,23 @@ function M.close(self)
     window_manager.reorder_focus()
 end
 
-
+---@param self table|any
+---@param text string
 function M.set_title(self, text)
     if self.window_title then
         gui.set_text(self.window_title, text)
+    end
+end
+
+---Установить визуальное состояние фокуса/активности окна
+---@param self table|any
+---@param is_active boolean true, если окно стало главным для игрока
+function M.set_focus_visual(self, is_active)
+    if self.body then
+        local alpha = is_active and 0.9 or 0.72
+        local current_color = gui.get_color(self.body)
+        current_color.w = alpha
+        gui.set_color(self.body, current_color)
     end
 end
 

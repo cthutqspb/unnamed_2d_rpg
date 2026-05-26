@@ -1,3 +1,4 @@
+local locales = require("main.modules.data.locales.locale_manager")
 local component = require("druid.component")
 local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
@@ -11,6 +12,7 @@ local gui_utils = require("main.gui.gui_utils")
 ---@field template_id string
 ---@field static_grid StaticGrid
 ---@field btn_take_all node
+---@field btn_take_all_text_node node 
 ---@field uid string|nil
 ---@field root node   --- ДОБАВЛЯЕМ СЮДА, чтобы убрать ошибку в M:open
 ---@field body node   --- До кучи, если используешь в проверках координат
@@ -40,8 +42,8 @@ function M:init(template_id, config)
     self.static_grid = d:new(StaticGrid, get_id(template_id, "static_grid"), {
         columns = config.columns or 6,
         rows = config.rows or 4,
-        item_size = config.item_size or 48,
-        spacing = config.spacing or 4,
+        item_size = config.item_size or 40,
+        spacing = config.spacing or 2,
         on_double_click = function(index, item)
             -- Мы находимся в контексте CharacterWindow
             -- Просто шлем сообщение самому себе (в скрипт, где лежит CharacterWindow)
@@ -67,6 +69,8 @@ function M:init(template_id, config)
 
     -- Инициализация нод
     self.btn_take_all = gui.get_node("btn_take_all")
+    self.btn_take_all_text_node = gui.get_node("btn_take_all_text")
+    gui.set_text(self.btn_take_all_text_node, locales.get("btn_take_all"))
 
     -- Привязываем методы базового окна
     self.toggle = BaseWindow.toggle
@@ -78,12 +82,14 @@ function M:init(template_id, config)
     self.request_refresh = BaseWindow.request_refresh
     self.is_over_window = BaseWindow.is_over_window
     self.handle_hover = BaseWindow.handle_hover
+    self.set_focus_visual = BaseWindow.set_focus_visual
 
     -- d:new_button(self.btn_close, self.close)
     d:new_button(self.btn_take_all, function ()
         self:take_all()
     end)
 
+    
     -- Начальные настройки
     -- gui.set_text(self.title, config.title or "Container")
     self.set_title(self, config.title or "Container")
@@ -95,13 +101,14 @@ function M:init(template_id, config)
     self:set_visible(false)
 end
 
----@param container_uid string
----@param container_id string|hash
----@param columns number
----@param rows number
----@param world_pos vector3
----@param player_pos vector3
-function M:open(container_uid, container_id, columns, rows, world_pos, player_pos)
+---@param container_uid string Уникальный UID конкретной бочки в мире
+---@param container_id string|hash Шаблонный ID типа контейнера
+---@param container_name string Ключ локализации заголовка (например, "prop_barrel")
+---@param columns number Количество колонок сетки
+---@param rows number Количество строк сетки
+---@param world_pos vector3 Мировые координаты сундука
+---@param player_pos vector3 Мировые координаты игрока
+function M:open(container_uid, container_id, container_name, columns, rows, world_pos, player_pos)
     self.uid = container_uid
     local container_data = containers_state.get(container_uid)
     if not container_data then
@@ -114,7 +121,7 @@ function M:open(container_uid, container_id, columns, rows, world_pos, player_po
 
     model.max_slots = columns * rows
     self:set_data_source(model)
-
+    self.set_title(self, locales.get(container_name))
     -- 2. Вычисляем позицию
     local screen_x, screen_y = gui_utils.world_to_screen(world_pos, player_pos)
     local window_w = columns * (48 + 4) - 4

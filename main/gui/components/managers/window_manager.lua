@@ -11,6 +11,8 @@ local M = {}
 ---@type WindowStackEntry[]
 local stack = {}
 
+M.active_instance = nil
+
 ---@type table<string, boolean>
 M.hovered_states = {}
 
@@ -40,6 +42,9 @@ function M.push(instance, url, z)
     table.sort(stack, function(a, b)
         return a.z < b.z
     end)
+
+    -- 🚩 ФИКС: Тот, кто запушил себя последним по клику — тот и активен!
+    M.active_instance = instance
 end
 
 -- Удалить конкретное окно из стека (например, если закрыли кликом на крестик)
@@ -47,12 +52,21 @@ end
 function M.pop(url)
     for i = #stack, 1, -1 do
         if stack[i].url == url then
+            -- Если закрывают то окно, которое сейчас светилось
+            local was_active = (stack[i].instance == M.active_instance)
+
             table.remove(stack, i)
             print("Stack pop:", url, "Total:", #stack)
+
+            -- 🚩 ФИКС: Передаем активность окну, которое оказалось выше всех из оставшихся
+            if was_active then
+                M.active_instance = (#stack > 0) and stack[#stack].instance or nil
+            end
             break
         end
     end
 end
+
 
 ---Закрыть самое верхнее окно в стеке (например, по нажатию на Esc)
 ---@return boolean @true, если окно было успешно найдено и закрыто
@@ -97,15 +111,44 @@ end
 
 ---Перестроить фокус ввода Defold на основе Z-слоёв из стека
 function M.reorder_focus()
-    -- Стек у нас уже отсортирован: [Z10, Z20, Z30]
-    -- Мы идем от МЕНЬШЕГО к БОЛЬШЕМУ.
+    -- Идем по стеку [Z5, Z7, Z10]
     for i = 1, #stack do
         local win = stack[i]
-        -- Тот, кто вызвал acquire ПОСЛЕДНИМ в цикле, станет ПЕРВЫМ в on_input
+
+        -- 🚩 ЧЕСТНАЯ ПРОВЕРКА: Светимся только если ссылка совпала с M.active_instance
+        local is_active = (win.instance == M.active_instance)
+
+        -- 🚩 ФИКС: Отправляем сообщение скрипту окна!
+        -- Каждое окно поймает его в своем родном контексте и само поменяет альфу
+        msg.post(win.url, "set_focus_visual", { is_active = is_active })
+
+        -- Очередь ввода Defold выстраивается по честным слоям Z
         msg.post(win.url, "release_input_focus")
         msg.post(win.url, "acquire_input_focus")
     end
 end
+
+---Сказать менеджеру, что окно получило фокус от клика игрока
+---@param instance table Ссылка на self компонента окна
+---@param url url URL скрипта окна
+function M.handle_window_click(instance, url)
+    -- Если это окно уже и так активное — ничего не делаем, экономим ресурсы
+    if M.active_instance == instance then return end
+
+    -- Находим его Z-слой из текущего стека
+    local current_z = 0
+    for _, win in ipairs(stack) do
+        if win.url == url then
+            current_z = win.z
+            break
+        end
+    end
+
+    -- Перевызываем push, чтобы обновить active_instance и перестроить слои
+    M.push(instance, url, current_z)
+    M.reorder_focus()
+end
+
 
 ---Установить статус нахождения мыши над конкретным окном
 ---@param url url

@@ -1,7 +1,7 @@
 script: "/main/gui/components/container_window/container_window.gui_script"
 fonts {
-  name: "gui_title"
-  font: "/assets/fonts/gui_title.font"
+  name: "font_regular_24"
+  font: "/assets/fonts/font_regular_24.font"
 }
 nodes {
   size {
@@ -10,24 +10,29 @@ nodes {
   }
   color {
     x: 0.0
-    y: 0.0
-    z: 0.0
   }
   type: TYPE_BOX
   id: "root"
-  alpha: 0.72
+  alpha: 0.0
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
+  position {
+    y: 10.0
+  }
   size {
     x: 300.0
-    y: 260.0
+    y: 220.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.101960786
+    z: 0.101960786
   }
   type: TYPE_BOX
   id: "body"
   parent: "root"
-  inherit_alpha: true
-  alpha: 0.0
+  alpha: 0.72
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
@@ -71,7 +76,7 @@ nodes {
   }
   type: TYPE_TEXT
   text: "X"
-  font: "gui_title"
+  font: "font_regular_24"
   id: "text"
   parent: "btn_close"
   inherit_alpha: true
@@ -89,14 +94,64 @@ nodes {
   type: TYPE_TEXT
   text: "\320\232\320\276\320\275\321\202\320\265\320\271\320\275\320\265\321\200\n"
   ""
-  font: "gui_title"
+  font: "font_regular_24"
   id: "window_title"
   parent: "header"
   inherit_alpha: true
 }
 nodes {
   position {
-    y: 96.0
+    y: -99.0
+  }
+  size {
+    x: 200.0
+    y: 42.0
+  }
+  color {
+    x: 0.101960786
+    y: 0.3019608
+    z: 0.3019608
+  }
+  type: TYPE_BOX
+  id: "footer"
+  parent: "root"
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 42.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "btn_take_all"
+  parent: "footer"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  color {
+    x: 0.6
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_TEXT
+  text: "<text>"
+  font: "font_regular_24"
+  id: "btn_take_all_text"
+  parent: "btn_take_all"
+}
+nodes {
+  position {
+    y: 95.0
   }
   type: TYPE_TEMPLATE
   id: "static_grid"
@@ -144,40 +199,6 @@ nodes {
   id: "static_grid/drag_icon"
   parent: "static_grid"
   template_node_child: true
-}
-nodes {
-  position {
-    y: -106.0
-  }
-  size {
-    x: 200.0
-    y: 42.0
-  }
-  color {
-    x: 0.101960786
-    y: 0.3019608
-    z: 0.3019608
-  }
-  type: TYPE_BOX
-  id: "footer"
-  parent: "root"
-  alpha: 0.0
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  size {
-    x: 200.0
-    y: 42.0
-  }
-  color {
-    x: 0.0
-    y: 0.2
-    z: 0.2
-  }
-  type: TYPE_BOX
-  id: "btn_take_all"
-  parent: "footer"
-  size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

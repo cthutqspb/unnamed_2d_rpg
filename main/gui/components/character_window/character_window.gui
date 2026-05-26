@@ -1,6 +1,6 @@
 script: "/main/gui/components/character_window/character_window.gui_script"
 fonts {
-  name: "iosevka_header"
+  name: "font_regular_24"
   font: "/assets/fonts/font_regular_24.font"
 }
 nodes {
@@ -47,7 +47,7 @@ nodes {
     z: 0.101960786
   }
   type: TYPE_TEXT
-  font: "iosevka_header"
+  font: "font_regular_24"
   id: "window_title"
   parent: "header"
   inherit_alpha: true
@@ -76,7 +76,7 @@ nodes {
   }
   type: TYPE_TEXT
   text: "X"
-  font: "iosevka_header"
+  font: "font_regular_24"
   id: "icon"
   parent: "btn_close"
 }
@@ -97,76 +97,6 @@ nodes {
   id: "body"
   parent: "root"
   alpha: 0.72
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  position {
-    y: -290.0
-  }
-  size {
-    x: 480.0
-    y: 48.0
-  }
-  color {
-    x: 0.2
-    y: 0.2
-    z: 0.2
-  }
-  type: TYPE_BOX
-  id: "nav_bar"
-  parent: "root"
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  position {
-    x: -205.0
-  }
-  size {
-    x: 32.0
-    y: 32.0
-  }
-  color {
-    x: 0.6
-    y: 0.8
-    z: 0.8
-  }
-  type: TYPE_BOX
-  id: "btn_character"
-  parent: "nav_bar"
-  inherit_alpha: true
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  position {
-    x: -155.0
-  }
-  size {
-    x: 32.0
-    y: 32.0
-  }
-  color {
-    x: 0.2
-    y: 0.3019608
-    z: 0.7019608
-  }
-  type: TYPE_BOX
-  id: "btn_journal"
-  parent: "nav_bar"
-  inherit_alpha: true
-  size_mode: SIZE_MODE_AUTO
-}
-nodes {
-  position {
-    x: -105.0
-  }
-  size {
-    x: 32.0
-    y: 32.0
-  }
-  type: TYPE_BOX
-  id: "btn_talents"
-  parent: "nav_bar"
-  inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
@@ -616,11 +546,6 @@ nodes {
     x: 960.0
     y: 500.0
   }
-  color {
-    x: 0.4
-    y: 0.3019608
-    z: 0.7019608
-  }
   type: TYPE_BOX
   id: "page_journal"
   parent: "pages_container"
@@ -635,36 +560,15 @@ nodes {
   template: "/main/gui/components/character_window/character_journal.gui"
 }
 nodes {
-  size {
-    x: 960.0
-    y: 500.0
-  }
   type: TYPE_BOX
   id: "character_journal/root"
   parent: "character_journal"
-  overridden_fields: 4
   template_node_child: true
 }
 nodes {
-  position {
-    x: -315.0
-  }
-  size {
-    x: 300.0
-    y: 500.0
-  }
-  color {
-    x: 0.2
-    y: 0.4
-    z: 0.4
-  }
   type: TYPE_BOX
   id: "character_journal/quests"
   parent: "character_journal/root"
-  overridden_fields: 1
-  overridden_fields: 4
-  overridden_fields: 5
-  overridden_fields: 21
   template_node_child: true
 }
 nodes {
@@ -674,26 +578,9 @@ nodes {
   template_node_child: true
 }
 nodes {
-  position {
-    x: 160.0
-  }
-  size {
-    x: 620.0
-    y: 500.0
-  }
-  color {
-    x: 0.7019608
-    y: 0.5019608
-    z: 0.101960786
-  }
   type: TYPE_BOX
   id: "character_journal/description"
   parent: "character_journal/root"
-  overridden_fields: 1
-  overridden_fields: 4
-  overridden_fields: 5
-  overridden_fields: 21
-  overridden_fields: 30
   template_node_child: true
 }
 nodes {
@@ -729,6 +616,88 @@ nodes {
   id: "character_talents/root"
   parent: "character_talents"
   template_node_child: true
+}
+nodes {
+  position {
+    y: -290.0
+  }
+  size {
+    x: 480.0
+    y: 48.0
+  }
+  type: TYPE_BOX
+  id: "footer"
+  parent: "root"
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 480.0
+    y: 48.0
+  }
+  color {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+  type: TYPE_BOX
+  id: "nav_bar"
+  parent: "footer"
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -205.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  color {
+    x: 0.6
+    y: 0.8
+    z: 0.8
+  }
+  type: TYPE_BOX
+  id: "btn_character"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -155.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  color {
+    x: 0.2
+    y: 0.3019608
+    z: 0.7019608
+  }
+  type: TYPE_BOX
+  id: "btn_journal"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -105.0
+  }
+  size {
+    x: 32.0
+    y: 32.0
+  }
+  type: TYPE_BOX
+  id: "btn_talents"
+  parent: "nav_bar"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

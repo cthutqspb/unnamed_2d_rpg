@@ -46,7 +46,7 @@ function M:init(template_id, player_inventory)
 
     --local title_node = gui.get_node(template_id .. "/title")
     self.set_title(self, locales.get('inventory_title'))
-
+    self:set_visible(false)
     -- local screen_w = sys.get_config("display.width")
     -- local screen_h = sys.get_config("display.height")
     -- local inv_size = gui.get_size(self.root)

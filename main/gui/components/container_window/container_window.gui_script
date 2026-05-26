@@ -74,9 +74,12 @@ end
 function on_message(self, message_id, message, sender)
     -- ОТКРЫТИЕ ОКНА
     if message_id == hash("open_container_window") then
+        msg.post(".", "acquire_input_focus")
+
         self.container_window:open(
             message.container_uid,
             message.container_id,
+            message.container_name,
             message.columns,
             message.rows,
             message.position,
@@ -89,6 +92,14 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("close_window") then
         if self.container_window:is_visible() then
             self.container_window:toggle()
+        end
+
+    elseif message_id == hash("set_focus_visual") then
+      print('SETFOCUS CONTAIENR')
+        -- Вызываем метод базового окна. 
+        -- Теперь мы находимся внутри родной сцены, и Defold будет счастлив!
+        if self.container_window and self.container_window.set_focus_visual then
+            self.container_window:set_focus_visual(message.is_active)
         end
 
     -- ЛОГИКА СПЛИТА
@@ -106,7 +117,12 @@ function on_message(self, message_id, message, sender)
                 source_split_slot = slot_index
             }
 
-            drag_manager.start(self.container_window.static_grid, slot_index, split_item, item_cfg)
+            drag_manager.start(
+                self.container_window.static_grid,
+                slot_index,
+                split_item,
+                item_cfg
+            )
         end
 
     -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
@@ -200,10 +216,16 @@ function on_input(self, action_id, action)
 
     -- 3. ФИНАЛЬНЫЙ ШТРИХ: блокировка мира через БАЗУ
     if action_id and action.x and action.y then
+        -- Используем метод из базы, который проверяет координаты
         if self.container_window:is_over_window(action.x, action.y) then
-            return true
-        end
+            -- 🚩 ГЛАВНЫЙ ФИКС: Если игрок КЛИКНУЛ (pressed) по окну
+            if action.pressed and action_id == h_touch then
+                -- Говорим менеджеру, что мы теперь главные!
+                window_manager.handle_window_click(self.container_window, msg.url())
+            end
+            
+            return true -- Блокируем мир
+          end
     end
-
     return handled
 end

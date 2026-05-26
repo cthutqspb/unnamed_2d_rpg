@@ -20,6 +20,10 @@ return {
     ["stat_intellect"] = "Intellect",
     ["stat_stamina"] = "Stamina",
 
+    -- Container window
+    ["btn_take_all"] = "Take all",
+
+
     -- Menu
     ["btn_main_menu"] = "Main menu",
     ["btn_new_game"] = "New game",

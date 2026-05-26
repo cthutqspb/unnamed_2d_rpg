@@ -1,10 +1,11 @@
 return {
     -- gui
+    --windows
     ["inventory_title"] = "Инвентарь",
     ["character_window"] = "Окно персонажа",
     ["character_journal"] = "Журнал",
     ["character_talents"] = "Таланты",
-
+    
     --Character
     ["race_human"] = "Человек",
     ["race_elf"] = "Эльф",
@@ -20,6 +21,8 @@ return {
     ["stat_intellect"] = "Интеллект",
     ["stat_stamina"] = "Выносливость",
 
+    -- Container window
+    ["btn_take_all"] = "Взять всё",
 
     -- Menu
     ["btn_main_menu"] = "Главное меню",
@@ -78,7 +81,7 @@ return {
 
     ["potion"] = "Зелье",
 
-    -- World contaienr
+    -- World container
     ["menu_open"] = "Открыть",
 }
 

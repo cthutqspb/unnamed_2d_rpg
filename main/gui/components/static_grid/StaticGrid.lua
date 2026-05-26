@@ -3,6 +3,7 @@ local Interactions = require("main.gui.components.static_grid.static_grid_intera
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
 local drag_manager = require("main.gui.components.managers.drag_manager")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 
 ---@class StaticGrid : druid.component
 local M = component.create("StaticGrid")
@@ -15,7 +16,7 @@ function M:init(template_id, config)
     self.rows = config.rows or 4
 
     self.item_size = config.item_size or 40
-    self.spacing = config.spacing or 4
+    self.spacing = config.spacing or 2
     self.container = gui.get_node(template_id .. "/container")
     self.root = gui.get_node(template_id .. "/root")
 
@@ -122,7 +123,7 @@ function M:set_data_source(data_source)
 end
 
 function M:get_data_source()
-    return self.data_source or require("main.modules.player.player_inventory")
+    return self.data_source or interaction_manager.get_player_inventory()
 end
 
 function M:get_slot_at_position(x, y)

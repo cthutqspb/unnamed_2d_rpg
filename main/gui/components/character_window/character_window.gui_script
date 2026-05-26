@@ -81,20 +81,23 @@ function on_message(self, message_id, message, sender)
         if self.character_window:is_visible() then
             self.character_window:close()
         end
+    elseif message_id == hash("set_focus_visual") then
+        print('SETFOCUS CHARACTER')
+        -- Вызываем метод базового окна. 
+        -- Теперь мы находимся внутри родной сцены, и Defold будет счастлив!
+        if self.character_window and self.character_window.set_focus_visual then
+            self.character_window:set_focus_visual(message.is_active)
+        end
 
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
-        local data_source = self.character_window.static_grid:get_data_source()
-        local item = data_source:get_item(slot_index)
+        local player_inventory = interaction_manager.get_player_inventory()
+        local item = player_inventory:get_item(slot_index)
 
-        local remaining = item.amount - message.current_amount
         if item and item.item_id then
-            -- if remaining > 0 then
-            --     item.amount = remaining
-            -- end
+            local remaining = item.amount - message.current_amount
             self.character_window.static_grid:set_slot_amount_visual(slot_index, remaining)
-            -- self.character_window.static_grid:request_refresh()
-             --broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+
             local item_cfg = items_db.get_item(item.item_id)
             local split_item = {
                 item_uid = item.uid,
@@ -149,7 +152,7 @@ function on_message(self, message_id, message, sender)
                 )
             end
         end
-        
+
     elseif message_id == hash("toggle_character_window") then
         self.character_window:toggle()
 
@@ -193,8 +196,15 @@ function on_input(self, action_id, action)
 
     -- 3. ФИНАЛЬНЫЙ ШТРИХ: блокировка мира через БАЗУ
     if action_id and action.x and action.y then
+        -- Используем метод из базы, который проверяет координаты
         if self.character_window:is_over_window(action.x, action.y) then
-            return true
+            -- 🚩 ГЛАВНЫЙ ФИКС: Если игрок КЛИКНУЛ (pressed) по окну
+            if action.pressed and action_id == h_touch then
+                -- Говорим менеджеру, что мы теперь главные!
+                window_manager.handle_window_click(self.character_window, msg.url())
+            end
+            
+            return true -- Блокируем мир
         end
     end
 

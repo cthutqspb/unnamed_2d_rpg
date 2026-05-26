@@ -48,6 +48,7 @@ local function open_container(self)
     msg.post("main:/container_window#gui", "open_container_window", {
         container_uid = self.container_uid,
         container_id = self.container_id,
+        container_name = self.container_name,
         container_items = state.items, 
         columns = state.columns,
         rows = state.rows,

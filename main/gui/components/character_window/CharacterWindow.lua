@@ -105,6 +105,7 @@ function M:init(template_id, player_inventory)
     self.request_refresh = BaseWindow.request_refresh
     self.is_over_window = BaseWindow.is_over_window
     self.handle_hover = BaseWindow.handle_hover
+    self.set_focus_visual = BaseWindow.set_focus_visual
 
     self.tabs = {}
     self.active_tab = nil
