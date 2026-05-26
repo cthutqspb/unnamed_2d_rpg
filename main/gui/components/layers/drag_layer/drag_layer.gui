@@ -15,6 +15,7 @@ nodes {
   type: TYPE_BOX
   texture: "items_project_utumno/anim"
   id: "icon"
+  adjust_mode: ADJUST_MODE_STRETCH
   inherit_alpha: true
 }
 nodes {

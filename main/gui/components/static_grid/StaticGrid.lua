@@ -38,6 +38,10 @@ end
 
 
 function M:on_input(action_id, action)
+    if drag_manager.is_dragging() then
+        return false 
+    end
+
     -- 1. Логика Shift (системная)
     if action_id == hash("key_lshift") then
         if action.pressed then self.is_shift_pressed = true

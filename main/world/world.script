@@ -317,10 +317,13 @@ function on_input(self, action_id, action)
             --print("HITS FOUND:", #hits)
             local kind, uid = game_state.get_entity_info(top_object.id)
             if kind then
-                print('kind', kind, uid)
                 local state_data = game_state.get_data_by_type(kind, uid)
-                print('state_data', state_data)
-                tooltip_manager.show("world_object", state_data, { uid = uid, kind = kind })
+                tooltip_manager.show(
+                    "world_object",
+                    state_data, {
+                        uid = uid,
+                        kind = kind
+                    })
             end
         else
             if tooltip_manager.get_current_type() == "world_object" then

@@ -284,7 +284,6 @@ function M:split_stack(other_model, from_idx, to_idx, new_amount, item_cfg)
     return false
 end
 
-
 -- СИСТЕМНЫЕ МЕТОДЫ
 function M.clear()
     -- Просто вызываем уже готовую логику создания пустых слотов

@@ -1,19 +1,30 @@
--- interaction_manager.lua
+local player_inventory = require("main.modules.player.player_inventory")
+local player_paperdoll = require("main.modules.player.player_paperdoll")
+
 local M = {}
 
-M.active_container = nil -- Ссылка на data_source открытого окна (сундук/торговец)
+M.current_focus_ds = nil -- Ссылка на data_source (items) АКТИВНОГО контейнера
 
-function M.set_focus(data_source)
-    M.active_container = data_source
+function M.set_focus(ds)
+    M.current_focus_ds = ds
 end
 
 function M.clear_focus()
-    M.active_container = nil
+    M.current_focus_ds = nil
 end
 
 function M.get_focus()
-    return M.active_container
+    return M.current_focus_ds
 end
 
-return M
+-- Этот метод для сундуков: им всегда нужен инвентарь игрока
+function M.get_player_inventory()
+    return player_inventory
+end
 
+function M.get_player_paperdoll()
+    return player_paperdoll
+end
+
+
+return M

@@ -8,11 +8,18 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 local gui_utils = require("main.gui.gui_utils")
 
 ---@class ContainerWindow : druid.component
----@field root node
----@field body node
----@field window_title node
+---@field template_id string
+---@field static_grid StaticGrid
+---@field btn_take_all node
+---@field uid string|nil
+---@field root node   --- ДОБАВЛЯЕМ СЮДА, чтобы убрать ошибку в M:open
+---@field body node   --- До кучи, если используешь в проверках координат
 local M = component.create("ContainerWindow")
 
+---@private
+---@param template_id string
+---@param node_name string
+---@return string
 local function get_id(template_id, node_name)
     if not template_id or template_id == "" then
         return node_name
@@ -20,10 +27,11 @@ local function get_id(template_id, node_name)
     return template_id .. "/" .. node_name
 end
 
+---@param template_id string
+---@param config table
 function M:init(template_id, config)
     self.template_id = template_id
     local d = self:get_druid()
-    
 
     self.render_order = constants_ui.LAYERS.LOOT -- 30
     self.is_static = false
@@ -60,6 +68,7 @@ function M:init(template_id, config)
     -- Инициализация нод
     self.btn_take_all = gui.get_node("btn_take_all")
 
+    -- Привязываем методы базового окна
     self.toggle = BaseWindow.toggle
     self.is_visible = BaseWindow.is_visible
     self.set_visible = BaseWindow.set_visible
@@ -69,11 +78,11 @@ function M:init(template_id, config)
     self.request_refresh = BaseWindow.request_refresh
     self.is_over_window = BaseWindow.is_over_window
     self.handle_hover = BaseWindow.handle_hover
-    -- self.take_all = M.take_all
 
-    -- Кнопк
     -- d:new_button(self.btn_close, self.close)
-    d:new_button(self.btn_take_all, self:take_all())
+    d:new_button(self.btn_take_all, function ()
+        self:take_all()
+    end)
 
     -- Начальные настройки
     -- gui.set_text(self.title, config.title or "Container")
@@ -86,6 +95,12 @@ function M:init(template_id, config)
     self:set_visible(false)
 end
 
+---@param container_uid string
+---@param container_id string|hash
+---@param columns number
+---@param rows number
+---@param world_pos vector3
+---@param player_pos vector3
 function M:open(container_uid, container_id, columns, rows, world_pos, player_pos)
     self.uid = container_uid
     local container_data = containers_state.get(container_uid)
@@ -123,13 +138,24 @@ end
 
 function M:take_all()
     print("Take all logic for:", self.template_id) -- Используем self
-    -- Тут будет логика
+    msg.post(".", "item_action", {
+        event = "loot_item_all",
+        data = {
+            slot_index = nil,
+            item_id = nil,
+            all = true
+        }
+    })
 end
 
+---@param data_source table
 function M:set_data_source(data_source)
     self.static_grid:set_data_source(data_source)
 end
 
+---@param x number
+---@param y number
+---@return number|nil
 function M:get_slot_at_position(x, y)
     return self.static_grid:get_slot_at_position(x, y)
 end

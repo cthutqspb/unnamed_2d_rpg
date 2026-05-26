@@ -5,7 +5,9 @@ local M = {}
 
 local last_click_time = 0
 local last_click_id = nil
+local last_click_pos = vmath.vector3(0)
 local DOUBLE_CLICK_THRESHOLD = 0.3
+local MOVE_THRESHOLD = 5 -- пикселей
 
 -- Выносим константы, чтобы не "мусорить" в памяти каждый кадр
 local GROUPS = { hash("interactable"), hash("loot"), hash("enemy") }
@@ -30,16 +32,22 @@ function M.handle_click(self, interaction_range, callback)
     end
 end
 
-function M.is_double_click(id)
-    local current_time = os.clock()
+function M.is_double_click(id, x, y)
+    local current_time = socket.gettime()
+    local current_pos = vmath.vector3(x or 0, y or 0, 0)
+    
+    -- Проверяем, не слишком ли далеко ушла мышь (если это драг)
+    local dist = vmath.length(current_pos - last_click_pos)
+    
     local success = false
     
-    if id == last_click_id and (current_time - last_click_time) < DOUBLE_CLICK_THRESHOLD then
+    if id == last_click_id and (current_time - last_click_time) < DOUBLE_CLICK_THRESHOLD and dist < MOVE_THRESHOLD then
         success = true
-        last_click_id = nil -- Сброс
+        last_click_id = nil 
     else
         last_click_id = id
         last_click_time = current_time
+        last_click_pos = current_pos
     end
     
     return success
