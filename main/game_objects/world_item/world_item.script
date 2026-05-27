@@ -10,18 +10,35 @@ local broadcast = require("main.modules.system.broadcast")
 local world_items_state = require("main.modules.game_state.world_items_state")
 
 -- Вспомогательные функции для HUD
+---@class WorldItemScriptContext
+---@field go_id hash Идентификатор Game Object (физический хэш движка)
+---@field uid hash|string Уникальный идентификатор предмета в сейве
+---@field item_id string Строковый ID предмета из items_db ("sword", "potion")
+---@field amount number Количество предметов в этой кучке
+---@field is_from_factory boolean Спавнится ли фабрикой (дроп) или стоит изначально в редакторе
+---@field is_interactable boolean Флаг доступности для кликов мыши
+---@field broadcast_handler function Ссылка на анонимную функцию-слушатель для корректной отписки
+
+---Вспомогательная функция визуальной подсветки предмета при наведении (ховер)
+---@param self WorldItemScriptContext
+---@param go_id hash
 local function show_highlight(self, go_id)
     go.set_scale(vmath.vector3(1.2, 1.2, 1), go_id)
     -- Показываем текст
     msg.post(msg.url(nil, go_id, "item_name"), "enable")
 end
 
+---Вспомогательная функция скрытия подсветки
+---@param self WorldItemScriptContext
+---@param go_id hash
 local function hide_highlight(self, go_id)
     go.set_scale(vmath.vector3(1, 1, 1), go_id)
     -- Скрываем текст
     msg.post(msg.url(nil, go_id, "item_name"), "disable")
 end
 
+---Применить графику и имя на основе текущего item_id из базы данных
+---@param self WorldItemScriptContext
 local function apply_item_visual(self)
     local data = items_db.get_item(self.item_id)
     if data then
@@ -34,11 +51,13 @@ local function apply_item_visual(self)
     end
 end
 
+---@param self WorldItemScriptContext
 function init(self)
     self.go_id = go.get_id()
-    
-    -- 1. Получаем чистый строковый UID
-    local s_uid = tostring(self.uid):match("%[(.+)%]") or tostring(self.uid)
+
+    -- 1. Получаем гарантированную чистую строку UID
+    local s_uid = interaction.clean_id(self.uid) or ""
+    self.item_id = interaction.clean_id(self.item_id) or "unknown"
 
     -- 2. Если это ПРЕДМЕТ ИЗ РЕДАКТОРА (is_from_factory == false)
     if not self.is_from_factory then
@@ -49,31 +68,29 @@ function init(self)
             self.uid = hash(s_uid)
         end
 
-        -- ⚡️ ПРОВЕРКА BG3:
-        -- Если мы из редактора, мы ПЕРВЫМ ДЕЛОМ проверяем реестр.
-        -- Если реестр уже существует (загрузка) и НАС ТАМ НЕТ — значит, мы уже собраны.
-        -- Важно: SaveManager должен гарантировать, что при загрузке реестр НЕ пустой.
+        -- Проверка BG3: если загрузились и предмета нет в сейве — он уже собран
         if world_items_state.is_loaded_from_save and not world_items_state.exists(s_uid) then
             go.delete()
             return
         end
 
-        -- Если мы выжили, регистрируем себя как статику (если нас еще нет в базе)
+        -- Если мы выжили, регистрируем себя как статику (пишем в базу ЧИСТУЮ СТРОКУ item_id)
         if not world_items_state.exists(s_uid) then
             world_items_state.registry[s_uid] = {
-                item_id = self.item_id,
+                item_id = self.item_id, -- Теперь тут лежит железная строка "sword"
                 pos = { x = go.get_position().x, y = go.get_position().y },
                 amount = self.amount or 1,
                 is_dynamic = false
             }
         end
     end
+
     -- Регистрируем связь для рейкаста
-    world_items_state.register(self.go_id, tostring(self.uid):match("%[(.+)%]") or tostring(self.uid))
+    world_items_state.register(self.go_id, s_uid)
 
     -- Визуал и подписки
     self.is_interactable = true
-    if self.item_id ~= hash("unknown") then
+    if self.item_id ~= "unknown" and self.item_id ~= hash("unknown") then
         apply_item_visual(self)
     end
 
@@ -87,59 +104,7 @@ function init(self)
     broadcast.subscribe("world_events", self.broadcast_handler)
 end
 
-
--- function init(self)
---     msg.post(".", "acquire_input_focus")
---
---     self.go_id = go.get_id()
---
---     -- ГАРАНТИРУЕМ, что у нас есть строковый UID
---     local s_uid = tostring(self.uid)
---
---     if self.uid == hash("") then
---         local p = go.get_position()
---         s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
---         self.uid = hash(s_uid)
---     end
---
---     -- 1. Регистрируем чертеж (всегда как строку)
---     world_items_state.register_static_config(s_uid, {
---         item_id = self.item_id,
---         amount = self.amount,
---         pos = go.get_position()
---     })
---
---     -- 2. Регистрируем связь (всегда как строку)
---     world_items_state.register(self.go_id, s_uid)
---
---     self.is_interactable = true
---
---     if self.item_id ~= hash("unknown") then
---         apply_item_visual(self)
---     end
---
---     -- Скрываем имя по умолчанию
---     msg.post("#item_name", "disable")
---
---     -- Передаем этот ID внутрь замыкания
---     self.broadcast_handler = function(data)
---         if data.message_id == hash("toggle_interactable_highlight") then
---
---             if data.show then
---                 show_highlight(self, self.go_id) -- передаем сохраненный ID
---             else
---                 hide_highlight(self, self.go_id)
---             end
---         end
---     end
---
---     broadcast.subscribe("world_events", self.broadcast_handler)
---
---     print("Lootable item type:", self.type)
---     self.highlight_node = nil
---     self.normal_color = vmath.vector4(1,1,1,1)
--- end
-
+---@param self WorldItemScriptContext
 function final(self)
     -- ⚡️ ВЫПИСЫВАЕМСЯ ИЗ РЕЕСТРА (проверяем метод)
     if world_items_state.unregister then
@@ -152,12 +117,9 @@ function final(self)
     end
 end
 
-
+---@param self WorldItemScriptContext
+---@param dt number
 function update(self, dt)
-
-end
-
-function late_update(self, dt)
 
 end
 
@@ -165,39 +127,50 @@ function fixed_update(self, dt)
 
 end
 
+---@param self WorldItemScriptContext
+---@param message_id hash
+---@param message table
+---@param sender url
 function on_message(self, message_id, message, sender)
-    -- if message_id == hash("pickup_item") then
-    --     -- Пересылаем в GUI. message содержит item_id и amount
-    --     msg.post("hud#gui", "add_to_inv", message)
-    --     -- Удаляем предмет из мира
-    --     go.delete(sender)
-    -- end
-
+    -- 1. Сигнал от фабрики мира при динамическом спавне дропа
     if message_id == hash("set_item_id") then
-        self.item_id = message.item_id
-        self.amount = message.amount or 1
-        self.uid = message.uid 
-        
-        world_items_state.register(self.go_id, self.uid)
-                apply_item_visual(self)
+        -- Гарантированно очищаем прилетевший ID от хэшей движка
+        local s_item_id = interaction.clean_id(message.item_id) or "unknown"
+        local s_uid = interaction.clean_id(message.uid) or ""
 
+        self.item_id = s_item_id
+        self.amount = message.amount or 1
+        self.uid = s_uid
+
+        -- 🚩 ФИКС ТИПОВ: Регистрируем очищенную строку s_uid, а не сырой хэш из сообщения
+        world_items_state.register(self.go_id, s_uid)
+
+        -- Перерисовываем иконку предмета
+        apply_item_visual(self)
+
+        -- Обновляем текстовые плашки над предметом
         local data = items_db.get_item(self.item_id)
-        local item_name = locales.get(data.name_key)
         if data then
+            local item_name = locales.get(data.name_key)
             label.set_text("#item_name", item_name)
             if self.amount > 1 then
-                label.set_text("#amount", self.amount)
+                label.set_text("#amount", tostring(self.amount))
+            else
+                label.set_text("#amount", "")
             end
         end
     end
 
+    -- 2. Сигнал клика ЛКМ в упор или добежавшего автолута из player.script
     if message_id == hash("click") then
         interaction.handle_click(self, 50, function()
-            -- ПЕРЕДАЕМ UID в мир, чтобы вычеркнуть его из базы сохранений
-            msg.post("/world#world", "pickup_item", {
+            print("PICKUP: Игрок залутал предмет с земли:", self.item_id)
+
+            -- Передаем точный строковый UID в мир, чтобы вычеркнуть его из базы сохранений
+            msg.post("/world#world", "item_pickup", {
                 item_id = self.item_id,
                 amount = self.amount,
-                uid = self.uid -- ВАЖНО!
+                uid = self.uid
             })
         end)
     end

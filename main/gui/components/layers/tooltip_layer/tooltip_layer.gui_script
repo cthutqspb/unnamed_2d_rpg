@@ -229,15 +229,10 @@ local function render_world_object(self, info, context)
 
     local display_name = "Unknown"
 
-    -- for key, v in pairs(info) do
-    --     print("KEY V", key, v)
-    -- end
-    --print('ITEM ID', info.item_id, info.uid)
-  -- add_line(self, info.name, nil, vmath.vector4(1, 1, 1, 1), true)
-    -- 1. Если это ПРЕДМЕТ (Loot)
-    if context.kind == "loot" then
+    -- 1. Если это ПРЕДМЕТ (item_loot)
+    if context.kind == "item_loot" then
         local item_cfg = items_db.get_item(info.item_id)
-        
+
         if item_cfg then
             display_name = locales.get(item_cfg.name_key)
         end

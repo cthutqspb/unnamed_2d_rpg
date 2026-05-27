@@ -1,3 +1,5 @@
+local interaction = require("main.modules.interaction")
+
 ---@class WorldItemData
 ---@field item_id string|nil Строковый ID предмета из items_db
 ---@field pos {x: number, y: number} Координаты предмета на игровой карте
@@ -66,7 +68,7 @@ end
 ---@param uid string|hash Уникальный идентификатор предмета
 ---@return boolean @Возвращает true если предмет еще не подобрали и он записан в памяти
 function M.exists(uid)
-    local key = tostring(uid):match("%[(.+)%]") or tostring(uid)
+    local key = interaction.clean_id(uid)
     return M.registry[key] ~= nil
 end
 

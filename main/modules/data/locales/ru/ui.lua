@@ -47,6 +47,9 @@ return {
     ["menu_split"] = "Разделить",
     ["menu_drop"] = "Выбросить",
 
+    -- World loot item
+    ["menu_pickup"] = "Подобрать",
+
     -- Items 
 
     ['weight'] = "Вес",

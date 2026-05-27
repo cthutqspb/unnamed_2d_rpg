@@ -47,6 +47,9 @@ return {
     ["menu_split"] = "Split",
     ["menu_drop"] = "Drop",
 
+    -- World loot item
+    ["menu_pickup"] = "Pickup",
+
     -- Items 
     ['weight'] = "Weight",
     ["price"] = "Price",

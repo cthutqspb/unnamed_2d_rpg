@@ -7,347 +7,232 @@ local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
 local interaction = require("main.modules.interaction")
+local gui_utils = require("main.gui.gui_utils")
 
-local GRID_SIZE = 32
-local DROP_OFFSETS = {
-    [1] = { GRID_SIZE, 0 },   -- вправо
-    [-1] = { -GRID_SIZE, 0 }, -- влево
-    [2] = { 0, GRID_SIZE },   -- вверх
-    [-2] = { 0, -GRID_SIZE }  -- вниз
-}
+---@class WorldScriptInstance
+---@field player_direction number Направление взгляда игрока (-1 или 1)
+---@field drag_active boolean Флаг активного драга в мире
+---@field last_hovered_id hash|nil ID последнего объекта под курсором
+
+-- 🚩 УБРАЛИ НЕИСПОЛЬЗУЕМЫЙ DROP_OFFSETS ДЛЯ ЧИСТОТЫ ПАМЯТИ
+
+---Внутренний метод спавна предметов из файла сохранения при загрузке локации
+---@private
+---@param self WorldScriptInstance
 local function spawn_saved_items(self)
     local saved_items = world_items_state.get_all()
 
     for uid, data in pairs(saved_items) do
-        -- Спавним только ДИНАМИКУ (дроп). Статика сама разберется в своем init.
+        -- Спавним только ДИНАМИКУ (дроп). Статика сама инициализируется на карте
         if data.is_dynamic then
             local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
             local item_id = data.item_id
             local item_cfg = items_db.get_item(item_id)
 
             if item_cfg then
+                -- 1. Спавним пустую физическую сущность из фабрики
                 local item_go = factory.create("#pickup_factory", pos, nil, { is_from_factory = true })
 
-                -- 2. Настраиваем логику (ID, количество, UID)
+                -- 2. 🎯 MVC-ФИКС: Шлем объекту РЕАЛЬНЫЕ ДАННЫЕ.
+                -- Объект сам прочитает свой конфиг и настроит свой спрайт, имя и масштаб!
                 msg.post(item_go, "set_item_id", {
                     item_id = item_id,
                     amount = data.amount,
                     uid = uid
                 })
 
-                -- 3. Настраиваем ВИЗУАЛ (Спрайт)
-                local sprite_url = msg.url(nil, item_go, "sprite")
-                local anim = item_cfg.animation or item_cfg.icon
-                sprite.play_flipbook(sprite_url, hash(anim))
-
-                -- 4. Настраиваем ТЕКСТ (Название и Количество)
-                local item_name = locales.get(item_cfg.name_key)
-                label.set_text(msg.url(nil, item_go, "item_name"), item_name)
-                
-                if data.amount > 1 then
-                    label.set_text(msg.url(nil, item_go, "amount"), tostring(data.amount))
-                else
-                    label.set_text(msg.url(nil, item_go, "amount"), "")
-                end
-
-                -- 5. Настраиваем МАСШТАБ (если прописан в базе)
-                if item_cfg.scale then
-                    go.set_scale(vmath.vector3(item_cfg.scale, item_cfg.scale, 1), item_go)
-                end
-
-                print("SPAWNED DYNAMIC ITEM WITH VISUALS:", uid)
+                print("WORLD БЭКЕНД: Успешно заспавнен предмет из сейва:", uid)
             end
         end
     end
 end
 
--- local function spawn_saved_items(self)
---     -- Получаем текущий реестр живых предметов
---     local saved_items = world_items_state.get_all()
---
---     for uid, data in pairs(saved_items) do
---         -- ГРАНИТНОЕ УСЛОВИЕ:
---         -- Мы спавним через фабрику ТОЛЬКО динамические предметы (дроп).
---         -- Статика (is_dynamic = false) создается движком из файла коллекции, 
---         -- поэтому её мы здесь ИГНОРИРУЕМ, чтобы не было дубликатов.
---         if data.is_dynamic then
---             local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
---             local item_id = data.item_id
---             local item_cfg = items_db.get_item(item_id)
---
---             if item_cfg then
---                 -- Создаем физическое тело предмета
---                 local item_go = factory.create("#pickup_factory", pos)
---
---                 -- Настраиваем скрипт предмета (передаем UID, чтобы он мог себя удалить при подборе)
---                 msg.post(item_go, "set_item_id", {
---                     item_id = item_id,
---                     amount = data.amount,
---                     uid = uid
---                 })
---
---                 -- Устанавливаем визуальный облик
---                 local sprite_url = msg.url(nil, item_go, "sprite")
---                 local anim = item_cfg.animation or item_cfg.icon
---                 sprite.play_flipbook(sprite_url, hash(anim))
---                 
---                 print("SPAWNED DYNAMIC ITEM:", uid)
---             end
---         end
---     end
--- end
-
-function init(self)
-	  math.randomseed(os.time())
-    print("World initialized")
-    self.player_direction = 1  -- по умолчанию вправо
-    self.drag_active = false
-    self.last_hovered_id = nil
-    msg.post(".", "acquire_input_focus")
-end
-
-function final(self)
-
-end
-
-function update(self, dt)
-    -- -- Сбрасываем флаг в начале каждого кадра
-    -- window_manager.is_over_ui = false
-    -- -- Если используешь таблицу:
-    -- for url, _ in pairs(window_manager.hovered_states) do
-    --     window_manager.hovered_states[url] = false
-    -- end
-end
-
-function late_update(self, dt)
-
-end
-
-function fixed_update(self, dt)
-
-end
-
-function on_message(self, message_id, message, sender)
-	  -- if message_id == hash("toggle_interactable_highlight") then
-   --      print("Broadcasting via Module...")
-   --      broadcast.send(message_id, message)
-   --  end  
-
-    if message_id == hash("player_direction") then
-        self.player_direction = message.direction
-
-    elseif message_id == hash("spawn_dropped_item") then
-        local player_pos = go.get_position("player")
-        local screen = settings.resolution
-
-        -- Получаем экранные координаты мыши
-        local mouse_x = message.mouse_x
-        local mouse_y = message.mouse_y
-
-        local world_mouse_x = player_pos.x + (mouse_x - screen.width / 2)
-        local world_mouse_y = player_pos.y + (mouse_y - screen.height / 2)
-
-        -- Вектор от игрока к курсору
-        local dir = vmath.vector3(world_mouse_x - player_pos.x, world_mouse_y - player_pos.y, 1)
-        local dir_norm = vmath.normalize(dir)
-
-        -- Расстояние выпадения (40 пикселей от игрока)
-        local drop_distance = 40
-        local drop_pos = player_pos + dir_norm * drop_distance
-
-        local item_id = message.item_id
-        local uid = world_items_state.add(item_id, drop_pos, message.amount, true)
-         -- Создаем объект
-        local item_go = factory.create("#pickup_factory", drop_pos, nil, { is_from_factory = true })
-
-        -- Шлем данные. ВАЖНО: set_item_id должен вызвать register в instances, 
-        -- если это не сделано в init!
-        msg.post(item_go, "set_item_id", {
-            item_id = item_id,
-            amount = message.amount,
-            uid = uid
-        })
-
-        -- Визуал
-        local data = items_db.get_item(item_id)
-        if data then
-            local sprite_url = msg.url(nil, item_go, "sprite")
-            sprite.play_flipbook(sprite_url, hash(data.animation or data.icon))
-            if data.scale then
-                go.set_scale(vmath.vector3(data.scale, data.scale, 1), item_go)
-            end
-        end
-    end
-
-    if message_id == hash("pickup_item") then
-        -- Удаляем запись из таблицы мировых предметов, чтобы не "дюпалось" при загрузке
-        if message.uid then
-            world_items_state.remove(message.uid)
-        end
-
-        print("WORLD: Picking up " .. tostring(message.item_id))
-        broadcast.send("inventory_events", {
-            message_id = hash("add_item"),
-            item_id = message.item_id,
-            amount = message.amount
-        })
-        go.delete(sender)
-    end
-
-    if message_id == hash("toggle_interactable_highlight") then
-        print("World broadcasting via MODULE: " .. tostring(message.show))
-
-        -- ВМЕСТО msg.post вызываем функцию модуля
-        broadcast.send("world_events", {
-            message_id = hash("toggle_interactable_highlight"),
-            show = message.show
-        })
-    end
-
-    if message_id == hash("spawn_all_saved_items") then
-        spawn_saved_items(self)
-    end
-end
-
+---Вспомогательная функция перевода экранных координат мыши в мировые пиксели карты
+---@private
+---@param self WorldScriptInstance
+---@param action_x number Экранная координата X мыши
+---@param action_y number Экранная координата Y мыши
+---@return vector3 Мировые координаты на карте (Z занулен)
 local function get_world_mouse_pos(self, action_x, action_y)
     local player_pos = go.get_position("player")
     local screen = settings.resolution
     
-    -- Твоя рабочая формула из spawn_dropped_item:
     local world_x = player_pos.x + (action_x - screen.width / 2)
     local world_y = player_pos.y + (action_y - screen.height / 2)
     
     return vmath.vector3(world_x, world_y, 0)
 end
 
--- function on_input(self, action_id, action)
---     -- Движение мыши
---     if not action_id then
---         tooltip_manager.update_mouse(action.x, action.y)
---         window_manager.update_mouse(action.x, action.y)
---           
---
---
---
---     if result then
---         -- Мы попали в объект!
---         print("Навели на:", result.id)
---         
---         -- Показываем тултип (достаем name_key из объекта)
---         local ok, name_hash = pcall(go.get, result.id, "name_key")
---         if ok then
---             tooltip_manager.show("world_object", { 
---                 id = result.id, 
---                 name = locales.get(name_hash) 
---             })
---         end
---     else
---         -- Если ничего не нашли — скрываем мировой тултип
---         if tooltip_manager.get_current_type() == "world_object" then
---             tooltip_manager.hide()
---         end
---     end
---     end
--- end
+---@param self WorldScriptInstance
+function init(self)
+    math.randomseed(os.time())
+    print("World initialized")
+    
+    self.player_direction = 1  
+    self.drag_active = false
+    self.last_hovered_id = nil
+    
+    -- Запрашиваем фокус ввода для отлова системных бродкастов и кликов по карте
+    msg.post(".", "acquire_input_focus")
+end
 
--- В начале файла, если еще нет
---
--- function on_input(self, action_id, action)
---     if not action_id then
---         -- 1. Обновляем координаты
---         tooltip_manager.update_mouse(action.x, action.y)
---         window_manager.update_mouse(action.x, action.y)
---
---         if window_manager.is_over_ui() then
---             -- Выключаем тултип мира, если он горел
---             if tooltip_manager.get_current_type() == "world_object" then
---                 tooltip_manager.hide()
---             end
---             return -- ПРЕРЫВАЕМ выполнение: рейкаст не случится
---         end
---
---         local player_pos = go.get_position("player")
---         local cx, cy = settings.get_center()
---         local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
---
---         local res = interaction.get_target_under_cursor(world_pos)
---         
---         if res then
---             -- Мир просит показать тултип, но менеджер (из Шага 1) 
---             -- проигнорирует это, если сейчас открыто окно с предметом
---             tooltip_manager.show("world_object", { id = tostring(res), name = "OBJECT_TEST" })
---         else
---             -- Скрываем, ТОЛЬКО если сейчас показывается именно мировой тултип
---             if tooltip_manager.get_current_type() == "world_object" then
---                 tooltip_manager.hide()
---             end
---         end
---     end
--- end
+---@param self WorldScriptInstance
+function final(self)
+    -- Чистим за собой при выгрузке чанка коллекции
+end
 
+---@param self WorldScriptInstance
+---@param dt number
+function update(self, dt)
+end
 
+---@param self WorldScriptInstance
+---@param dt number
+function fixed_update(self, dt)
+end
+
+---@param self WorldScriptInstance
+---@param message_id hash
+---@param message table
+---@param sender url
+function on_message(self, message_id, message, sender)
+    -- Изменение направления взгляда персонажа (для навигации или спавна)
+    if message_id == hash("player_direction") then
+        self.player_direction = message.direction
+
+    -- Сигнал выброса (дропа) предмета из инвентаря игрока в мир
+    elseif message_id == hash("spawn_dropped_item") then
+        local player_pos = go.get_position("player")
+        
+        -- Используем нашу функцию для расчета точки клика в мире
+        local world_mouse = get_world_mouse_pos(self, message.mouse_x, message.mouse_y)
+
+        -- Вычисляем вектор и расстояние направления от игрока к курсору
+        local dir = vmath.vector3(world_mouse.x - player_pos.x, world_mouse.y - player_pos.y, 0)
+        local dir_norm = vmath.normalize(dir)
+
+        -- Предмет падает ровно в 40 пикселях от тела игрока по вектору мыши
+        local drop_distance = 40
+        local drop_pos = player_pos + dir_norm * drop_distance
+
+        local item_id = message.item_id
+        -- Регистрируем новый уникальный UID шмотки в глобальном реестре данных на земле
+        local uid = world_items_state.add(item_id, drop_pos, message.amount, true)
+        
+        -- Создаем физическую сущность на карте
+        local item_go = factory.create("#pickup_factory", drop_pos, nil, { is_from_factory = true })
+
+        -- 🎯 MVC-ФИКС: Мы шлем объекту ТОЛЬКО ЕГО ДАННЫЕ.
+        -- Весь визуал (спрайт флипбука, масштабы и надписи количества)
+        -- полностью удален отсюда! Прехаб pickup.script настроит себя сам канонично.
+        msg.post(item_go, "set_item_id", {
+            item_id = item_id,
+            amount = message.amount,
+            uid = uid
+        })
+
+    -- Сигнал успешного подбора предмета с земли (игрок добежал и залутал)
+    elseif message_id == hash("item_pickup") then
+        -- Вычеркиваем UID из реестра сейва, чтобы защитить игру от дюпа шмоток
+        if message.uid then
+            world_items_state.remove(message.uid)
+        end
+
+        print("WORLD БЭКЕНД: Убираем из мира предмет: " .. tostring(message.item_id))
+        
+        -- Передаем данные в инвентарь игрока
+        broadcast.send("inventory_events", {
+            message_id = hash("add_item"),
+            item_id = message.item_id,
+            amount = message.amount
+        })
+        -- Удаляем физический Game Object с карты
+        go.delete(sender)
+
+    -- Перехват хоткея Alt: включаем/выключаем подсветку имен интерактивных объектов
+    elseif message_id == hash("toggle_interactable_highlight") then
+        print("WORLD КОНТРОЛЛЕР: Рассылаем бродкаст подсветки имен объектов: " .. tostring(message.show))
+        
+        broadcast.send("world_events", {
+            message_id = hash("toggle_interactable_highlight"),
+            show = message.show
+        })
+
+    -- Системная команда от Менеджера Сохранений при старте уровня
+    elseif message_id == hash("spawn_all_saved_items") then
+        spawn_saved_items(self)
+    end
+end
+
+---@param self WorldScriptInstance
+---@param action_id hash|nil
+---@param action table
 function on_input(self, action_id, action)
-    -- ПРОВЕРКА: Если это не мышь (движение или клик), выходим сразу
-    -- У событий мыши ВСЕГДА есть поле x
+    -- Защитная проверка: если у инпута нет координат экрана, прерываем опрос
     if not action.x then
         return false
     end
 
-    -- 1. Обновляем координаты (теперь тут 100% есть числа)
+    -- 1. Снабжаем графические менеджеры актуальными координатами мыши в каждом кадре
     tooltip_manager.update_mouse(action.x, action.y)
     window_manager.update_mouse(action.x, action.y)
 
-    -- Расчет мировых координат
+    -- Считаем плоские мировые координаты курсора на карте
     local player_pos = go.get_position("player")
     local cx, cy = settings.get_center()
     local world_pos = vmath.vector3(player_pos.x + (action.x - cx), player_pos.y + (action.y - cy), 0)
 
-    -- 2. Логика тултипа (только при движении мыши, когда action_id == nil)
+    -- 2. ЛОГИКА ОБНОВЛЕНИЯ ТУЛТИПОВ ОБЪЕКТОВ МИРА (Срабатывает при движении мыши, когда action_id == nil)
     if not action_id then
+        -- Если мышка зашла на GUI-окно, тултипы мира принудительно гаснут
         if window_manager.is_over_ui() then
-            if tooltip_manager.get_current_type() == "world_object" then tooltip_manager.hide() end
-            return
+            if tooltip_manager.get_current_type() == "world_object" then 
+                tooltip_manager.hide() 
+            end
+            return false
         end
 
+        -- Опрашиваем физические слои рейкастом
         local hits = interaction.get_all_targets_under_cursor(world_pos)
         if hits then
-          -- hits[1] - это самый верхний объект (ближайший к камере)
             local top_object = hits[1]
-            -- Для теста показываем количество и ID верхнего
-            --print("HITS FOUND:", #hits)
-            local kind, uid = game_state.get_entity_info(top_object.id)
-            if kind then
-                local state_data = game_state.get_data_by_type(kind, uid)
-                tooltip_manager.show(
-                    "world_object",
-                    state_data, {
-                        uid = uid,
-                        kind = kind
-                    })
+            -- Мгновенно вытаскиваем полную структуру за один вызов get_inspect_info!
+            local kind, uid, state_data = game_state.get_inspect_info(top_object.id)
+
+            if kind and state_data then
+                tooltip_manager.show("world_object", state_data, {
+                    uid = uid,
+                    kind = kind
+                })
             end
         else
+            -- Если навели в пустоту — тушим тултип объекта
             if tooltip_manager.get_current_type() == "world_object" then
                 tooltip_manager.hide()
             end
         end
     end
 
-    -- 3. Логика клика (рейкаст по клику)
+    -- 3. ЛОГИКА КЛИКА ЛКМ ПО ИГРОВОМУ ПОЛЮ
     if action_id == hash("touch") and action.pressed then
-        if window_manager.is_over_ui() then return end
+        -- Полный игнор кликов в мир, если палец нажал на GUI-интерфейс
+        if window_manager.is_over_ui() then 
+            return false 
+        end
 
         local res = interaction.get_target_under_cursor(world_pos)
         if res then
+            -- Если ткнули ЛКМ точно по сундуку/луту — шлем ему базовый клик
             msg.post(res, "click")
         else
-            -- Клик в пустоту — бежим
+            -- Клик в чистое поле на земле — заставляем персонажа бежать в мировые координаты
             msg.post("player", "move_to", { position = world_pos })
         end
     end
+    
+    return false
 end
 
-
-
+---@param self WorldScriptInstance
 function on_reload(self)
-
 end

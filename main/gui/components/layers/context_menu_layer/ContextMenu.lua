@@ -2,7 +2,16 @@ local component = require("druid.component")
 local context_db = require("main.modules.data.context_menu_db")
 local locales = require("main.modules.data.locales.locale_manager")
 
+---@class ContextMenuCacheEntry
+---@field nodes table<hash, node> Таблица склонированных нод из gui.clone_tree
+---@field btn druid.button Инстанс кнопки Друида
+
 ---@class ContextMenu : druid.component
+---@field druid druid.instance
+---@field root node
+---@field background node
+---@field action_field node
+---@field nodes_cache ContextMenuCacheEntry[]
 local M = component.create("ContextMenu")
 
 function M:init()
@@ -16,6 +25,13 @@ function M:init()
     gui.set_enabled(self.root, false)
 end
 
+---Показать контекстное меню в указанных координатах
+---@param x number Экранная координата X
+---@param y number Экранная координата Y
+---@param type string Тип объекта ("item_loot", "container", "creature")
+---@param sub_type string|nil Подтип предмета ("weapon", "armor", "scroll")
+---@param flags table|nil Флаги состояния объекта для фильтрации кнопок
+---@param data table Системные данные предмета/объекта (UID, слот, URL источника)
 function M:show(x, y, type, sub_type, flags, data)
     self:clear_cache()
 
@@ -41,7 +57,12 @@ function M:show(x, y, type, sub_type, flags, data)
     end
 end
 
-
+---Внутренний метод генерации склонированной кнопки
+---@private
+---@param action table Данные действия из базы меню
+---@param index number Порядковый индекс кнопки для расчета Y-позиции
+---@param data table Системный контекст кликнутого объекта
+---@param config table Таблица размеров и отступов меню
 function M:create_menu_button(action, index, data, config)
     local nodes = gui.clone_tree(self.action_field)
     local btn_node = nodes[hash("action_field")]
@@ -68,15 +89,13 @@ function M:create_menu_button(action, index, data, config)
     btn_instance.style.set_scale = function() end
     btn_instance.style.on_click_pulse = function() end
     -- btn_instance.style.on_pressed = function() end -- Если нужно убрать эффект нажатия
--- btn_instance.style.on_hover = function() end   -- Если нужно убрать наведение из стиля
+    -- btn_instance.style.on_hover = function() end   -- Если нужно убрать наведение из стиля
     btn_instance.style.on_pressed = function() end
     btn_instance.style.set_scale()
-    
-    -- 2. Кастомный ховер для ЧЕРНОЙ кнопки
+
+    -- 4. КАСТОМНЫЙ ХОВЕР (Красивое затемнение/высветление черной кнопки)
     btn_instance.style.on_mouse_hover = function(self_btn, node, state)
         -- Отменяем старые анимации, чтобы они не конфликтовали
-        -- gui.cancel_animation(node, gui.PROP_COLOR)
-        
         if state then
             -- При наведении: делаем кнопку более видимой (0.95)
             -- Можно также чуть-чуть увести из чистого черного в темно-серый
@@ -90,17 +109,18 @@ function M:create_menu_button(action, index, data, config)
     -- Сохраняем в кэш
     table.insert(self.nodes_cache, {
         nodes = nodes,
-        btn = btn_instance,
-        hover = hover_instance
+        btn = btn_instance
     })
 end
 
-
+---Полная очистка созданных нод и регистраций кнопок Друида
 function M:clear_cache()
     for _, entry in ipairs(self.nodes_cache) do
-        if entry.btn then self.druid:remove(entry.btn) end
-        if entry.hover then self.druid:remove(entry.hover) end -- Вот это лечит Deleted Node
-        for _, node in pairs(entry.nodes) do gui.delete_node(node) end
+        self.druid:remove(entry.btn)
+
+        for _, node in pairs(entry.nodes) do
+            gui.delete_node(node)
+        end
     end
     self.nodes_cache = {}
 end
@@ -109,12 +129,15 @@ function M:hide_ui()
     gui.set_enabled(self.root, false)
 end
 
+---@diagnostic disable-next-line: unused-local
 function M:hide()
     msg.post(".", "hide_menu")
 end
 
--- В ContextMenu.lua
-
+---Перехват кликов для закрытия меню при нажатии "в молоко"
+---@param action_id hash
+---@param action table
+---@return boolean
 function M:on_input(action_id, action)
     -- Если кликнули (ЛКМ) и меню открыто
     if action_id == hash("touch") and action.pressed and gui.is_enabled(self.root, true) then

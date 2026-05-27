@@ -39,7 +39,7 @@ local function open_container(self)
             columns = self.columns,
             rows = self.rows
         }
-        
+
         -- Записываем в динамическую память (теперь это сохранится при save_game)
         containers_state.init(self.container_uid, state)
     end
@@ -49,7 +49,7 @@ local function open_container(self)
         container_uid = self.container_uid,
         container_id = self.container_id,
         container_name = self.container_name,
-        container_items = state.items, 
+        container_items = state.items,
         columns = state.columns,
         rows = state.rows,
         position = go.get_world_position(),
@@ -72,7 +72,7 @@ function init(self)
         local p = go.get_position()
         self.container_uid = hash(string.format("c_%d_%d", p.x, p.y))
     end
-      
+
     containers_state.register_static_config(self.container_uid, {
         name = self.container_name,
         columns = self.columns,
@@ -80,18 +80,7 @@ function init(self)
         loot_table_id = self.container_id,
         items = {} -- пусто по умолчанию
     })
-    -- -- Регистрируем в стейте
-    -- local existing_state = containers_state.get(self.container_uid)
-    -- if not existing_state then
-    --     containers_state.init(self.container_uid, {
-    --         items = {},
-    --         columns = self.columns,
-    --         rows = self.rows,
-    --         is_looted = false,
-    --         loot_table_id = self.container_id
-    --     })
-    -- end
-    
+
     -- 3. РЕГИСТРАЦИЯ СВЯЗИ (всегда!)
     -- Чтобы рейкаст мог найти UID этого конкретного сундука прямо сейчас
     containers_state.register(self.go_id, self.container_uid)
@@ -120,8 +109,8 @@ function init(self)
 end
 
 function final(self)
-	containers_state.unregister(self.go_id)
-  broadcast.unsubscribe("world_events", self.broadcast_handler)
+	  containers_state.unregister(self.go_id)
+    broadcast.unsubscribe("world_events", self.broadcast_handler)
 end
 
 function update(self, dt)

@@ -87,6 +87,7 @@ function M:init(template_id, config)
     -- d:new_button(self.btn_close, self.close)
     d:new_button(self.btn_take_all, function ()
         self:take_all()
+        self:close()
     end)
 
     

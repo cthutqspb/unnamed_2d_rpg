@@ -1,4 +1,5 @@
 local items_db = require("main.modules.data.items_db")
+local interaction = require("main.modules.interaction")
 
 ---@class Inventory
 local M = {}
@@ -11,7 +12,7 @@ M.items = {}
 ---@return string|any
 local function get_clean_id(item_id)
     if type(item_id) == "userdata" then
-        return tostring(item_id):match("%[(.-)%]") or item_id
+        return interaction.clean_id(item_id)
     end
     return item_id
 end
@@ -296,7 +297,7 @@ function M.get_save_data()
     for i = 1, M.max_slots do
         local item = M.items[i]
         if item and item.item_id then
-            local id_str = tostring(item.item_id):match("%[(.-)%]") or tostring(item.item_id)
+            local id_str = interaction.clean_id(item.item_id)
             data[i] = {
                 id = id_str,
                 amount = item.amount,

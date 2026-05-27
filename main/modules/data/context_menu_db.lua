@@ -19,6 +19,7 @@ local SHARED_ITEM_ACTIONS = {
 
 ---@type table<string, ContextMenuAction[]>
 M.data = {
+    -- Inventory / GUI
     ["weapon"] = {
         { name_key = "menu_equip",   event = "item_transfer" },
         { name_key = "menu_repair",  event = "item_repair" },
@@ -32,11 +33,17 @@ M.data = {
         { name_key = "menu_use",     event = "item_use" },
         { name_key = "menu_learn",   event = "item_learn" },
     },
+    -- World
     ["container"] = {
         { name_key = "menu_open",    event = "container_open" },
         -- Бочку в мире тоже можно осмотреть через общее действие
         { name_key = "menu_examine", event = "object_examine" },
     },
+    ["item_loot"] = {
+        { name_key = "menu_pickup",  event = "item_pickup"},
+        { name_key = "menu_examine", event = "object_examine" },
+    },
+    -- All
     ["default"] = {
         { name_key = "menu_examine", event = "object_examine" },
     }

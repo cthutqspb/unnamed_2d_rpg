@@ -125,4 +125,46 @@ function M.is_input_over_window(window_root, action_id, action)
     return false
 end
 
+-- Внутри main/gui/gui_utils.lua
+
+---Перевести экранные координаты мыши в точные мировые координаты пространства игры.
+---Идеально работает на 2K, FullHD и при экстремальном тайлинге Hyprland (например, 200x1000).
+---@param mx number Физическая координата мыши X (экран)
+---@param my number Физическая координата мыши Y (экран)
+---@param player_pos vector3 Текущая позиция игрока
+---@return vector3 Идеальный вектор мировых координат для рейкаста
+function M.get_world_mouse_pos(mx, my, player_pos)
+    local window_w, window_h = window.get_size()
+    
+    -- Логическая высота твоего проекта из настроек (1080)
+    local target_h = 1080
+
+    -- 1. Вычисляем коэффициент масштабирования строго по ВЫСОТЕ окна.
+    -- В стандартном Fixed Fit рендере Defold высота всегда диктует масштаб, 
+    -- а ширина просто обрезается или расширяется!
+    local zoom = window_h / target_h
+    if zoom <= 0 then zoom = 1 end
+
+    -- 2. Находим текущий физический центр окна операционной системы прямо сейчас
+    local window_cx = window_w / 2
+    local window_cy = window_h / 2
+
+    -- 3. Считаем смещение курсора мыши относительно физического центра окна
+    local screen_offset_x = mx - window_cx
+    local screen_offset_y = my - window_cy
+
+    -- 4. Переводим это смещение в логические пиксели игрового мира, разделив на zoom
+    local world_offset_x = screen_offset_x / zoom
+    local world_offset_y = screen_offset_y / zoom
+
+    -- 5. Прибавляем смещение к текущей позиции игрока (так как камера центрирована на нём)
+    local world_x = player_pos.x + world_offset_x
+    local world_y = player_pos.y + world_offset_y
+
+    return vmath.vector3(world_x, world_y, 0)
+end
+
+
+
+
 return M

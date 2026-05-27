@@ -4,16 +4,27 @@ local containers_state = require("main.modules.game_state.containers_state")
 
 local M = {}
 
-function M.get_entity_info(go_id)
-    -- Спрашиваем контейнеры
+---Узнать тип объекта и получить его чистые данные по go_id из мира
+---@param go_id hash Идентификатор игрового объекта из рейкаста
+---@return string|nil kind Тип объекта ("container", "loot" или nil)
+---@return string|nil uid Уникальный строковый UID объекта в реестре состояний
+---@return table|nil data Таблица чистых данных объекта (стейт предметов или инфо лута)
+function M.get_inspect_info(go_id)
+    -- 1. Спрашиваем контейнеры через их быструю телефонную книгу
     local c_uid = containers_state.instances[go_id]
-    if c_uid then return "container", c_uid end
+    if c_uid then 
+        local data = containers_state.get(c_uid)
+        return "container", c_uid, data
+    end
 
-    -- Спрашиваем лут
+    -- 2. Спрашиваем предметы на земле (лут) через наш world_items_state
     local l_uid = world_items_state.instances[go_id]
-    if l_uid then return "loot", l_uid end
+    if l_uid then 
+        local data = world_items_state.get_item_by_uid(l_uid)
+        return "item_loot", l_uid, data
+    end
 
-    return nil
+    return nil, nil, nil
 end
 
 
@@ -81,7 +92,7 @@ function M.get_data_by_type(kind, uid)
     local all_items = world_items_state.get_all()
     for k, v in pairs(all_items) do
         print(string.format("KEY: [%s] | ID: [%s] | DYNAMIC: [%s]", 
-            tostring(k), 
+            tostring(k),
             tostring(v.item_id), 
             tostring(v.is_dynamic)))
     end
@@ -90,8 +101,12 @@ function M.get_data_by_type(kind, uid)
     print('get_data_by_type', kind, uid)
     if kind == "container" then
         return containers_state.get(uid)
-    elseif kind == "loot" then
+    elseif kind == "item_loot" then
         return world_items_state.get_item_by_uid(uid)
+    elseif kind == "creature" then
+        -- return creatures_state.get(uid) -- Будущий модуль кабанов/росянок
+    elseif kind == "interactable" then
+        -- return props_state.get(uid)     -- Будущий модуль дверей/рычагов
     end
     return nil
 end
