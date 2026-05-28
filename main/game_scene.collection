@@ -6,6 +6,32 @@ instances {
     z: 0.9
   }
 }
+instances {
+  id: "camera"
+  prototype: "/orthographic/camera.go"
+  component_properties {
+    id: "script"
+    properties {
+      id: "near_z"
+      value: "-100.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "far_z"
+      value: "100.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "automatic_zoom"
+      value: "false"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+  }
+}
+instances {
+  id: "container"
+  prototype: "/main/game_objects/container/container.go"
+}
 scale_along_z: 0
 embedded_instances {
   id: "world"
@@ -29,38 +55,6 @@ embedded_instances {
   position {
     z: 0.5
   }
-}
-embedded_instances {
-  id: "cursor"
-  data: "components {\n"
-  "  id: \"cursor\"\n"
-  "  component: \"/main/player/cursor.script\"\n"
-  "}\n"
-  "embedded_components {\n"
-  "  id: \"collisionobject\"\n"
-  "  type: \"collisionobject\"\n"
-  "  data: \"type: COLLISION_OBJECT_TYPE_KINEMATIC\\n"
-  "mass: 0.0\\n"
-  "friction: 0.1\\n"
-  "restitution: 0.5\\n"
-  "group: \\\"cursor\\\"\\n"
-  "mask: \\\"interactable\\\"\\n"
-  "mask: \\\"enemy\\\"\\n"
-  "embedded_collision_shape {\\n"
-  "  shapes {\\n"
-  "    shape_type: TYPE_SPHERE\\n"
-  "    position {\\n"
-  "    }\\n"
-  "    rotation {\\n"
-  "    }\\n"
-  "    index: 0\\n"
-  "    count: 1\\n"
-  "  }\\n"
-  "  data: 5.0\\n"
-  "}\\n"
-  "\"\n"
-  "}\n"
-  ""
 }
 embedded_instances {
   id: "world_controller"

@@ -32,7 +32,6 @@ nodes {
   }
   type: TYPE_BOX
   id: "header"
-  adjust_mode: ADJUST_MODE_STRETCH
   parent: "root"
   size_mode: SIZE_MODE_AUTO
 }

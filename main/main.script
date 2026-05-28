@@ -5,27 +5,5 @@ function init(self)
 end
 
 function on_message(self, message_id, message, sender)
-    -- if message_id == hash("spawn_dropped_item") then
-    --     -- Получаем позицию игрока
-    --     local player_go = go.get_id("player")
-    --     local player_pos = go.get_position(player_go)
-    --     
-    --     -- Получаем данные предмета
-    --     local data = items_db.get_item(message.item_id)
-    --     if not data then return end
-    --     
-    --     -- Создаем предмет на земле
-    --     local factory_url = msg.url("main", "pickup_factory", "factory")
-    --     local item_go = factory.create(factory_url, player_pos)
-    --     
-    --     -- Настраиваем внешний вид
-    --     local sprite_url = msg.url(nil, item_go, "sprite")
-    --     sprite.set_tile(sprite_url, "items_tilesource", data.tile_index)
-    --     
-    --     if data.scale then
-    --         go.set_scale(vmath.vector3(data.scale, data.scale, 1), item_go)
-    --     end
-    --     
-    --     print("Item dropped:", message.item_id)
-    -- end
+
 end

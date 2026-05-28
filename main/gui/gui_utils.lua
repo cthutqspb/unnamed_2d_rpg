@@ -1,4 +1,5 @@
 local settings = require("main.modules.data.settings")
+local camera = require "orthographic.camera"
 
 local M = {}
 
@@ -78,40 +79,113 @@ function M.layout_horizontal_by_node(parent_node, button_nodes, spacing)
     end
 end
 
-function M.clamp_to_screen(node, new_pos, margin_x, margin_y)
-    -- Если передали только margin_x, используем его для всех сторон
-    margin_x = margin_x or 0
-    margin_y = margin_y or margin_x
 
-    local sw = gui.get_width()
-    local sh = gui.get_height()
+function M.clamp_to_screen(root_node, body_node, target_pos, offset_top, offset_bottom)
+    offset_top = offset_top or 0
+    offset_bottom = offset_bottom or 0
 
-    local size = gui.get_size(node)
-    local scale = gui.get_scale(node)
+    -- 1. Размеры текущего окна и настройки проекта
+    local window_w, window_h = window.get_size()
+    local project_w = sys.get_config_int("display.width")
+    local project_h = sys.get_config_int("display.height")
 
-    local w = size.x * scale.x
-    local h = size.y * scale.y
+    -- 2. Считаем пропорции экрана и коэффициенты растяжения
+    local project_aspect = project_w / project_h
+    local current_aspect = window_w / window_h
 
-    -- Для Pivot: Center
-    local hw = w / 2
-    local hh = h / 2
+    local stretch_factor_x = 1
+    local stretch_factor_y = 1
 
-    -- Ограничение по горизонтали (X)
-    if new_pos.x - hw < margin_x then
-        new_pos.x = hw + margin_x
-    elseif new_pos.x + hw > sw - margin_x then
-        new_pos.x = sw - hw - margin_x
+    local screen_min_x = 0
+    local screen_max_x = project_w
+    local screen_min_y = 0
+    local screen_max_y = project_h
+
+    if current_aspect > project_aspect then
+        -- Экран шире проекта (например, 21:9)
+        stretch_factor_x = current_aspect / project_aspect
+        local visual_w = project_w * stretch_factor_x
+        local offset_x = (visual_w - project_w) / 2
+        screen_min_x = -offset_x
+        screen_max_x = project_w + offset_x
+    else
+        -- Экран уже проекта (4:5)
+        stretch_factor_y = project_aspect / current_aspect
+        local visual_h = project_h * stretch_factor_y
+        local offset_y = (visual_h - project_h) / 2
+        screen_min_y = -offset_y
+        screen_max_y = project_h + offset_y
     end
 
-    -- Ограничение по вертикали (Y)
-    if new_pos.y - hh < margin_y then
-        new_pos.y = hh + margin_y
-    elseif new_pos.y + hh > sh - margin_y then
-        new_pos.y = sh - hh - margin_y
-    end
+    -- Применяем твои отступы к вертикальным границам экрана
+    screen_min_y = screen_min_y + offset_bottom
+    screen_max_y = screen_max_y - offset_top
 
-    return new_pos
+    -- 3. Вычисляем физический размер тела окна (body)
+    local body_size = gui.get_size(body_node)
+    local body_scale = gui.get_scale(body_node)
+    local win_w = body_size.x * body_scale.x
+    local win_h = body_size.y * body_scale.y
+
+    -- 4. Считаем границы с учетом Pivot (по умолчанию Center для root)
+    local half_w = win_w / 2
+    local half_h = win_h / 2
+
+    local min_x = screen_min_x + half_w
+    local max_x = screen_max_x - half_w
+    local min_y = screen_min_y + half_h
+    local max_y = screen_max_y - half_h
+
+    -- ВАЖНО: Если у твоих окон Pivot у root всегда Corner/SouthWest, 
+    -- раскомментируй эти 4 строки ниже, а 4 строки выше — удали:
+    -- local min_x = screen_min_x
+    -- local max_x = screen_max_x - win_w
+    -- local min_y = screen_min_y
+    -- local max_y = screen_max_y - win_h
+
+    -- 5. Возвращаем заклампленный вектор позиции
+    local final_pos = vmath.vector3(target_pos)
+    final_pos.x = math.max(min_x, math.min(final_pos.x, max_x))
+    final_pos.y = math.max(min_y, math.min(final_pos.y, max_y))
+
+    return final_pos, stretch_factor_x, stretch_factor_y
 end
+
+
+-- function M.clamp_to_screen(node, new_pos, margin_x, margin_y)
+--     -- Если передали только margin_x, используем его для всех сторон
+--     margin_x = margin_x or 0
+--     margin_y = margin_y or margin_x
+--
+--     local sw = gui.get_width()
+--     local sh = gui.get_height()
+--
+--     local size = gui.get_size(node)
+--     local scale = gui.get_scale(node)
+--
+--     local w = size.x * scale.x
+--     local h = size.y * scale.y
+--
+--     -- Для Pivot: Center
+--     local hw = w / 2
+--     local hh = h / 2
+--
+--     -- Ограничение по горизонтали (X)
+--     if new_pos.x - hw < margin_x then
+--         new_pos.x = hw + margin_x
+--     elseif new_pos.x + hw > sw - margin_x then
+--         new_pos.x = sw - hw - margin_x
+--     end
+--
+--     -- Ограничение по вертикали (Y)
+--     if new_pos.y - hh < margin_y then
+--         new_pos.y = hh + margin_y
+--     elseif new_pos.y + hh > sh - margin_y then
+--         new_pos.y = sh - hh - margin_y
+--     end
+--
+--     return new_pos
+-- end
 
 function M.is_input_over_window(window_root, action_id, action)
     if not action.x or not action.y then return false end
@@ -125,46 +199,72 @@ function M.is_input_over_window(window_root, action_id, action)
     return false
 end
 
--- Внутри main/gui/gui_utils.lua
+-- Внутри main/modules/interaction.lua
 
----Перевести экранные координаты мыши в точные мировые координаты пространства игры.
----Идеально работает на 2K, FullHD и при экстремальном тайлинге Hyprland (например, 200x1000).
----@param mx number Физическая координата мыши X (экран)
----@param my number Физическая координата мыши Y (экран)
----@param player_pos vector3 Текущая позиция игрока
----@return vector3 Идеальный вектор мировых координат для рейкаста
-function M.get_world_mouse_pos(mx, my, player_pos)
+---Перевести физические координаты клика мыши из on_input в точные мировые координаты пространства игры
+---@param action table Таблица инпута из on_input (содержит action.x и action.y)
+---@param player_pos vector3 Текущая позиция игрока go.get_position("player")
+---@return vector3 Идеальный вектор мировых координат для рейкаста, устойчивый к 2K и тайлингу
+function M.get_world_mouse_pos(action, player_pos)
+    -- 1. Получаем РЕАЛЬНЫЙ физический размер окна в пикселях на мониторе прямо сейчас
     local window_w, window_h = window.get_size()
     
-    -- Логическая высота твоего проекта из настроек (1080)
+    -- 2. Жесткие логические размеры твоего проекта (из game.project / settings)
+    local target_w = 1920
     local target_h = 1080
 
-    -- 1. Вычисляем коэффициент масштабирования строго по ВЫСОТЕ окна.
-    -- В стандартном Fixed Fit рендере Defold высота всегда диктует масштаб, 
-    -- а ширина просто обрезается или расширяется!
-    local zoom = window_h / target_h
-    if zoom <= 0 then zoom = 1 end
+    -- 3. Считаем коэффициенты масштабирования (пропорции сжатия/растяжения)
+    local scale_x = target_w / window_w
+    local scale_y = target_h / window_h
 
-    -- 2. Находим текущий физический центр окна операционной системы прямо сейчас
-    local window_cx = window_w / 2
-    local window_cy = window_h / 2
+    -- 4. Переводим физический клик мыши в логические пиксели игры пространства 1920x1080
+    local logic_mouse_x = action.x * scale_x
+    local logic_mouse_y = action.y * scale_y
 
-    -- 3. Считаем смещение курсора мыши относительно физического центра окна
-    local screen_offset_x = mx - window_cx
-    local screen_offset_y = my - window_cy
+    -- 5. Находим логический центр игрового экрана
+    local cx = target_w / 2
+    local cy = target_h / 2
 
-    -- 4. Переводим это смещение в логические пиксели игрового мира, разделив на zoom
-    local world_offset_x = screen_offset_x / zoom
-    local world_offset_y = screen_offset_y / zoom
-
-    -- 5. Прибавляем смещение к текущей позиции игрока (так как камера центрирована на нём)
-    local world_x = player_pos.x + world_offset_x
-    local world_y = player_pos.y + world_offset_y
+    -- 6. Считаем финальный вектор относительно позиции игрока
+    local world_x = player_pos.x + (logic_mouse_x - cx)
+    local world_y = player_pos.y + (logic_mouse_y - cy)
 
     return vmath.vector3(world_x, world_y, 0)
 end
 
+--- Трансформирует экранные координаты клика/мыши под нужды GUI и игрового мира.
+---@param action table Таблица action из on_input
+---@param camera_id hash ID вашей камеры (например, hash("/camera"))
+---@return vmath.vector3 gui_pos Координаты, скорректированные под сетку проекта (X и Y)
+---@return vmath.vector3 world_pos Точные мировые координаты для рейкастов
+function M.transform_coordinates(action, camera_id)
+    -- 1. Защита, если это инпут без координат экрана
+    if not action.screen_x then
+        return vmath.vector3(0, 0, 0), vmath.vector3(0, 0, 0)
+    end
 
+    -- 2. Получаем размеры
+    local window_w, window_h = window.get_size()
+    local project_w = sys.get_config_int("display.width")
+    local project_h = sys.get_config_int("display.height")
 
+    -- 3. Расчет для GUI
+    local scale_x = window_w / project_w
+    local scale_y = window_h / project_h
+    local gui_pos = vmath.vector3(action.screen_x / scale_x, action.screen_y / scale_y, 0)
+
+    -- 4. Расчет для игрового мира
+    local view = camera.get_view(camera_id)
+    local projection = camera.get_projection(camera_id)
+    local inv = vmath.inv(projection * view)
+    
+    local norm_x = (action.screen_x / window_w) * 2 - 1
+    local norm_y = (action.screen_y / window_h) * 2 - 1
+    
+    local vec = inv * vmath.vector4(norm_x, norm_y, 0, 1)
+    local world_pos = vmath.vector3(vec.x / vec.w, vec.y / vec.w, 0)
+
+    return gui_pos, world_pos
+end
 
 return M

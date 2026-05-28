@@ -71,7 +71,9 @@ function M.get_actions(object_type, item_type, flags)
                 final_action = {
                     name_key = "menu_unequip",
                     event = "item_transfer",
-                    from_paperdoll = true
+                    data = {
+                        from_paperdoll = true
+                    }
                 }
             end
 

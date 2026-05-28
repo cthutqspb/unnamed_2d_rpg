@@ -3,6 +3,18 @@ nodes {
     x: 240.0
     y: 16.0
   }
+  type: TYPE_BOX
+  id: "root"
+  pivot: PIVOT_W
+  inherit_alpha: true
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  size {
+    x: 240.0
+    y: 16.0
+  }
   color {
     x: 0.6
     y: 0.6
@@ -11,7 +23,7 @@ nodes {
   type: TYPE_BOX
   id: "background"
   pivot: PIVOT_W
-  inherit_alpha: true
+  parent: "root"
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
@@ -27,7 +39,7 @@ nodes {
   type: TYPE_BOX
   id: "fill"
   pivot: PIVOT_W
-  inherit_alpha: true
+  parent: "root"
   size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"

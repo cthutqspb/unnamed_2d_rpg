@@ -7,13 +7,14 @@ nodes {
   type: TYPE_BOX
   id: "root"
   pivot: PIVOT_SW
+  adjust_mode: ADJUST_MODE_STRETCH
   inherit_alpha: true
   alpha: 0.0
   size_mode: SIZE_MODE_AUTO
 }
 nodes {
   position {
-    x: 200.0
+    x: 80.0
     y: 1000.0
   }
   type: TYPE_TEMPLATE
@@ -23,20 +24,28 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
-  id: "health_bar/background"
+  id: "health_bar/root"
   parent: "health_bar"
+  inherit_alpha: true
+  overridden_fields: 21
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "health_bar/background"
+  parent: "health_bar/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
   id: "health_bar/fill"
-  parent: "health_bar"
+  parent: "health_bar/root"
   template_node_child: true
 }
 nodes {
   position {
-    x: 200.0
-    y: 970.0
+    x: 80.0
+    y: 980.0
   }
   type: TYPE_TEMPLATE
   id: "mana_bar"
@@ -45,8 +54,14 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/fill"
+  id: "mana_bar/root"
   parent: "mana_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "mana_bar/fill"
+  parent: "mana_bar/root"
   template_node_child: true
 }
 nodes {
@@ -57,7 +72,6 @@ nodes {
   type: TYPE_TEMPLATE
   id: "action_bar"
   parent: "root"
-  inherit_alpha: true
   template: "/main/gui/action_bar/action_bar.gui"
 }
 nodes {
@@ -97,5 +111,28 @@ nodes {
   template_node_child: true
 }
 material: "/builtins/materials/gui.material"
+layouts {
+  name: "Portrait"
+  nodes {
+    position {
+      x: 80.0
+      y: 1200.0
+    }
+    type: TYPE_TEMPLATE
+    id: "health_bar"
+    parent: "root"
+    overridden_fields: 1
+  }
+  nodes {
+    position {
+      x: 80.0
+      y: 1180.0
+    }
+    type: TYPE_TEMPLATE
+    id: "mana_bar"
+    parent: "root"
+    overridden_fields: 1
+  }
+}
 adjust_reference: ADJUST_REFERENCE_PARENT
 max_nodes: 1024

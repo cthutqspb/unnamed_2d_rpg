@@ -259,6 +259,46 @@ local function render_world_object(self, info, context)
     end
 end
 
+local function update_tooltip_layout(self, mouse_x, mouse_y)
+    local window_w, window_h = window.get_size()
+    local center_x = window_w / 2
+    local center_y = window_h / 2
+
+    -- Размеры твоего тултипа
+    local tooltip_w = 320
+    -- Магическое число из add_line (current_y накапливает высоту со знаком минус)
+    local tooltip_h = math.abs(self.current_y) 
+
+    local base_offset = 20
+    local bg_x = 0
+    local bg_y = 0
+
+    -- 1. Расчет по горизонтали (квадранты влево/вправо)
+    if mouse_x < center_x then
+        -- Левая половина: фоновая плашка смещается вправо от root
+        bg_x = base_offset
+    else
+        -- Правая половина: фоновая плашка уходит влево от root на всю свою ширину
+        bg_x = -(tooltip_w + base_offset)
+    end
+
+    -- 2. Расчет по вертикали (квадранты вверх/вниз)
+    if mouse_y < center_y then
+        -- Нижняя половина: фоновая плашка уходит вверх от root на всю свою высоту
+        bg_y = tooltip_h + base_offset
+    else
+        -- Верхняя половина: фоновая плашка уходит вниз от root
+        bg_y = -base_offset
+    end
+
+    -- 3. Двигаем пустой root строго за курсором мыши
+    gui.set_position(self.root, vmath.vector3(mouse_x, mouse_y, 0))
+
+    -- 4. Смещаем саму плашку background внутри root в нужный квадрант
+    gui.set_position(self.background, vmath.vector3(bg_x, bg_y, 0))
+    gui.set_render_order(constants_ui.LAYERS.TOOLTIP)
+end
+
 
 function update(self, dt)
     local pack = tooltip_manager.get_current()
@@ -273,7 +313,8 @@ function update(self, dt)
 
     -- ПОЗИЦИОНИРОВАНИЕ
     local mouse_pos = vmath.vector3(tooltip_manager.mouse_x + 20, tooltip_manager.mouse_y - 20, 0)
-    gui.set_position(self.root, gui_utils.clamp_to_screen(self.root, mouse_pos, 10))
+    -- gui.set_position(self.root, mouse_pos)
+    update_tooltip_layout(self, tooltip_manager.mouse_x, tooltip_manager.mouse_y)
     gui.set_render_order(constants_ui.LAYERS.TOOLTIP)
 
     -- 2. Сравнение по ссылке на таблицу данных (самый надежный способ)
@@ -284,7 +325,7 @@ function update(self, dt)
     self.current_data_ref = pack 
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
-
+      
     if pack.type == "item" then
         render_item(self, pack.info, pack.context)
     elseif pack.type == "world_object" then

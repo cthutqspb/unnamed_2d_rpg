@@ -1,6 +1,7 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
+local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
@@ -82,7 +83,6 @@ function on_message(self, message_id, message, sender)
             self.character_window:close()
         end
     elseif message_id == hash("set_focus_visual") then
-        print('SETFOCUS CHARACTER')
         -- Вызываем метод базового окна. 
         -- Теперь мы находимся внутри родной сцены, и Defold будет счастлив!
         if self.character_window and self.character_window.set_focus_visual then
@@ -109,10 +109,12 @@ function on_message(self, message_id, message, sender)
         end
 
     elseif message_id == hash("context_menu_action") or message_id == hash("item_action") then
+
+        local slot_index = message.data.slot_index
+        local item_id = message.data.item_id
+        local item_cfg = items_db.get_item(item_id)
+
         if message.event == "item_transfer" then
-            local slot_index = message.data.slot_index
-            local item_id = message.data.item_id
-            local item_cfg = items_db.get_item(item_id)
 
             -- 1. Определяем ИСТОЧНИК на основе контекста сообщения
             local source, target
@@ -151,6 +153,23 @@ function on_message(self, message_id, message, sender)
                     item, item_cfg
                 )
             end
+
+        elseif message.event == "request_split" then
+            msg.post("main:/split_window#gui", "open_split_window", {
+                item_data = interaction_manager.get_player_inventory():get_item(slot_index),
+                slot_index = slot_index
+            })
+        
+        elseif message.event == "item_drop" then
+            local player_pos = character_data.player.last_pos
+            local source = interaction_manager.get_player_inventory()
+            item_transfer_manager.drop_to_world(
+                source,
+                slot_index,
+                source:get_item(slot_index),
+                player_pos.x,
+                player_pos.y + 50
+            )
         end
 
     elseif message_id == hash("toggle_character_window") then
@@ -203,7 +222,7 @@ function on_input(self, action_id, action)
                 -- Говорим менеджеру, что мы теперь главные!
                 window_manager.handle_window_click(self.character_window, msg.url())
             end
-            
+
             return true -- Блокируем мир
         end
     end

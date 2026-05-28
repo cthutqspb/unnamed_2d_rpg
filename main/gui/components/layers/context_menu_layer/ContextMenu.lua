@@ -50,7 +50,7 @@ function M:show(x, y, type, sub_type, flags, data)
 
     local total_height = (#actions * cfg.btn_height) + ((#actions - 1) * cfg.spacing) + (cfg.padding * 2)
     gui.set_size(self.background, vmath.vector3(cfg.menu_width, total_height, 0))
-
+    print('SHOW', data.from_paperdoll)
     -- Наполнение
     for i, action in ipairs(actions) do
         self:create_menu_button(action, i, data, cfg)
@@ -76,10 +76,8 @@ function M:create_menu_button(action, index, data, config)
     local y_pos = -config.padding - ((index - 1) * (config.btn_height + config.spacing))
     gui.set_position(btn_node, vmath.vector3(x_pos, y_pos, 0))
     gui.set_size(btn_node, vmath.vector3(config.btn_width, config.btn_height, 0))
-
     -- 2. ЛОГИКА КЛИКА
     local btn_instance = self.druid:new_button(btn_node, function()
-        print("context click")
         msg.post(data.source_url, "context_menu_action", { event = action.event, data = data })
         self:hide()
     end)

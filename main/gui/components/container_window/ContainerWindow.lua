@@ -48,7 +48,7 @@ function M:init(template_id, config)
             -- Мы находимся в контексте CharacterWindow
             -- Просто шлем сообщение самому себе (в скрипт, где лежит CharacterWindow)
             msg.post(".", "item_action", {
-                event = "loot_item",
+                event = "item_loot",
                 data = {
                     slot_index = index,
                     item_id = item.item_id

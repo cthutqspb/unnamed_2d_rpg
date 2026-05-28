@@ -38,13 +38,23 @@ function M.init(self, template_id, callbacks)
 
     local ok_wt, node_wt = pcall(gui.get_node, prefix .. "window_title")
     self.window_title = ok_wt and node_wt or nil
-
+    
     self.drag = self.druid:new_drag(self.header, function(_, dx, dy)
         -- window_manager.handle_window_click(self, msg.url())
+        
+        -- 1. Сначала считаем «сырой» target_pos без учета ограничений
         local pos = gui.get_position(self.root)
-        local target_pos = vmath.vector3(pos.x + dx, pos.y + dy, 0)
-        -- Используем body для вычисления границ, а двигаем root
-        local final_pos = gui_utils.clamp_to_screen(self.body, target_pos, 0, 40)
+        
+        -- Прогоняем функцию первый раз «вхолостую», чтобы вытащить актуальные скейлы для dx/dy
+        local _, sf_x, sf_y = gui_utils.clamp_to_screen(self.root, self.body, pos)
+        
+        -- Считаем позицию с корректными дельтами, чтобы мышь не обгоняла окно
+        local target_pos = vmath.vector3(pos.x + (dx * sf_x), pos.y + (dy * sf_y), 0)
+        
+        -- 2. Зажимаем позицию в рамки экрана с твоими отступами в 30 пикселей
+        local final_pos = gui_utils.clamp_to_screen(self.root, self.body, target_pos, 30, 30)
+        
+        -- 3. Применяем
         gui.set_position(self.root, final_pos)
     end)
 

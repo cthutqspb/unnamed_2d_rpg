@@ -10,7 +10,7 @@ nodes {
   }
   type: TYPE_BOX
   id: "root"
-  pivot: PIVOT_NW
+  adjust_mode: ADJUST_MODE_STRETCH
   inherit_alpha: true
   alpha: 0.0
   size_mode: SIZE_MODE_AUTO
@@ -27,7 +27,7 @@ nodes {
   }
   type: TYPE_BOX
   id: "background"
-  pivot: PIVOT_NW
+  pivot: PIVOT_NE
   parent: "root"
 }
 nodes {

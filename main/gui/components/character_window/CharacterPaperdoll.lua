@@ -120,7 +120,8 @@ function M.handle_right_click(index, x, y)
             can_split = can_split, -- Передаем флаг в меню
             is_equipped = true
         },
-            data = {
+        data = {
+            from_paperdoll = true,
             slot_index = index,
             item_id = item_data.item_id,
             source_url = msg.url()

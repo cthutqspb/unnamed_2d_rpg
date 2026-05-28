@@ -88,31 +88,40 @@ function M.finish(target_component, target_slot)
     local d = active_drag
     active_drag = nil
 
-    -- 🎯 ПЕРЕВОД ПРОВАЙДЕРА В МОДЕЛЬ ДАННЫХ (View -> Model)
+    -- 1. ОПРЕДЕЛЯЕМ МОДЕЛЬ ИСТОЧНИКА (View -> Model)
     local source_model = d.source
-    if type(source_model) == "table" and source_model.get_data_source then
-        source_model = source_model:get_data_source()
+    if type(source_model) == "table" then
+        if source_model.get_data_source then
+            source_model = source_model:get_data_source()
+        -- 🚩 ФИКС ДЛЯ КУКЛЫ: Если тащим ИЗ куклы персонажа
+        elseif source_model.template_id == "character_paperdoll" or source_model.paperdoll then
+            source_model = require("main.modules.logic.interaction_manager").get_player_paperdoll()
+        end
     end
 
     local source_slot = d.slot
     local item = d.item 
     local item_cfg = d.item_cfg
 
-    -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI мимо слотов или за пределы окон)
+    -- 1. СЛУЧАЙ: ОТМЕНА
     if not target_component and is_over_any_gui then
-        -- Вызываем finalize() без аргументов. Он кинет бродкаст, 
-        -- и все открытые окна (включая фокусное) обновятся и отлипнут!
         item_transfer_manager.finalize()
 
-    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Успешный перенос)
+    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ
     elseif target_component then
-        -- 🎯 ПЕРЕВОД ЦЕЛИ В МОДЕЛЬ ДАННЫХ (View -> Model)
+        -- 2. ОПРЕДЕЛЯЕМ МОДЕЛЬ ЦЕЛИ (View -> Model)
         local target_model = target_component
-        if type(target_model) == "table" and target_model.get_data_source then
-            target_model = target_model:get_data_source()
+        if type(target_model) == "table" then
+            if target_model.get_data_source then
+                target_model = target_model:get_data_source()
+            -- 🚩 ФИКС ДЛЯ КУКЛЫ: Если бросаем НА куклу персонажа
+            -- Проверь, какое имя класса или шаблона прописано в твоей кукле (например, template_id)
+            elseif target_model.template_id == "character_paperdoll" or target_model.paperdoll then
+                target_model = require("main.modules.logic.interaction_manager").get_player_paperdoll()
+            end
         end
 
-        -- Передаем в ядро строго модели данных
+        -- Теперь на бэкенд ГАРАНТИРОВАННО улетит чистая модель player_paperdoll!
         item_transfer_manager.execute_transfer(source_model, source_slot, target_model, target_slot, item, item_cfg)
 
     -- 3. СЛУЧАЙ: ДРОП В МИР

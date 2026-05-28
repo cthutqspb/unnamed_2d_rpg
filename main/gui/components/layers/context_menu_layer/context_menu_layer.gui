@@ -10,6 +10,7 @@ nodes {
   }
   type: TYPE_BOX
   id: "root"
+  adjust_mode: ADJUST_MODE_STRETCH
   inherit_alpha: true
   alpha: 0.0
   size_mode: SIZE_MODE_AUTO
