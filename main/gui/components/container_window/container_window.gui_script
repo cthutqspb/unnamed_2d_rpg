@@ -6,6 +6,7 @@ local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
 
 local h_touch = hash("touch")
@@ -57,7 +58,7 @@ function update(self, dt)
 
     -- 1. Если данные есть (мы над предметом)
     if hover_data then
-        tooltip_manager.show("item", hover_data.item, { source = "container" })
+        tooltip_manager.show(hover_data.type, hover_data.item, { source = "container" })
     else
         -- 2. Если данных нет, но мы над окном — прячем
         if gui.pick_node(self.container_window.root, mx, my) then
@@ -102,28 +103,30 @@ function on_message(self, message_id, message, sender)
             self.container_window:set_focus_visual(message.is_active)
         end
 
-    -- ЛОГИКА СПЛИТА
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
         local data_source = self.container_window.static_grid:get_data_source()
         local item = data_source.items[slot_index]
 
         if item then
+            -- Визуально урезаем циферку в сундуке на экране
+            local remaining = item.amount - current_amount
+            self.container_window.static_grid:set_slot_amount_visual(slot_index, remaining)
+
             local item_cfg = items_db.get_item(item.item_id)
+            
             local split_item = {
-                item_uid = item.uid,
+                uid = item.uid,           -- 🚩 ФИКС: строго 'uid'
                 item_id = item.item_id,
                 amount = current_amount,
-                source_split_slot = slot_index
+                source_split_slot = slot_index,
+                is_split = true
             }
 
-            drag_manager.start(
-                self.container_window.static_grid,
-                slot_index,
-                split_item,
-                item_cfg
-            )
+            -- Взводим драг от лица сетки сундука
+            drag_manager.start(self.container_window.static_grid, slot_index, split_item, item_cfg)
         end
+
 
     -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
     elseif message_id == hash("refresh") then
@@ -163,7 +166,7 @@ function on_message(self, message_id, message, sender)
                 item_cfg
             )
 
-        elseif message.event == "loot_item_all" then
+        elseif message.event == "item_loot_all" then
             local target = interaction_manager.get_player_inventory()
             for i = 1, source.max_slots do
                 local _item = source:get_item(i)
@@ -223,7 +226,7 @@ function on_input(self, action_id, action)
                 -- Говорим менеджеру, что мы теперь главные!
                 window_manager.handle_window_click(self.container_window, msg.url())
             end
-            
+
             return true -- Блокируем мир
           end
     end

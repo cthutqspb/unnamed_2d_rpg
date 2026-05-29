@@ -1,14 +1,13 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
-local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
-local item_transfer_manager = require("main.modules.item_transfer_manager")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
 
 local h_touch = hash("touch")
@@ -63,7 +62,7 @@ function update(self, dt)
     local hover_data = self.character_window:handle_hover(mx, my)
 
     if hover_data then
-        tooltip_manager.show("item", hover_data.item, { source = "inventory" })
+        tooltip_manager.show(hover_data.type, hover_data.item, { source = "inventory" })
     else
         -- Проверяем, над окном ли мы, чтобы скрыть тултип мира/предмета
         if self.character_window:is_over_window(mx, my) then
@@ -95,81 +94,39 @@ function on_message(self, message_id, message, sender)
         local item = player_inventory:get_item(slot_index)
 
         if item and item.item_id then
-            local remaining = item.amount - message.current_amount
+            -- Визуально урезаем циферку в слоте на экране (твоя родная логика)
+            local remaining = item.amount - current_amount
             self.character_window.static_grid:set_slot_amount_visual(slot_index, remaining)
 
             local item_cfg = items_db.get_item(item.item_id)
+
+            -- 🎯 ПАКЕТ ДАННЫХ ДЛЯ КУРСОРНОГО СПЛИТА
             local split_item = {
-                item_uid = item.uid,
+                uid = item.uid,           -- 🚩 ФИКС: теперь строго 'uid' вместо 'item_uid'
                 item_id = item.item_id,
                 amount = current_amount,
-                source_split_slot = slot_index
+                source_split_slot = slot_index,
+
+                -- Метки для бэкенда
+                is_split = true
             }
+
+            -- Взводим драг от лица сетки инвентаря
             drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
         end
 
+
     elseif message_id == hash("context_menu_action") or message_id == hash("item_action") then
+        local action_name = message.event
 
-        local slot_index = message.data.slot_index
-        local item_id = message.data.item_id
-        local item_cfg = items_db.get_item(item_id)
+        -- Ищем нужную стратегию в глобальном диспетчере (будь то сплит, дроп или атака кабана!)
+        local reducer = actions_dispatcher.REDUCERS[action_name]
 
-        if message.event == "item_transfer" then
-
-            -- 1. Определяем ИСТОЧНИК на основе контекста сообщения
-            local source, target
-            if message.data.from_paperdoll then
-                -- Если прилетело с куклы — значит это снятие (unequip)
-                source = interaction_manager.get_player_paperdoll()
-                target = interaction_manager.get_player_inventory()
-            else
-                -- Если прилетело из сумки — значит это надевание (equip) или перенос в сундук
-                source = interaction_manager.get_player_inventory()
-                -- Цель определится ниже (бочка или кукла)
-                local target_focus = interaction_manager.get_focus()
-                target = target_focus or interaction_manager.get_player_paperdoll()
-            end
-
-            -- 2. Достаем предмет из источника
-            local item = source:get_item(slot_index)
-
-            if item then
-                -- 3. Вычисляем слот назначения
-                local target_slot = nil
-                if target == interaction_manager.get_player_paperdoll() then
-                    target_slot = item_cfg.equip_slot -- для куклы нужен конкретный слот
-                elseif target == interaction_manager.get_player_inventory() then
-                    target_slot = target:get_first_empty_slot() -- для сумки ищем пустой слот
-                    if not target_slot then
-                        print("Инвентарь полон!")
-                        return
-                    end
-                end
-
-                -- 4. ВЫЗЫВАЕМ ОДИН ЕДИНСТВЕННЫЙ ТРАНСФЕР!
-                item_transfer_manager.execute_transfer(
-                    source, slot_index,
-                    target, target_slot,
-                    item, item_cfg
-                )
-            end
-
-        elseif message.event == "request_split" then
-            msg.post("main:/split_window#gui", "open_split_window", {
-                item_data = interaction_manager.get_player_inventory():get_item(slot_index),
-                slot_index = slot_index
-            })
-        
-        elseif message.event == "item_drop" then
-            local player_pos = character_data.player.last_pos
-            local source = interaction_manager.get_player_inventory()
-            item_transfer_manager.drop_to_world(
-                source,
-                slot_index,
-                source:get_item(slot_index),
-                player_pos.x,
-                player_pos.y + 50
-            )
+        if reducer then
+            -- Просто диспатчим payload (data) в редьюсер бэкенда!
+            reducer(message.data)
+        else
+            print("WARNING: Нет обработчика для экшена:", action_name)
         end
 
     elseif message_id == hash("toggle_character_window") then

@@ -94,8 +94,6 @@ function init(self)
     self.broadcast_handler = function(data)
     -- Теперь 'data' — это таблица, которую мы послали через broadcast.send
         if data.message_id == hash("toggle_interactable_highlight") then
-            print('TEST PRINT: Highlight toggled!')
-
             if data.show then
                 go.set_scale(vmath.vector3(1.2, 1.2, 1), self.go_id)
                 msg.post(msg.url(nil, self.go_id, "container_name"), "enable")

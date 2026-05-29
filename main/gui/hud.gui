@@ -26,8 +26,6 @@ nodes {
   type: TYPE_BOX
   id: "health_bar/root"
   parent: "health_bar"
-  inherit_alpha: true
-  overridden_fields: 21
   template_node_child: true
 }
 nodes {

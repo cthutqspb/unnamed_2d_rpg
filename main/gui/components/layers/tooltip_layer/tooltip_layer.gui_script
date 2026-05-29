@@ -5,7 +5,6 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
 local items_db = require("main.modules.data.items_db")
 local character_data = require("main.modules.character.character_data")
-local gui_utils = require("main.gui.gui_utils")
 
 local QUALITY_COLORS = {
     common    = vmath.vector4(1, 1, 1, 1),
@@ -89,7 +88,7 @@ local function add_line(self, left_text, right_text, color, is_header)
     local padding = 2
     gui.set_position(root, vmath.vector3(padding, self.current_y - padding, 0))
     gui.set_size(root, vmath.vector3(320 - (padding * 2), row_h, 0))
-    
+
     self.current_y = self.current_y - row_h
     table.insert(self.active_elements, root)
 end
@@ -122,11 +121,11 @@ local function render_item(self, item_context, context)
     local type_key = cfg.weapon_type or cfg.armor_type or cfg.type
     local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.equip_slot) .. ")"
     add_line(self, sub_header, nil, STATS_COLOR)
-    
+
     if cfg.required then
         -- Заголовок "Требования"
         add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
-        
+  
         local check = item_requirements_manager.check(cfg, character_data.player)
 
         for req_id, req_val in pairs(cfg.required) do
@@ -135,11 +134,11 @@ local function render_item(self, item_context, context)
 
             -- Цвет: белый если ок, красный если нет
             local color = is_fail and vmath.vector4(1, 0.2, 0.2, 1) or vmath.vector4(1, 1, 1, 1)
-            
+
             -- Формируем строку (например: "  Уровень: 5")
             local req_label = locales.get(req_id == "resource" and req_val or "stat_" .. req_id)
             if req_id == "level" then req_label = locales.get("level") end
-            
+
             local text = "  " .. req_label .. ": " .. req_val
             if req_id == "resource" then text = "  " .. locales.get("resource") .. ": " .. locales.get(req_val) end
 
@@ -267,7 +266,7 @@ local function update_tooltip_layout(self, mouse_x, mouse_y)
     -- Размеры твоего тултипа
     local tooltip_w = 320
     -- Магическое число из add_line (current_y накапливает высоту со знаком минус)
-    local tooltip_h = math.abs(self.current_y) 
+    local tooltip_h = math.abs(self.current_y)
 
     local base_offset = 20
     local bg_x = 0
@@ -322,13 +321,13 @@ function update(self, dt)
         return
     end
 
-    self.current_data_ref = pack 
+    self.current_data_ref = pack
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
-      
-    if pack.type == "item" then
+    print('PACK TYPE ', pack.type)
+    if pack.type == "gui_item" then
         render_item(self, pack.info, pack.context)
-    elseif pack.type == "world_object" then
+    elseif pack.type == "world_prop" then
         render_world_object(self, pack.info, pack.context)
     end
 

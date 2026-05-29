@@ -16,7 +16,7 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("proxy_loaded") then
         msg.post(sender, "enable")
         msg.post(sender, "acquire_input_focus")
-        
+
         -- Сцена готова. Теперь просто "втыкаем" игрока и спавним лут
         if self.pending_pos then
             msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_pos.x, self.pending_pos.y, 1) })

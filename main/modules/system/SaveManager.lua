@@ -26,6 +26,7 @@ function M.new_game()
     -- 1. Стираем данные в Lua-модулях
     game_state.clear_all()
     player_inventory.clear()
+    player_paperdoll.clear()
 
     player_inventory.init() -- заполняем ячейки пустышками
     player_inventory.add_item("iron_sword", 1)
@@ -34,11 +35,9 @@ function M.new_game()
     player_inventory.add_item("clown_hat", 1)
     player_inventory.add_item("crystal_sword", 1)
 
-    
     -- 2. ГОВОРИМ ЛОАДЕРУ: Перезагрузи всю сцену
     msg.post("main:/loader#script", "reload_game")
-    
-  
+    broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
     -- Всё! При старте новой сцены все init() сработают на чистых данных
 end
 

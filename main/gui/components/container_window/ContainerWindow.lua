@@ -147,7 +147,7 @@ end
 function M:take_all()
     print("Take all logic for:", self.template_id) -- Используем self
     msg.post(".", "item_action", {
-        event = "loot_item_all",
+        event = "item_loot_all",
         data = {
             slot_index = nil,
             item_id = nil,

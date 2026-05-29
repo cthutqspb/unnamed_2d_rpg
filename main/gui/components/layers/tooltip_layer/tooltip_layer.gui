@@ -27,7 +27,7 @@ nodes {
   }
   type: TYPE_BOX
   id: "background"
-  pivot: PIVOT_NE
+  pivot: PIVOT_NW
   parent: "root"
 }
 nodes {

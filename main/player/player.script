@@ -53,12 +53,12 @@ function init(self)
     msg.post(".", "acquire_input_focus")
     --msg.post("game_scene:/camera", "follow", { target = go.get_id(), lerp = 0.08 })
     self.pressed_keys = { up = 0, down = 0, left = 0, right = 0 }
-    self.base_speed = 300  
-    self.move_input = vmath.vector3(0, 0, 0)  
+    self.base_speed = 300
+    self.move_input = vmath.vector3(0, 0, 0)
     self.direction = 1
     self.position = vmath.vector3(0, 0, 0)
     self.correction = vmath.vector3()
-    self.move_target = nil  
+    self.move_target = nil
     self.show_interactable = false
     self.world_bounds = settings.world_bounds
 
@@ -147,7 +147,7 @@ function on_input(self, action_id, action)
     -- Глобальная защита GUI
     if action_id == hash("mouse_right") or action_id == hash("touch") then
         if window_manager.is_over_ui() then
-            return false 
+            return false
         end
     end
 
@@ -174,7 +174,7 @@ function on_input(self, action_id, action)
         -- ОДНА СТРОКА: Камера сама переведет клик ПКМ в точные координаты мира
         -- ОДНА СТРОКА: Получаем сразу все нужные координаты
         local gui_pos, world_pos = gui_utils.transform_coordinates(action, hash("/camera"))
-        
+
         local target_id = interaction.get_target_under_cursor(world_pos)
 
         if target_id then
@@ -262,9 +262,9 @@ function on_message(self, message_id, message, sender)
             -- Сразу отправляем персонажа бежать к объекту
             self.move_target = go.get_world_position(target_go_id)
             self.move_input = vmath.vector3(0, 0, 0)
-            
+
             self.pending_item = target_go_id
-            
+
             -- Выставляем дистанцию и ивент в зависимости от выбора в меню
             if message.event == "item_loot_pickup" then
                 self.pending_event = "click" -- Сигнал подбора предмета с земли

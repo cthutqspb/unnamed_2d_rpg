@@ -4,22 +4,26 @@ local containers_state = require("main.modules.game_state.containers_state")
 
 local M = {}
 
----Узнать тип объекта и получить его чистые данные по go_id из мира
----@param go_id hash Идентификатор игрового объекта из рейкаста
----@return string|nil kind Тип объекта ("container", "loot" или nil)
+---Узнать тип объекта и получить его чистые данные по go_id из мира (из рейкаста)
+---@param go_id hash Идентификатор игрового объекта из физического луча мыши
+---@return string|nil kind Тип объекта ("container", "item_loot", "creature")
 ---@return string|nil uid Уникальный строковый UID объекта в реестре состояний
 ---@return table|nil data Таблица чистых данных объекта (стейт предметов или инфо лута)
 function M.get_inspect_info(go_id)
     -- 1. Спрашиваем контейнеры через их быструю телефонную книгу
+    -- 🚩 ФИКС ТИПОВ: Явно кастуем в any, чтобы сбросить паранойю линтера о пустом словаре instances!
+    ---@type any
     local c_uid = containers_state.instances[go_id]
-    if c_uid then 
+    if c_uid then
         local data = containers_state.get(c_uid)
         return "container", c_uid, data
     end
 
     -- 2. Спрашиваем предметы на земле (лут) через наш world_items_state
+    -- 🚩 ФИКС ТИПОВ: Явно кастуем в any
+    ---@type any
     local l_uid = world_items_state.instances[go_id]
-    if l_uid then 
+    if l_uid then
         local data = world_items_state.get_item_by_uid(l_uid)
         return "item_loot", l_uid, data
     end
@@ -44,7 +48,7 @@ end
 -- Раздача данных при загрузке
 function M.restore_all(full_data)
     print("--- DEBUG: RESTORE ALL START ---")
-    
+
     if not full_data then
         print("ERROR: full_data is NIL")
     else
@@ -56,7 +60,7 @@ function M.restore_all(full_data)
             end
             print(string.format("FOUND KEY: [%s] | TYPE: [%s] | ELEMENTS: [%d]", tostring(k), type(v), count))
         end
-        
+
         -- Полный дамп структуры в консоль (если таблица не гигантская)
         -- pprint(full_data) 
     end
@@ -66,12 +70,12 @@ function M.restore_all(full_data)
         print("Restoring world_items_state...")
         world_items_state.restore_all(full_data.world_items_state)
     end
-    
+
     if full_data.containers_state then
         print("Restoring containers_state...")
         containers_state.restore_all(full_data.containers_state)
     end
-    
+
     print("--- DEBUG: RESTORE ALL END ---")
 end
 
@@ -91,9 +95,9 @@ function M.get_data_by_type(kind, uid)
     print("--- FULL WORLD ITEMS REGISTRY ---")
     local all_items = world_items_state.get_all()
     for k, v in pairs(all_items) do
-        print(string.format("KEY: [%s] | ID: [%s] | DYNAMIC: [%s]", 
+        print(string.format("KEY: [%s] | ID: [%s] | DYNAMIC: [%s]",
             tostring(k),
-            tostring(v.item_id), 
+            tostring(v.item_id),
             tostring(v.is_dynamic)))
     end
     print("---------------------------------")
@@ -110,7 +114,6 @@ function M.get_data_by_type(kind, uid)
     end
     return nil
 end
-
 
 return M
 

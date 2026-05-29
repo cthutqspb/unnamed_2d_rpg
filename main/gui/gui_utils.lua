@@ -1,10 +1,25 @@
 local settings = require("main.modules.data.settings")
 local camera = require "orthographic.camera"
 
+---@class DefoldActionInput
+---@field screen_x number Физическая координата мыши по X (экранная)
+---@field screen_y number Физическая координата мыши по Y (экранная)
+---@field x number|nil Логическая координата X
+---@field y number|nil Логическая координата Y
+---@field pressed boolean|nil Флаг нажатия ЛКМ/ПКМ
+---@field released boolean|nil Флаг отпускания ЛКМ/ПКМ
 local M = {}
 
+---Устаревший метод перевода мира в экран (для фиксированного разрешения без учета Hyprland)
+---@param world_pos vector3 Мировые координаты объекта
+---@param ref_pos vector3 Координаты центра привязки (например, игрока)
+---@return number screen_x Логическая координата X на экране
+---@return number screen_y Логическая координата Y на экране
 function M.world_to_screen(world_pos, ref_pos)
-    local screen_w, screen_h = settings.get_center()
+    -- Получаем логический центр и переводим в number, защищая типы линтера
+    local cx, cy = settings.get_center()
+    local screen_w = cx * 1.0
+    local screen_h = cy * 1.0
 
     local screen_x = (world_pos.x - ref_pos.x) + screen_w
     local screen_y = (world_pos.y - ref_pos.y) + screen_h
@@ -23,8 +38,13 @@ end
 --     return vmath.vector3(world_x, world_y, 0)
 -- end
 
+---Рекурсивно вычислить АБСОЛЮТНЫЕ экранные координаты GUI-ноды с учетом всей цепочки её родителей
+---@param node node Целевой GUI-узел, позицию которого нужно узнать
+---@return integer x Абсолютный сдвиг по X в пикселях
+---@return integer y Абсолютный сдвиг по Y в пикселях
 function M.get_screen_position(node)
     local x, y = 0, 0
+    ---@type node|nil
     local current = node
 
     while current do
@@ -37,49 +57,16 @@ function M.get_screen_position(node)
     return x, y
 end
 
-function M.layout_horizontal(parent_node, button_names, spacing)
-    local current_x = 0
-    local max_height = 0
-
-    -- Сначала определяем максимальную высоту
-    for _, btn_name in ipairs(button_names) do
-        local btn = gui.get_node(parent_node .. "/" .. btn_name)
-        local size = gui.get_size(btn)
-        if size.y > max_height then
-            max_height = math.floor(size.y)
-        end
-    end
-
-    -- Расставляем кнопки
-    for _, btn_name in ipairs(button_names) do
-        local btn = gui.get_node(parent_node .. "/" .. btn_name)
-        local size = gui.get_size(btn)
-
-        gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
-        current_x = current_x + math.floor(size.x) + spacing
-    end
-end
-
--- Новая функция, которая принимает ноду, а не строку
-function M.layout_horizontal_by_node(parent_node, button_nodes, spacing)
-    local current_x = 0
-    local max_height = 0
-
-    for _, btn in ipairs(button_nodes) do
-        local size = gui.get_size(btn)
-        if size.y > max_height then
-            max_height = math.floor(size.y)
-        end
-    end
-
-    for _, btn in ipairs(button_nodes) do
-        local size = gui.get_size(btn)
-        gui.set_position(btn, vmath.vector3(current_x, -max_height/2, 0))
-        current_x = current_x + math.floor(size.x) + spacing
-    end
-end
-
-
+---Вычисляет безопасные границы экрана с учетом динамического Aspect Ratio и Fixed Fit проекции Defold.
+---Гарантирует, что окна при драге не улетят за пределы видимости на HighDPI, 2K и в тайлинге Hyprland.
+---@param root_node node Корневой узел окна (обычно пустой Box, за который двигаем)
+---@param body_node node Узел подложки/тела окна (по которому считаются физические габариты)
+---@param target_pos vector3 Желаемая точка перемещения, куда игрок тянет окно мышкой
+---@param offset_top number|nil Защитный отступ сверху в логических пикселях (например, под верхний HUD)
+---@param offset_bottom number|nil Защитный отступ снизу в логических пикселях (например, под экшен-бар)
+---@return vector3 final_pos Заклампленный вектор позиции, гарантированно не выходящий за края экрана
+---@return number stretch_factor_x Коэффициент виртуального расширения экрана по горизонтали
+---@return number stretch_factor_y Коэффициент виртуального расширения экрана по вертикали
 function M.clamp_to_screen(root_node, body_node, target_pos, offset_top, offset_bottom)
     offset_top = offset_top or 0
     offset_bottom = offset_bottom or 0
@@ -93,12 +80,12 @@ function M.clamp_to_screen(root_node, body_node, target_pos, offset_top, offset_
     local project_aspect = project_w / project_h
     local current_aspect = window_w / window_h
 
-    local stretch_factor_x = 1
-    local stretch_factor_y = 1
+    local stretch_factor_x = 1.0
+    local stretch_factor_y = 1.0
 
-    local screen_min_x = 0
+    local screen_min_x = 0.0
     local screen_max_x = project_w
-    local screen_min_y = 0
+    local screen_min_y = 0.0
     local screen_max_y = project_h
 
     if current_aspect > project_aspect then
@@ -187,20 +174,6 @@ end
 --     return new_pos
 -- end
 
-function M.is_input_over_window(window_root, action_id, action)
-    if not action.x or not action.y then return false end
-    if not gui.is_enabled(window_root, true) then return false end
-    
-    if gui.pick_node(window_root, action.x, action.y) then
-        -- Если это просто движение мыши, не блокируем (для тултипов)
-        if not action_id then return false end
-        return true
-    end
-    return false
-end
-
--- Внутри main/modules/interaction.lua
-
 ---Перевести физические координаты клика мыши из on_input в точные мировые координаты пространства игры
 ---@param action table Таблица инпута из on_input (содержит action.x и action.y)
 ---@param player_pos vector3 Текущая позиция игрока go.get_position("player")
@@ -208,7 +181,7 @@ end
 function M.get_world_mouse_pos(action, player_pos)
     -- 1. Получаем РЕАЛЬНЫЙ физический размер окна в пикселях на мониторе прямо сейчас
     local window_w, window_h = window.get_size()
-    
+
     -- 2. Жесткие логические размеры твоего проекта (из game.project / settings)
     local target_w = 1920
     local target_h = 1080
@@ -232,39 +205,84 @@ function M.get_world_mouse_pos(action, player_pos)
     return vmath.vector3(world_x, world_y, 0)
 end
 
---- Трансформирует экранные координаты клика/мыши под нужды GUI и игрового мира.
----@param action table Таблица action из on_input
----@param camera_id hash ID вашей камеры (например, hash("/camera"))
----@return vmath.vector3 gui_pos Координаты, скорректированные под сетку проекта (X и Y)
----@return vmath.vector3 world_pos Точные мировые координаты для рейкастов
+
+---Трансформирует физические экранные координаты мыши отдельно под сетку GUI и под мировые координаты пространства игры.
+---Устойчив к HighDPI (2K), Fullscreen и экстремальному тайлингу Hyprland (Fixed Fit / Stretch).
+---@param action DefoldActionInput Таблица action из системного метода on_input
+---@param camera_id hash Идентификатор игровой камеры (например, hash("/camera"))
+---@return vector3 gui_pos Координаты, скорректированные под логическое разрешение GUI-проекта (X и Y)
+---@return vector3 world_pos Точные мировые координаты пространства для честных рейкастов физики
 function M.transform_coordinates(action, camera_id)
-    -- 1. Защита, если это инпут без координат экрана
+    -- 1. Защита, если это инпут без физических координат экрана
     if not action.screen_x then
         return vmath.vector3(0, 0, 0), vmath.vector3(0, 0, 0)
     end
 
-    -- 2. Получаем размеры
+    -- 2. Получаем актуальные физические размеры окна ОС и логические настройки проекта
     local window_w, window_h = window.get_size()
     local project_w = sys.get_config_int("display.width")
     local project_h = sys.get_config_int("display.height")
 
-    -- 3. Расчет для GUI
+    -- 3. Вычисление масштабирования и позиции для GUI-слоя (Stretch / Адаптив)
     local scale_x = window_w / project_w
     local scale_y = window_h / project_h
     local gui_pos = vmath.vector3(action.screen_x / scale_x, action.screen_y / scale_y, 0)
 
-    -- 4. Расчет для игрового мира
+     -- 4. Расчет для игрового мира
     local view = camera.get_view(camera_id)
     local projection = camera.get_projection(camera_id)
+
+    -- 🚩 ФИКС NEED-CHECK-NIL: Защита на случай, если камера еще не готова
+    if not view or not projection then
+        return gui_pos, vmath.vector3(0, 0, 0)
+    end
+
     local inv = vmath.inv(projection * view)
-    
+
     local norm_x = (action.screen_x / window_w) * 2 - 1
     local norm_y = (action.screen_y / window_h) * 2 - 1
-    
+
+    -- 🚩 ФИКС UNDEFINED FIELD: Явно объявляем линтеру тип вектора перед расчетом
+    ---@type vector4
     local vec = inv * vmath.vector4(norm_x, norm_y, 0, 1)
     local world_pos = vmath.vector3(vec.x / vec.w, vec.y / vec.w, 0)
 
     return gui_pos, world_pos
 end
+
+-- --- Трансформирует экранные координаты клика/мыши под нужды GUI и игрового мира.
+-- ---@param action table Таблица action из on_input
+-- ---@param camera_id hash ID вашей камеры (например, hash("/camera"))
+-- ---@return vmath.vector3 gui_pos Координаты, скорректированные под сетку проекта (X и Y)
+-- ---@return vmath.vector3 world_pos Точные мировые координаты для рейкастов
+-- function M.transform_coordinates(action, camera_id)
+--     -- 1. Защита, если это инпут без координат экрана
+--     if not action.screen_x then
+--         return vmath.vector3(0, 0, 0), vmath.vector3(0, 0, 0)
+--     end
+--
+--     -- 2. Получаем размеры
+--     local window_w, window_h = window.get_size()
+--     local project_w = sys.get_config_int("display.width")
+--     local project_h = sys.get_config_int("display.height")
+--
+--     -- 3. Расчет для GUI
+--     local scale_x = window_w / project_w
+--     local scale_y = window_h / project_h
+--     local gui_pos = vmath.vector3(action.screen_x / scale_x, action.screen_y / scale_y, 0)
+--
+--     -- 4. Расчет для игрового мира
+--     local view = camera.get_view(camera_id)
+--     local projection = camera.get_projection(camera_id)
+--     local inv = vmath.inv(projection * view)
+--     
+--     local norm_x = (action.screen_x / window_w) * 2 - 1
+--     local norm_y = (action.screen_y / window_h) * 2 - 1
+--     
+--     local vec = inv * vmath.vector4(norm_x, norm_y, 0, 1)
+--     local world_pos = vmath.vector3(vec.x / vec.w, vec.y / vec.w, 0)
+--
+--     return gui_pos, world_pos
+-- end
 
 return M

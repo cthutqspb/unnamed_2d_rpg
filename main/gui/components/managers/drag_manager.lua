@@ -42,6 +42,30 @@ function M.start(source, slot, item, item_cfg)
     print("Drag started with amount:", item.amount)
 end
 
+function M.abort_drag()
+    if not active_drag then return end
+
+    local d = active_drag 
+    
+    -- Вытаскиваем чистую бэкенд-модель источника
+    local source_model = d.source
+    if type(source_model) == "table" and source_model.get_data_source then
+        source_model = source_model:get_data_source()
+    end
+
+    -- 🎯 Главное правило: Если источник — это НЕ рюкзак игрока, 
+    -- значит это ЛЮБОЕ внешнее окно (торговец, сундук, банк, алхимия)
+    if source_model ~= interaction_manager.get_player_inventory() then
+        print("DRAG_MANAGER: Внешний фокус потерян. Отменяем перетаскивание!")
+        
+        active_drag = nil
+        is_over_any_gui = false
+        
+        -- Возвращаем оригинальный стак предметов на место
+        item_transfer_manager.finalize()
+    end
+end
+
 ---Обновить текущие координаты мыши
 ---@param x number
 ---@param y number
@@ -79,88 +103,71 @@ function M.set_over_gui(value)
     is_over_any_gui = value
 end
 
----Завершить перетаскивание (успех, отмена или сброс в мир)
----@param target_component table|nil @Компонент-цель (куда бросили)
----@param target_slot number|string|nil @Слот-цель (куда бросили)
+---Завершить перетаскивание (успех переноса, отмена или сброс предмета в мир)
+---@param target_component table|nil Компонент-цель (куда бросили мышку: StaticGrid, CharacterPaperdoll)
+---@param target_slot number|string|nil Индекс целевого слота ячейки/куклы
 function M.finish(target_component, target_slot)
     if not active_drag then return end
 
     local d = active_drag
     active_drag = nil
 
-    -- 1. ОПРЕДЕЛЯЕМ МОДЕЛЬ ИСТОЧНИКА (View -> Model)
+    -- 1. ОПРЕДЕЛЯЕМ ЧИСТУЮ МОДЕЛЬ ИСТОЧНИКА (View -> Model)
     local source_model = d.source
     if type(source_model) == "table" then
         if source_model.get_data_source then
             source_model = source_model:get_data_source()
-        -- 🚩 ФИКС ДЛЯ КУКЛЫ: Если тащим ИЗ куклы персонажа
         elseif source_model.template_id == "character_paperdoll" or source_model.paperdoll then
-            source_model = require("main.modules.logic.interaction_manager").get_player_paperdoll()
+            source_model = interaction_manager.get_player_paperdoll()
         end
     end
 
     local source_slot = d.slot
-    local item = d.item 
+    local item = d.item
     local item_cfg = d.item_cfg
 
-    -- 1. СЛУЧАЙ: ОТМЕНА
+    -- === СЦЕНАРИЙ А: ОТМЕНА ДРАГА (Отпустили внутри GUI, но мимо валидных слотов) ===
     if not target_component and is_over_any_gui then
+        -- Сбрасываем визуал, возвращая вещь на её законное место
         item_transfer_manager.finalize()
 
-    -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ
+    -- === СЦЕНАРИЙ Б: УСПЕШНЫЙ ПЕРЕНОС (Бросили над ячейкой инвентаря или куклы) ===
+        -- Внутри drag_manager.finish в Сценарии 2 (Перемещение)
     elseif target_component then
-        -- 2. ОПРЕДЕЛЯЕМ МОДЕЛЬ ЦЕЛИ (View -> Model)
         local target_model = target_component
         if type(target_model) == "table" then
             if target_model.get_data_source then
                 target_model = target_model:get_data_source()
-            -- 🚩 ФИКС ДЛЯ КУКЛЫ: Если бросаем НА куклу персонажа
-            -- Проверь, какое имя класса или шаблона прописано в твоей кукле (например, template_id)
             elseif target_model.template_id == "character_paperdoll" or target_model.paperdoll then
                 target_model = require("main.modules.logic.interaction_manager").get_player_paperdoll()
             end
         end
 
-        -- Теперь на бэкенд ГАРАНТИРОВАННО улетит чистая модель player_paperdoll!
-        item_transfer_manager.execute_transfer(source_model, source_slot, target_model, target_slot, item, item_cfg)
+        local is_from_doll = (source_model == require("main.modules.logic.interaction_manager").get_player_paperdoll())
+        local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
-    -- 3. СЛУЧАЙ: ДРОП В МИР
+        -- Диспатчим экшен переноса, ПРОБРАСЫВАЯ МЕТКИ СПЛИТА В PAYLOAD
+        actions_dispatcher.REDUCERS["item_transfer"]({
+            slot_index = source_slot,
+            item_id = item_cfg and item_cfg.id or item.item_id,
+            from_paperdoll = is_from_doll,
+            target_slot = target_slot,
+            source_model_override = source_model,
+            target_model_override = target_model,
+
+            -- 🚩 ПРОБРОС МЕТОК СПЛИТА ДЛЯ РЕДЬЮСЕРА
+            item_override = item
+        })
+
+        item_transfer_manager.finalize()
+
+
+    -- === СЦЕНАРИЙ В: ВЫБРОС В МИР (Отпустили мышь за пределами интерфейсов) ===
     else
         item_transfer_manager.drop_to_world(source_model, source_slot, item, d.x, d.y)
     end
 
     is_over_any_gui = false
 end
-
-
--- function M.finish(target_component, target_slot)
---     if not active_drag then return end
---
---     local d = active_drag
---     active_drag = nil
---
---     local source = d.source
---     local source_slot = d.slot
---     local item = d.item 
---     local item_cfg = d.item_cfg
---
---     -- 1. СЛУЧАЙ: ОТМЕНА (Над GUI мимо слотов или за пределы окон)
---     if not target_component and is_over_any_gui then
---         -- Нам вообще плевать, сплит это или нет. 
---         -- Просто вызываем finalize, чтобы сбросить визуал к реальным данным.
---         item_transfer_manager.finalize(source)
---
---     -- 2. СЛУЧАЙ: ПЕРЕМЕЩЕНИЕ (Успешный перенос)
---     elseif target_component then
---         item_transfer_manager.execute_transfer(source, source_slot, target_component, target_slot, item, item_cfg)
---
---     -- 3. СЛУЧАЙ: ДРОП В МИР
---     else
---         item_transfer_manager.drop_to_world(source, source_slot, item, d.x, d.y)
---     end
---
---     is_over_any_gui = false
--- end
-
 
 return M

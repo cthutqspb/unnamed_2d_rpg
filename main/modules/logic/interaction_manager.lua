@@ -1,5 +1,6 @@
 local player_inventory = require("main.modules.player.player_inventory")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
+local broadcast = require("main.modules.system.broadcast")
 
 ---@class InteractionManager
 ---@field current_focus_ds table|nil Ссылка на data_source (модель) активного контейнера
@@ -16,6 +17,12 @@ end
 ---Очистить фокус взаимодействия (вызывается при закрытии окон)
 function M.clear_focus()
     M.current_focus_ds = nil
+
+    -- 🎯 MVC-РЕШЕНИЕ: Бэкенд просто сообщает миру, что фокус закрыт.
+    -- Никаких графических drag_manager тут больше нет!
+    broadcast.send("ui_events", {
+        message_id = hash("focus_lost")
+    })
 end
 
 ---Получить модель данных текущего открытого контейнера

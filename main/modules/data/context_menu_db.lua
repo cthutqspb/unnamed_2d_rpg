@@ -59,7 +59,7 @@ function M.get_actions(object_type, item_type, flags)
     local result = {}
 
     -- 1. СЦЕНАРИЙ: Кликнули по предмету в инвентаре или на кукле
-    if object_type == "item" and item_type then
+    if object_type == "gui_item" and item_type then
         local specific = M.data[item_type] or {}
 
         for _, action in ipairs(specific) do
@@ -82,7 +82,7 @@ function M.get_actions(object_type, item_type, flags)
 
         -- СПЛИТ: Разрешаем делить только в сумке, если стакается и вещь не надета
         if f.can_split and not f.is_equipped then
-            table.insert(result, { name_key = "menu_split", event = "request_split" })
+            table.insert(result, { name_key = "menu_split", event = "execute_split" })
         end
 
         -- ОБЩИЕ ДЕЙСТВИЯ ПРЕДМЕТОВ

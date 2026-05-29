@@ -24,7 +24,6 @@ nodes {
   id: "background"
   pivot: PIVOT_W
   parent: "root"
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
@@ -40,7 +39,6 @@ nodes {
   id: "fill"
   pivot: PIVOT_W
   parent: "root"
-  size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

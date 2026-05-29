@@ -1,6 +1,42 @@
-local locales = require("main.modules.data.locales.locale_manager")
+---@class ItemRequiredStats
+---@field level number|nil Требуемый уровень персонажа
+---@field strength number|nil Требуемая сила
+---@field agility number|nil Требуемая ловкость
+---@field intellect number|nil Требуемый интеллект
+
+---@class ItemBonusStats
+---@field strength number|nil Бонус к силе
+---@field agility number|nil Бонус к ловкости
+---@field intellect number|nil Бонус к интеллекту
+---@field stamina number|nil Бонус к выносливости
+
+---@class ItemDamageConfig
+---@field min number Минимальный урон
+---@field max number Максимальный урон
+---@field type string Тип урона ("physical", "magic")
+
+---@class ItemConfig
+---@field name_key string Локализационный ключ имени шмотки
+---@field desc_key string Локализационный ключ описания шмотки
+---@field animation string Имя анимации флипбука в атласе
+---@field tile_index number Индекс тайла для генераторов карт
+---@field color vector4 Цвет ноды качества/редкости (vmath.vector4)
+---@field texture string Имя графического атласа Defold
+---@field type string Тип предмета ("weapon", "armor", "quest", "potion")
+---@field equip_slot string Слот куклы капсом ("MAIN_HAND", "CHEST", "HEAD")
+---@field stackable boolean Можно ли складывать в один стак
+---@field max_stack number Максимальный размер стака предметов
+---@field quality string Качество вещи ("common", "rare", "epic")
+---@field weapon_type string|nil Подтип оружия ("one_hand_sword", "staff")
+---@field required ItemRequiredStats Структура требований к характеристикам
+---@field stats ItemBonusStats Структура добавляемых статов при экипировке
+---@field damage ItemDamageConfig|nil Параметры боевого урона для оружия
+---@field price number Стоимость предмета у торговцев
+---@field weight number Физический вес шмотки в рюкзаке
+---@field id? string Строковый ID ("iron_sword"), пропишем при инициализации для редьюсеров
 local M = {}
 
+---@type table<string, any>
 M.items_raw = {
     ["iron_sword"] = {
         name_key = "item_iron_sword_name",
@@ -168,34 +204,41 @@ M.items_raw = {
     -- ... остальные предметы
 }
 
--- 2. Создаем вспомогательную таблицу, где ключами будут ХЕШИ
+
+-- Быстрый кэш хэшированных ключей для мгновенного поиска из голых свойств Defold (go.property)
+---@type table<hash, ItemConfig>
 local items_by_hash = {}
+
 for id_str, data in pairs(M.items_raw) do
+    -- 🎯 ПРОМЫШЛЕННЫЙ ЗАДЕЛ: Автоматически вшиваем строковый ID в сам конфиг,
+    -- чтобы редьюсер item_transfer мог безопасно читать его одной строчкой item_cfg.id!
+    data.id = id_str
     items_by_hash[hash(id_str)] = data
 end
 
--- 3. Универсальная функция получения предмета
+---Универсальная быстрая функция получения статического конфига предмета
+---@param id any Идентификатор предмета (хэш Defold или чистая Lua-строка)
+---@return ItemConfig|nil data 🚩 АВТОДОПОЛНЕНИЕ СОХРАНЕНО: Все окна будут видеть строгие подсказки полей!
 function M.get_item(id)
-    -- Если id — это хеш (из go.property), берем из таблицы хешей
-    -- Если id — это строка, берем из основной таблицы
+    -- Если прилетел хэш (из коллизий/мира), мгновенно забираем из кэша. 
+    -- Если прилетела строка (из сумок/РЕДАКСА), забираем из items_raw.
     return items_by_hash[id] or M.items_raw[id]
 end
 
 function M.get_save_data()
-    -- Просто возвращаем таблицу. sys.save отлично сохранит строки и числа.
-    return M.items
+    return M.items_raw
 end
 
 function M.load_save_data(data)
-    -- Заменяем текущие предметы загруженными
-    M.items = data or {}
+    if data then M.items_raw = data end
 end
 
--- Не забудь функцию очистки для "Новой игры"
 function M.clear()
-    M.items = {}
+     M.items = {}
     -- Если у тебя фиксированный размер, можно заполнить пустышками:
     -- for i=1, 24 do M.items[i] = {item_id = nil, amount = 0} end
+    -- Для статической базы данных очистка обычно не требуется, 
+    -- но метод оставляем для совместимости с общим SaveManager.lua
 end
 
 return M

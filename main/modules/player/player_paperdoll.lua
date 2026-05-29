@@ -84,7 +84,7 @@ function M.load_save_data(data)
         local current_slot = M.slots[slot_type]
         if current_slot and slot_data.item_id then
             local id = slot_data.item_id
-            
+
             -- Если пришла строка (из JSON), чистим её и хешируем
             if type(id) == "string" then
                 -- Убираем обертку "hash: [item_id]", если она есть

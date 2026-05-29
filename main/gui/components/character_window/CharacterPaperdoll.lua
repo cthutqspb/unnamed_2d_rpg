@@ -70,12 +70,14 @@ end
 ---@param index string
 function M.handle_slot_click(index)
     if interaction.is_double_click(index) then
+        local item_data = player_paperdoll.slots[index]
+
         msg.post(".", "item_action", {
             event = "item_transfer",
             data = {
-                slot_index = index,
-                item_id = nil,
-                from_paperdoll = true
+                from_paperdoll = true,
+                item_id = item_data.item_id,
+                slot_index = index
             }
         })
     end
@@ -114,7 +116,7 @@ function M.handle_right_click(index, x, y)
     local can_split = item_data.amount and item_data.amount >= 2
     msg.post("main:/context_menu_layer#gui", "show_menu", {
         x = x, y = y,
-        type = "item",
+        type = "gui_item",
         sub_type = item_cfg.type,
         flags = {
             can_split = can_split, -- Передаем флаг в меню
@@ -196,7 +198,7 @@ function M:get_hover_data(mx, my)
             ---@type table|nil
             local item_data = player_paperdoll.slots[slot_type]
             if item_data and item_data.item_id then
-                return { type = "item", item = item_data }
+                return { type = "gui_item", item = item_data }
             end
         end
     end
