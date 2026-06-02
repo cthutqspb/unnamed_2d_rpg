@@ -3,10 +3,6 @@ fonts {
   name: "gui_title"
   font: "/assets/fonts/gui_title.font"
 }
-textures {
-  name: "items_project_utumno"
-  texture: "/assets/items/items_project_utumno.tilesource"
-}
 nodes {
   position {
     x: 1726.0

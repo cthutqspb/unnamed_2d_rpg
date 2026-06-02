@@ -1,4 +1,8 @@
 script: "/main/gui/hud.gui_script"
+textures {
+  name: "cursors"
+  texture: "/assets/cursor/cursors.atlas"
+}
 nodes {
   size {
     x: 1920.0

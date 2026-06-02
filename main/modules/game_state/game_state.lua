@@ -1,5 +1,6 @@
 local world_items_state = require("main.modules.game_state.world_items_state")
 local containers_state = require("main.modules.game_state.containers_state")
+local creatures_state = require("main.modules.game_state.creatures_state")
 -- local character = require("main.modules.game_state.character_state") -- на будущее
 
 local M = {}
@@ -12,6 +13,8 @@ local M = {}
 function M.get_inspect_info(go_id)
     -- 1. Спрашиваем контейнеры через их быструю телефонную книгу
     -- 🚩 ФИКС ТИПОВ: Явно кастуем в any, чтобы сбросить паранойю линтера о пустом словаре instances!
+
+    print('get_inspect_info', go_id)
     ---@type any
     local c_uid = containers_state.instances[go_id]
     if c_uid then
@@ -26,6 +29,13 @@ function M.get_inspect_info(go_id)
     if l_uid then
         local data = world_items_state.get_item_by_uid(l_uid)
         return "item_loot", l_uid, data
+    end
+
+    ---@type any
+    local creatures_uid = creatures_state.instances[go_id]
+    if creatures_uid then
+        local data = creatures_state.get(creatures_uid)
+        return "creature", creatures_uid, data
     end
 
     return nil, nil, nil

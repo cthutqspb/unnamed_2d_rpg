@@ -2,6 +2,7 @@ local gui_utils = require("main.gui.gui_utils")
 local window_manager = require("main.gui.components.managers.window_manager")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 ---@class WindowCallbacks
 ---@field on_show function|nil Коллбэк, вызываемый при открытии окна
@@ -38,22 +39,22 @@ function M.init(self, template_id, callbacks)
 
     local ok_wt, node_wt = pcall(gui.get_node, prefix .. "window_title")
     self.window_title = ok_wt and node_wt or nil
-    
+
     self.drag = self.druid:new_drag(self.header, function(_, dx, dy)
         -- window_manager.handle_window_click(self, msg.url())
-        
+
         -- 1. Сначала считаем «сырой» target_pos без учета ограничений
         local pos = gui.get_position(self.root)
-        
+
         -- Прогоняем функцию первый раз «вхолостую», чтобы вытащить актуальные скейлы для dx/dy
         local _, sf_x, sf_y = gui_utils.clamp_to_screen(self.root, self.body, pos)
-        
+
         -- Считаем позицию с корректными дельтами, чтобы мышь не обгоняла окно
         local target_pos = vmath.vector3(pos.x + (dx * sf_x), pos.y + (dy * sf_y), 0)
-        
+
         -- 2. Зажимаем позицию в рамки экрана с твоими отступами в 30 пикселей
         local final_pos = gui_utils.clamp_to_screen(self.root, self.body, target_pos, 30, 30)
-        
+
         -- 3. Применяем
         gui.set_position(self.root, final_pos)
     end)
@@ -150,7 +151,6 @@ function M.handle_hover(self, mx, my)
 
     if window_manager.is_context_menu_open() then return nil end
 
-
     -- 2. Проверяем, что нода вообще СУЩЕСТВУЕТ, прежде чем вызывать gui.is_enabled
     -- Если self.root будет nil, gui.is_enabled уронит игру с нечитаемой ошибкой
     if not self.root or not gui.is_enabled(self.root, true) then
@@ -165,7 +165,9 @@ function M.handle_hover(self, mx, my)
             if module and module.root and gui.is_enabled(module.root, true) then
                 if module.get_hover_data then
                     local data = module:get_hover_data(mx, my)
-                    if data then return data end
+                    if data then
+                        return data
+                    end
                 end
             end
         end
@@ -208,7 +210,7 @@ function M.set_visible(self, visible)
         window_manager.set_hover_status(msg.url(), false)
 
         if tooltip_manager.get_current_type() == "item" then
-            tooltip_manager.hide()
+            tooltip_manager.hide_gui_tooltips()
         end
     end
 

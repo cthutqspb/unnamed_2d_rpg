@@ -2,6 +2,8 @@ local druid = require("druid.druid")
 local constants_ui = require("main.gui.constants_ui")
 local window_manager = require("main.gui.components.managers.window_manager")
 local ContextMenu = require("main.gui.components.layers.context_menu_layer.ContextMenu")
+local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 function init(self)
     msg.post(".", "acquire_input_focus")
@@ -15,6 +17,19 @@ function final(self)
 end
 
 function update(self, dt)
+    -- 🎯 ТИТАНОВАЯ ЗАЩИТА: Если корень меню выключен (меню закрыто), 
+    -- скрипт мгновенно выходит из апдейта, не тратя ни одного микротакта процессора!
+    if not gui.is_enabled(gui.get_node("root"), true) then
+        return
+    end
+
+    -- Код выполняется СТРОГО в те секунды, когда меню реально горит на экране
+    local mx, my = tooltip_manager.mouse_x, tooltip_manager.mouse_y
+    if self.menu:is_over_window(mx, my) then
+        CustomCursor.set_style("cursor_default")
+        tooltip_manager.hide_gui_tooltips()
+        tooltip_manager.hide_world_tooltips()
+    end
 end
 
 function on_message(self, message_id, message, sender)

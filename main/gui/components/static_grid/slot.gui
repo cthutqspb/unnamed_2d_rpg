@@ -3,8 +3,8 @@ fonts {
   font: "/assets/fonts/font_regular_18.font"
 }
 textures {
-  name: "items_project_utumno"
-  texture: "/assets/items/items_project_utumno.tilesource"
+  name: "project_utumno"
+  texture: "/assets/items/project_utumno.tilesource"
 }
 nodes {
   size {
@@ -25,7 +25,7 @@ nodes {
     y: 36.0
   }
   type: TYPE_BOX
-  texture: "items_project_utumno/anim"
+  texture: "project_utumno/anim"
   id: "icon"
   parent: "root"
 }

@@ -4,6 +4,7 @@ local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
 local items_db = require("main.modules.data.items_db")
+local creatures_db = require("main.modules.data.creatures_db")
 local character_data = require("main.modules.character.character_data")
 
 local QUALITY_COLORS = {
@@ -12,6 +13,16 @@ local QUALITY_COLORS = {
     rare      = vmath.vector4(0, 0.44, 1, 1),
     epic      = vmath.vector4(0.64, 0.21, 0.93, 1),
     legendary = vmath.vector4(1, 0.5, 0, 1),
+}
+
+-- 🎯 ПАЛИТРА РАНГОВ МОНСТРОВ ДЛЯ REFRESH / TARGET_FRAME / NAMEPLATES
+local CREATURE_RANK_COLORS = {
+    pure      = vmath.vector4(0.12, 1, 0.5, 1),   -- Лаймово-зелёный (мирный/союзник)
+    common    = vmath.vector4(1, 1, 1, 1),         -- Чистый белый (обычный моб)
+    uncommon  = vmath.vector4(0.2, 0.8, 0.2, 1),   -- Плотный зелёный (крепкий моб)
+    rare      = vmath.vector4(0, 0.44, 1, 1),      -- Яркий синий (редкий именной)
+    elite     = vmath.vector4(0.64, 0.21, 0.93, 1),-- Пурпурный/Фиолетовый (элита)
+    boss      = vmath.vector4(1, 0.2, 0.2, 1),     -- Кроваво-красный (босс)
 }
 
 local STATS_COLOR = vmath.vector4(0.7, 0.7, 0.7, 1)
@@ -255,6 +266,19 @@ local function render_world_object(self, info, context)
         --local color = info.item_count > 0 and vmath.vector4(0.4, 1, 0.4, 1) or vmath.vector4(0.6, 0.6, 0.6, 1)
         --local txt = info.item_count > 0 and ("Предметов: " .. info.item_count) or "Пусто"
         --add_line(self, txt, nil, color)
+
+    elseif context.kind == "creature" then
+        local creature_cfg = creatures_db.get_creature(info.creature_id)
+
+        if creature_cfg then
+            display_name = locales.get(creature_cfg.name_key)
+        else
+            display_name = "Unknown Creature"
+        end
+
+        local rank_color = CREATURE_RANK_COLORS[info.rank] or CREATURE_RANK_COLORS.common
+
+        add_line(self, display_name, nil, rank_color)
     end
 end
 
@@ -324,9 +348,11 @@ function update(self, dt)
     self.current_data_ref = pack
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
-    print('PACK TYPE ', pack.type)
+
     if pack.type == "gui_item" then
         render_item(self, pack.info, pack.context)
+    elseif pack.type == "world_unit" then
+        render_world_object(self, pack.info, pack.context)
     elseif pack.type == "world_prop" then
         render_world_object(self, pack.info, pack.context)
     end

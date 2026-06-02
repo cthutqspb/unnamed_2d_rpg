@@ -14,11 +14,17 @@
 local M = {}
 
 -- АТОМАРНЫЕ ТИПЫ ДАННЫХ ДЛЯ ШАБЛОНОВ ТУЛТИПОВ
-M.TYPE_GUI_ITEM       = "gui_item"
-M.TYPE_GUI_SPELL      = "gui_spell"
-M.TYPE_GUI_STAT       = "gui_stat"
-M.TYPE_WORLD_UNIT     = "world_unit"
-M.TYPE_WORLD_PROP     = "world_prop"
+M.WORLD_TYPES = {
+    ["world_unit"] = "WORLD_UNIT", -- существа, NPC
+    ["world_prop"] = "WORLD_PROP", -- сундуки, двери, интеракты
+    ["gui_item"]   = "WORLD_LOOT", -- лут на земле (когда он в мире)
+}
+
+M.GUI_TYPES = {
+    ["gui_item"]   = "GUI_ITEM",  -- шмотки в сумках/кукле
+    ["gui_spell"]  = "GUI_SPELL", -- спеллы на панелях
+    ["gui_stat"]   = "GUI_STAT",  -- статы в окне персонажа
+}
 
 M.mouse_x = 0
 M.mouse_y = 0
@@ -38,10 +44,24 @@ function M.show(type, info, context)
     }
 end
 
----Закрыть сессию тултипа и очистить данные ховера
-function M.hide()
-    if current_data == nil then return end
-    current_data = nil
+---Принудительно закрыть тултип, ЕСЛИ он принадлежит игровому миру
+function M.hide_world_tooltips()
+    if not current_data then return end
+
+    -- Просто проверяем: есть ли тип текущего тултипа в словаре WORLD_TYPES?
+    if M.WORLD_TYPES[current_data.type] then
+        current_data = nil
+    end
+end
+
+---Принудительно закрыть тултип, ЕСЛИ он принадлежит интерфейсу (GUI)
+function M.hide_gui_tooltips()
+    if not current_data then return end
+
+    -- Просто проверяем: есть ли тип текущего тултипа в словаре GUI_TYPES?
+    if M.GUI_TYPES[current_data.type] then
+        current_data = nil
+    end
 end
 
 ---Получить полную структуру данных активной сессии тултипа

@@ -1,0 +1,84 @@
+go.property("uid", hash(""))
+go.property("creature_id", hash("unknown_creature"))
+go.property("creature_level", 1)
+go.property("creature_rank", hash("common"))
+go.property("is_from_factory", false) -- В редакторе всегда false
+
+local locales = require("main.modules.data.locales.locale_manager")
+local interaction = require("main.modules.interaction")
+local creatures_db = require("main.modules.data.creatures_db")
+local broadcast = require("main.modules.system.broadcast")
+local creatures_state = require("main.modules.game_state.creatures_state")
+
+---@class CreatureScriptContext
+---@field go_id hash
+---@field uid hash|string
+---@field creature_id string
+---@field creature_level number
+---@field creature_rank string
+---@field creature_type string
+---@field is_from_factory boolean
+
+---@param self CreatureScriptContext
+function init(self)
+	  self.go_id = go.get_id()
+
+    local string_uid = interaction.clean_id(self.uid) or ""
+    self.creature_id = interaction.clean_id(self.creature_id) or "unknown_creature"
+    self.creature_rank = interaction.clean_id(self.creature_rank) or "common"
+    self.creature_type = interaction.clean_id(self.creature_rank) or ""
+
+    -- 2. Если это ПРЕДМЕТ ИЗ РЕДАКТОРА (is_from_factory == false)
+    if not self.is_from_factory then
+        -- Если UID пустой, генерируем по координатам
+        if self.uid == hash("") or string_uid == "" then
+            local p = go.get_position()
+            string_uid = string.format("c_%d_%d", math.floor(p.x), math.floor(p.y))
+            self.uid = hash(string_uid)
+        end
+
+        -- Проверка BG3: если загрузились и предмета нет в сейве — он уже собран
+        if creatures_state.is_loaded_from_save and not creatures_state.exists(string_uid) then
+            go.delete()
+            return
+        end
+    end
+
+    -- Регистрируем связь для рейкаста
+    creatures_state.register(self.go_id, {
+        creature_id = self.creature_id,
+        creature_uid = string_uid,
+        level = self.creature_level or 1, -- передаем уровень для скалирования ХП
+        type = self.creature_type,            -- задел под фракции/типы
+        rank = self.creature_rank            -- ранг моба
+    })
+
+end
+
+---@param self CreatureScriptContext
+function final(self)
+	  if creatures_state.unregister then
+        creatures_state.unregister(self.go_id)
+    end
+end
+
+function update(self, dt)
+end
+
+function late_update(self, dt)
+end
+
+function fixed_update(self, dt)
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("click") then
+        print('Херанули по монстру, а может и не монстру!')
+    end
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end

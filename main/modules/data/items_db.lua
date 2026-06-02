@@ -44,7 +44,7 @@ M.items_raw = {
         animation = "iron_sword",
         tile_index = 2976,
         color = vmath.vector4(0.8, 0.8, 1, 1),
-        texture = "items_project_utumno",
+        texture = "project_utumno",
         type = "weapon",
         equip_slot = "MAIN_HAND",
         stackable = false,
@@ -76,7 +76,7 @@ M.items_raw = {
         animation = "crystal_sword",
         tile_index = 3013,
         color = vmath.vector4(0.8, 0.8, 1, 1),
-        texture = "items_project_utumno",
+        texture = "project_utumno",
         type = "weapon",
         equip_slot = "MAIN_HAND",
         stackable = false,
@@ -125,7 +125,7 @@ M.items_raw = {
         animation = "leather_helmet",
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2345,
-        texture = "items_project_utumno",
+        texture = "project_utumno",
         type = "armor",
         equip_slot = "HEAD",
         stackable = false,
@@ -152,7 +152,7 @@ M.items_raw = {
         animation = "clown_hat",
         color = vmath.vector4(0.8, 0.8, 1, 1),
         tile_index = 2347,
-        texture = "items_project_utumno",
+        texture = "project_utumno",
         type = "armor",
         equip_slot = "HEAD",
         stackable = false,
@@ -183,7 +183,7 @@ M.items_raw = {
         type = "potion",
         tile_index = 2683,
         color = vmath.vector4(0.8, 0.8, 1, 1),
-        texture = "items_project_utumno",
+        texture = "project_utumno",
         stackable = true,
         max_stack = 20,
         quality = "common",
@@ -223,22 +223,6 @@ function M.get_item(id)
     -- Если прилетел хэш (из коллизий/мира), мгновенно забираем из кэша. 
     -- Если прилетела строка (из сумок/РЕДАКСА), забираем из items_raw.
     return items_by_hash[id] or M.items_raw[id]
-end
-
-function M.get_save_data()
-    return M.items_raw
-end
-
-function M.load_save_data(data)
-    if data then M.items_raw = data end
-end
-
-function M.clear()
-     M.items = {}
-    -- Если у тебя фиксированный размер, можно заполнить пустышками:
-    -- for i=1, 24 do M.items[i] = {item_id = nil, amount = 0} end
-    -- Для статической базы данных очистка обычно не требуется, 
-    -- но метод оставляем для совместимости с общим SaveManager.lua
 end
 
 return M

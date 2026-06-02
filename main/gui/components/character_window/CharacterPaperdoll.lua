@@ -3,6 +3,7 @@ local interaction = require("main.modules.interaction")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local drag_manager = require("main.gui.components.managers.drag_manager")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 ---@class CharacterPaperdollSlot
 ---@field root node
@@ -198,8 +199,10 @@ function M:get_hover_data(mx, my)
             ---@type table|nil
             local item_data = player_paperdoll.slots[slot_type]
             if item_data and item_data.item_id then
+                CustomCursor.set_style("cursor_outline_yellow")
                 return { type = "gui_item", item = item_data }
             end
+            CustomCursor.set_style("cursor_default")
         end
     end
 end

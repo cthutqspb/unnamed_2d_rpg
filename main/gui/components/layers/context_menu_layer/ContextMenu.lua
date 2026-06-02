@@ -50,7 +50,6 @@ function M:show(x, y, type, sub_type, flags, data)
 
     local total_height = (#actions * cfg.btn_height) + ((#actions - 1) * cfg.spacing) + (cfg.padding * 2)
     gui.set_size(self.background, vmath.vector3(cfg.menu_width, total_height, 0))
-    print('SHOW', data.from_paperdoll)
     -- Наполнение
     for i, action in ipairs(actions) do
         self:create_menu_button(action, i, data, cfg)
@@ -130,6 +129,20 @@ end
 ---@diagnostic disable-next-line: unused-local
 function M:hide()
     msg.post(".", "hide_menu")
+end
+
+function M.is_over_window(self, x, y)
+    -- Если корневой узел скрыт — окна физически нет на экране
+    if not self.root or not gui.is_enabled(self.root, true) then
+        return false
+    end
+
+    if self.background and gui.pick_node(self.background, x, y) then return true end
+
+    if self.action_field and gui.pick_node(self.action_field, x, y) then return true end
+
+    -- Мышь находится в пустоте за пределами элементов окна
+    return false
 end
 
 ---Перехват кликов для закрытия меню при нажатии "в молоко"

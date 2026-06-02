@@ -3,7 +3,7 @@ instances {
   id: "player"
   prototype: "/main/player/player.go"
   position {
-    z: 0.9
+    z: 1.0
   }
 }
 instances {
@@ -31,6 +31,13 @@ instances {
 instances {
   id: "container"
   prototype: "/main/game_objects/container/container.go"
+}
+instances {
+  id: "cursor"
+  prototype: "/main/player/cursor.go"
+  position {
+    z: 25.0
+  }
 }
 scale_along_z: 0
 embedded_instances {

@@ -19,6 +19,7 @@ embedded_instances {
   children: "character_window"
   children: "container_window"
   children: "context_menu_layer"
+  children: "cursor"
   children: "drag_layer"
   children: "inventory_window"
   children: "split_window"
@@ -99,4 +100,12 @@ embedded_instances {
   position {
     z: 30.0
   }
+}
+embedded_instances {
+  id: "cursor"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/cursor/cursor.gui\"\n"
+  "}\n"
+  ""
 }

@@ -4,8 +4,8 @@ fonts {
   font: "/assets/fonts/gui_title.font"
 }
 textures {
-  name: "items_project_utumno"
-  texture: "/assets/items/items_project_utumno.tilesource"
+  name: "project_utumno"
+  texture: "/assets/items/project_utumno.tilesource"
 }
 nodes {
   size {

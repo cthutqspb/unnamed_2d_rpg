@@ -104,11 +104,77 @@ instances {
     }
   }
 }
+instances {
+  id: "creature"
+  prototype: "/main/game_objects/units/creatures/creature.go"
+  position {
+    x: 5170.0
+    y: 2972.0
+    z: 1.0
+  }
+  component_properties {
+    id: "creature"
+    properties {
+      id: "uid"
+      value: "skeleton_warrior_001"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "creature_id"
+      value: "skeleton_warrior"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "creature_level"
+      value: "2.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "creature_rank"
+      value: ""
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
+instances {
+  id: "dragon"
+  prototype: "/main/game_objects/units/creatures/dragon.go"
+  position {
+    x: 5590.0
+    y: 2630.0
+    z: 1.0
+  }
+  component_properties {
+    id: "creature"
+    properties {
+      id: "uid"
+      value: "green_dragon_01"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "creature_id"
+      value: "elder_green_dragon"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "creature_level"
+      value: "50.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "creature_rank"
+      value: "rare"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
   children: "123"
   children: "1234"
+  children: "creature"
+  children: "dragon"
   children: "lootable_item"
   children: "lootable_item1"
   children: "world_item"

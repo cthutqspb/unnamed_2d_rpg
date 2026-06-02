@@ -40,8 +40,6 @@ end
 ---@param self SplitWindowGuiContext
 local function confirm(self)
     if self.sender_url then
-        print('aself.current_amoun',  self.current_amount)
-
         -- 📬 Сигнал улетает обратно на сохраненный URL инвентаря/сундука, 
         -- где его теперь честно ловит наш Redux-приемник!
         msg.post(self.sender_url, "split_confirmed", {

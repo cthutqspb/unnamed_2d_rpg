@@ -1,7 +1,7 @@
 script: "/main/gui/components/layers/context_menu_layer/context_menu_layer.gui_script"
 fonts {
-  name: "gui_title"
-  font: "/assets/fonts/gui_title.font"
+  name: "font_regular_20"
+  font: "/assets/fonts/font_regular_20.font"
 }
 nodes {
   size {
@@ -75,7 +75,7 @@ nodes {
   type: TYPE_TEXT
   text: "\n"
   ""
-  font: "gui_title"
+  font: "font_regular_20"
   id: "action_text"
   pivot: PIVOT_NW
   parent: "action_field"

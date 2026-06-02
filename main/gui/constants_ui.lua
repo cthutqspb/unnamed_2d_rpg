@@ -7,7 +7,8 @@ M.LAYERS = {
     POPUP = 9,      -- Подтверждения (Выйти из игры?)
     CONTEXT = 10,
     TOOLTIP = 12,    -- Всегда сверху всех
-    DRAG = 14
+    DRAG = 14,
+    CURSOR = 15
 }
 
 return M

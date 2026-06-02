@@ -9,6 +9,7 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 local h_touch = hash("touch")
 
@@ -62,11 +63,13 @@ function update(self, dt)
     local hover_data = self.character_window:handle_hover(mx, my)
 
     if hover_data then
+        CustomCursor.set_style("cursor_outline_yellow")
         tooltip_manager.show(hover_data.type, hover_data.item, { source = "inventory" })
     else
         -- Проверяем, над окном ли мы, чтобы скрыть тултип мира/предмета
         if self.character_window:is_over_window(mx, my) then
-            tooltip_manager.hide()
+            CustomCursor.set_style("cursor_default")
+            tooltip_manager.hide_gui_tooltips()
         end
     end
 end

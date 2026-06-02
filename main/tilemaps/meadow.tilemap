@@ -1,4 +1,4 @@
-tile_set: "/assets/items/items_project_utumno.tilesource"
+tile_set: "/assets/items/project_utumno.tilesource"
 layers {
   id: "\320\241\320\273\320\276\320\271 \321\202\320\260\320\271\320\273\320\276\320\262 1"
   z: 0.5

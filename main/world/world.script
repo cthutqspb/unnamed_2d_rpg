@@ -1,4 +1,3 @@
-local locales = require("main.modules.data.locales.locale_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
@@ -6,15 +5,15 @@ local items_db = require("main.modules.data.items_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
-local interaction = require("main.modules.interaction")
 local gui_utils = require("main.gui.gui_utils")
 local camera = require("orthographic.camera")
 local character_data = require("main.modules.character.character_data")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 ---@class WorldScriptInstance
 ---@field player_direction number Направление взгляда игрока (-1 или 1)
 ---@field drag_active boolean Флаг активного драга в мире
----@field last_hovered_id hash|nil ID последнего объекта под курсором
+---@field current_hover_id hash|nil
 ---@field last_player_x number
 ---@field last_player_y number
 ---@field last_action table|nil
@@ -58,31 +57,37 @@ end
 ---@param gui_pos vector3 Пересчитанные Druid-координаты интерфейса
 ---@param world_pos vector3 Пересчитанные мировые координаты на карте
 local function check_hover(self, gui_pos, world_pos)
-    -- ТВОЙ РОДНОЙ КОД ОБНОВЛЕНИЯ ТУЛТИПОВ (без изменений)
     if window_manager.is_over_ui() then
-        local cur_type = tooltip_manager.get_current_type()
-        if cur_type == tooltip_manager.TYPE_WORLD_UNIT or cur_type == tooltip_manager.TYPE_WORLD_PROP or cur_type == tooltip_manager.TYPE_GUI_ITEM then
-            tooltip_manager.hide()
+        tooltip_manager.hide_world_tooltips()
+        local current_type = tooltip_manager.get_current_type()
+        if not tooltip_manager.GUI_TYPES[current_type] then
+            CustomCursor.set_style("cursor_default")
         end
         return false
     end
 
-    local hits = interaction.get_all_targets_under_cursor(world_pos)
-    if hits then
-        local top_object = hits[1]
-        local kind, uid, state_data = game_state.get_inspect_info(top_object.id)
+    -- 🎯 ЗАМЕНА РЕЙКАСТА НА ТРИГГЕР-ФОКУС:
+    -- Больше никаких лучей, мазаний по краям и вылетов в воздухе!
+    -- Берем id, который физический триггер курсора записал нам в контекст.
+    local active_id = self.current_hover_id
+    if active_id then
+        -- Вытаскиваем данные из бэкенд-телефонных книг ("container", "item_loot", "creature")
+        local kind, uid, state_data = game_state.get_inspect_info(active_id)
 
         if kind and state_data then
-            local tooltip_type = tooltip_manager.TYPE_WORLD_PROP
+            local tooltip_type = "world_prop"
 
             if kind == "item_loot" then
-                if state_data.is_dynamic then
-                    tooltip_type = tooltip_manager.TYPE_GUI_ITEM
-                else
-                    tooltip_type = tooltip_manager.TYPE_WORLD_PROP
-                end
+                CustomCursor.set_style("cursor_outline_yellow")
+                tooltip_type = state_data.is_dynamic and "gui_item" or "world_prop"
+
             elseif kind == "creature" then
-                tooltip_type = tooltip_manager.TYPE_WORLD_UNIT
+                CustomCursor.set_style("cursor_outline_red")
+                tooltip_type = "world_unit"
+
+            elseif kind == "container" then
+                CustomCursor.set_style("cursor_outline_yellow")
+                tooltip_type = "world_prop"
             end
 
             tooltip_manager.show(tooltip_type, state_data, {
@@ -92,13 +97,14 @@ local function check_hover(self, gui_pos, world_pos)
             })
         end
     else
+        -- Если под триггером мыши пусто — принудительно тушим тултип
+        tooltip_manager.hide_world_tooltips()
         local cur_type = tooltip_manager.get_current_type()
-        if cur_type == tooltip_manager.TYPE_WORLD_UNIT or cur_type == tooltip_manager.TYPE_WORLD_PROP or cur_type == tooltip_manager.TYPE_GUI_ITEM then
-            tooltip_manager.hide()
+        if not tooltip_manager.GUI_TYPES[cur_type] then
+            CustomCursor.set_style("cursor_default")
         end
     end
 end
-
 
 ---Вспомогательная функция перевода экранных координат мыши в мировые пиксели карты
 ---@private
@@ -116,14 +122,8 @@ local function get_world_mouse_pos(self, action_x, action_y)
     return vmath.vector3(world_x, world_y, 0)
 end
 
-local function update_window_size(self)
-    -- Получаем реальные физические пиксели окна в данный момент
-    self.window_width, self.window_height = window.get_size()
-end
-
 ---@param self WorldScriptInstance
 function init(self)
-    -- update_window_size(self)
     math.randomseed(os.time())
     print("World initialized")
     --msg.post("game_scene:/camera", "follow", { target = go.get_id("/player"), lerp = 0.08 })
@@ -131,7 +131,7 @@ function init(self)
     msg.post(hash("/camera"), "set_automatic_zoom", { enabled = true })
     self.player_direction = 1
     self.drag_active = false
-    self.last_hovered_id = nil
+    self.current_hover_id = nil
     -- Инициализируем кэш трекера перемещений
     self.last_player_x = 0
     self.last_player_y = 0
@@ -181,6 +181,24 @@ end
 ---@param message table
 ---@param sender url
 function on_message(self, message_id, message, sender)
+    -- 🎯 ЛОВИМ СИ-ТРИГГЕР ВХОДА/ВЫХОДА МЫШКИ
+    if message_id == hash("trigger_response") then
+        if message.enter then
+            -- Мышка физически наступила на триггер объекта (сундук, скелет)
+            self.current_hover_id = message.other_id
+        else
+            -- Мышка ушла с объекта — зануляем, ТОЛЬКО если ушли именно с текущего
+            if self.current_hover_id == message.other_id then
+                self.current_hover_id = nil
+            end
+        end
+
+        -- Мгновенно обновляем тултип при физическом движении мыши (не дожидаясь WASD-апдейта!)
+        if self.last_action then
+            local gui_pos, world_pos = gui_utils.transform_coordinates(self.last_action, hash("/camera"))
+            check_hover(self, gui_pos, world_pos)
+        end
+    end
     -- Изменение направления взгляда персонажа (для навигации или спавна)
     if message_id == hash("player_direction") then
         self.player_direction = message.direction
@@ -268,6 +286,48 @@ function on_input(self, action_id, action)
         check_hover(self, gui_pos, world_pos)
     end
 
+        -- 🎯 ЛОГИКА ПРАВОГО КЛИКА МЫШИ (ПКМ) ПО ОБЪЕКТАМ МИРА
+    if action_id == hash("mouse_right") and action.pressed then
+        -- Полный игнор кликов в мир, если курсор находится над GUI-окном
+        if window_manager.is_over_ui() then return false end
+
+        -- Берем ID объекта, который Си-триггер прямо сейчас держит в фокусе под мышкой
+        local target_id = self.current_hover_id
+
+        if target_id then
+            -- Опрашиваем нашу центральную базу: кто это? (сундук, предмет или наш Скелет)
+            local target_type, uid, state_data = game_state.get_inspect_info(target_id)
+
+            if target_type and uid then
+                -- Шлем Си-сигнал в слой контекстного меню. Оно откроется пиксель-в-пиксель!
+                msg.post("main:/context_menu_layer#gui", "show_menu", {
+                    x = action.x,
+                    y = action.y,
+                    type = target_type,
+                    sub_type = nil,
+                    flags = {},
+                    data = {
+                        slot_index = nil,
+                        item_id = state_data and state_data.item_id or nil,
+                        source_url = msg.url("game_scene:/player"),
+                        target_go_id = target_id,
+                        target_uid = uid
+                    }
+                })
+
+                -- 🚩 СИНХРОН ДВИЖЕНИЯ: Приказываем игроку мгновенно остановиться, 
+                -- так как открылось меню взаимодействия и бежать никуда не надо!
+                msg.post("player", "stop_movement")
+            end
+        else
+            -- Кликнули ПКМ в пустую землю — гасим открытое меню и отправляем персонажа бежать ПКМ-ом!
+            msg.post("main:/context_menu_layer#gui", "hide_menu")
+
+            -- Получаем мировые координаты точки клика земли (они у тебя уже посчитаны в on_input)
+            msg.post("player", "move_to", { position = world_pos })
+        end
+    end
+
     -- 3. ЛОГИКА КЛИКА ЛКМ ПО ИГРОВОМУ ПОЛЮ
     if action_id == hash("touch") and action.pressed then
         -- Полный игнор кликов в мир, если палец нажал на GUI-интерфейс
@@ -275,13 +335,9 @@ function on_input(self, action_id, action)
             return false
         end
 
-        local res = interaction.get_target_under_cursor(world_pos)
-        if res then
-            -- Если ткнули ЛКМ точно по сундуку/луту — шлем ему базовый клик
-            msg.post(res, "click")
-        else
-            -- Клик в чистое поле на земле — заставляем персонажа бежать в мировые координаты
-            msg.post("player", "move_to", { position = world_pos })
+        local active_id = self.current_hover_id
+        if active_id then
+             msg.post(active_id, "click")
         end
     end
 

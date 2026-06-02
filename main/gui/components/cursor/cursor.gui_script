@@ -1,0 +1,33 @@
+local gui_utils = require("main.gui.gui_utils")
+local constants_ui = require("main.gui.constants_ui")
+-- 🎯 ПОДКЛЮЧАЕМ НАШ ПАССИВНЫЙ МЕНЕДЖЕР:
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
+
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    gui.set_render_order(constants_ui.LAYERS.CURSOR)
+    
+    -- Локальный кэш внутри gui_script для защиты видеопамяти от спама play_flipbook
+    self.rendered_style = "cursor_default"
+end
+
+function update(self, dt)
+    -- 🎯 АНАЛОГ ТУЛТИПА: Каждый кадр забираем чистый стейт из Lua-менеджера!
+    local active_style = CustomCursor.get_current_style()
+
+    -- Если стиль в памяти изменился — легально применяем флипбук в GUI-потоке!
+    if self.rendered_style ~= active_style then
+        self.rendered_style = active_style
+        local node = gui.get_node("pointer")
+        gui.play_flipbook(node, active_style)
+    end
+end
+
+function on_input(self, action_id, action)
+    if action.x and action.y then
+        local node = gui.get_node("pointer")
+        local gui_pos, _ = gui_utils.transform_coordinates(action, hash("/camera"))
+        gui.set_position(node, gui_pos)
+    end
+end
+

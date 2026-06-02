@@ -5,7 +5,7 @@ go.property("is_from_factory", false) -- В редакторе всегда fals
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interaction = require("main.modules.interaction")
-local items_db = require "main.modules.data.items_db"
+local items_db = require("main.modules.data.items_db")
 local broadcast = require("main.modules.system.broadcast")
 local world_items_state = require("main.modules.game_state.world_items_state")
 

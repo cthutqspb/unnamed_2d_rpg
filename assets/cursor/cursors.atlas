@@ -1,0 +1,36 @@
+animations {
+  id: "cursor_default"
+  images {
+    image: "/assets/cursor/cursor_final.png"
+  }
+  playback: PLAYBACK_LOOP_FORWARD
+}
+animations {
+  id: "cursor_outline_blue"
+  images {
+    image: "/assets/cursor/outlines/cursor_outline_blue.png"
+  }
+  playback: PLAYBACK_LOOP_FORWARD
+}
+animations {
+  id: "cursor_outline_red"
+  images {
+    image: "/assets/cursor/outlines/cursor_outline_red.png"
+  }
+  playback: PLAYBACK_LOOP_FORWARD
+}
+animations {
+  id: "cursor_outline_white"
+  images {
+    image: "/assets/cursor/outlines/cursor_outline_white.png"
+  }
+  playback: PLAYBACK_LOOP_FORWARD
+}
+animations {
+  id: "cursor_outline_yellow"
+  images {
+    image: "/assets/cursor/outlines/cursor_outline_yellow.png"
+  }
+  playback: PLAYBACK_LOOP_FORWARD
+}
+extrude_borders: 2

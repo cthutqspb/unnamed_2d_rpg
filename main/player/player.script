@@ -145,11 +145,11 @@ end
 ---@param action table
 function on_input(self, action_id, action)
     -- Глобальная защита GUI
-    if action_id == hash("mouse_right") or action_id == hash("touch") then
-        if window_manager.is_over_ui() then
-            return false
-        end
-    end
+    -- if action_id == hash("mouse_right") or action_id == hash("touch") then
+    --     if window_manager.is_over_ui() then
+    --         return false
+    --     end
+    -- end
 
     -- Управление кнопками WASD
     if action_id == hash("up") then
@@ -170,45 +170,45 @@ function on_input(self, action_id, action)
     end
 
     -- ДВИЖЕНИЕ МЫШЬЮ И ПКМ КОНТЕКСТНОЕ МЕНЮ
-    if action_id == hash("mouse_right") and action.pressed then
-        -- ОДНА СТРОКА: Камера сама переведет клик ПКМ в точные координаты мира
-        -- ОДНА СТРОКА: Получаем сразу все нужные координаты
-        local gui_pos, world_pos = gui_utils.transform_coordinates(action, hash("/camera"))
-
-        local target_id = interaction.get_target_under_cursor(world_pos)
-
-        if target_id then
-            local target_type, uid, state_data = game_state.get_inspect_info(target_id)
-
-            if target_type and uid then
-                msg.post("main:/context_menu_layer#gui", "show_menu", {
-                    x = action.x,
-                    y = action.y,
-                    type = target_type,
-                    sub_type = nil,
-                    flags = {},
-                    data = {
-                        slot_index = nil,
-                        item_id = state_data and state_data.item_id or nil,
-                        source_url = msg.url(),
-                        target_go_id = target_id,
-                        target_uid = uid
-                    }
-                })
-
-                self.move_target = nil
-                self.move_input = vmath.vector3(0, 0, 0)
-            end
-        else
-            msg.post("main:/context_menu_layer#gui", "hide_menu")
-            self.move_target = vmath.vector3(world_pos.x, world_pos.y, 1.0)
-            self.move_input = vmath.vector3(0, 0, 0)
-            self.pending_item = nil
-            self.pending_event = nil
-        end
+    -- if action_id == hash("mouse_right") and action.pressed then
+    --     -- ОДНА СТРОКА: Камера сама переведет клик ПКМ в точные координаты мира
+    --     -- ОДНА СТРОКА: Получаем сразу все нужные координаты
+    --     local gui_pos, world_pos = gui_utils.transform_coordinates(action, hash("/camera"))
+    --
+    --     local target_id = interaction.get_target_under_cursor(world_pos)
+    --
+    --     if target_id then
+    --         local target_type, uid, state_data = game_state.get_inspect_info(target_id)
+    --
+    --         if target_type and uid then
+    --             msg.post("main:/context_menu_layer#gui", "show_menu", {
+    --                 x = action.x,
+    --                 y = action.y,
+    --                 type = target_type,
+    --                 sub_type = nil,
+    --                 flags = {},
+    --                 data = {
+    --                     slot_index = nil,
+    --                     item_id = state_data and state_data.item_id or nil,
+    --                     source_url = msg.url(),
+    --                     target_go_id = target_id,
+    --                     target_uid = uid
+    --                 }
+    --             })
+    --
+    --             self.move_target = nil
+    --             self.move_input = vmath.vector3(0, 0, 0)
+    --         end
+    --     else
+    --         msg.post("main:/context_menu_layer#gui", "hide_menu")
+    --         self.move_target = vmath.vector3(world_pos.x, world_pos.y, 1.0)
+    --         self.move_input = vmath.vector3(0, 0, 0)
+    --         self.pending_item = nil
+    --         self.pending_event = nil
+    --     end
 
     -- Горячие клавиши
-    elseif action_id == hash("take_damage") and action.pressed then
+    if action_id == hash("take_damage") and action.pressed then
         take_damage(self, 10)
     elseif action_id == hash("heal") and action.pressed then
         heal(self, 10)
@@ -243,6 +243,21 @@ function on_message(self, message_id, message, sender)
         print("Player teleported to:", message.position)
     end
 
+    -- 🎯 ЧИСТЫЙ КОНТРОЛЛЕР ХОДЬБЫ:
+    -- Игрок больше не думает, куда кликнули — в инвентарь, в сундук или в скелета.
+    -- Ему просто приказали бежать в мировые координаты, и он послушно выполняет!
+    if message_id == hash("move_to") then
+        self.move_target = vmath.vector3(message.position.x, message.position.y, 1.0)
+        self.move_input = vmath.vector3(0, 0, 0)
+        self.pending_item = nil
+        self.pending_event = nil
+
+    -- Команда экстренной остановки, когда мир открыл контекстное меню над Скелетом
+    elseif message_id == hash("stop_movement") then
+        self.move_target = nil
+        self.move_input = vmath.vector3(0, 0, 0)
+    end
+
     -- Сигнал от ЛКМ-клика издалека по сундуку или кучке лута на земле (move_to_item)
     if message_id == hash("move_to_item") then
         self.move_target = go.get_world_position(message.item_id)
@@ -272,6 +287,21 @@ function on_message(self, message_id, message, sender)
             else
                 self.pending_event = "click" -- Для сундуков и бочек
                 self.pending_range = 45      -- Оставляем стандартные 45 пикселей
+            end
+        end
+    end
+
+    if message_id == hash("contact_point_response") then
+        -- 🎯 ФИКС СТАЛКИВАНИЯ МОНСТРОВ:
+        -- Разрешаем коду выталкивания срабатывать И для стен, И для группы creature!
+        if message.group == hash("wall") or message.group == hash("creature") then
+            -- Твой оригинальный рабочий код выталкивания персонажа из препятствий:
+            local new_pos = go.get_position() + message.normal * message.distance
+            go.set_position(new_pos)
+
+            -- Если игрок бежал по мышке (move_target), при столкновении с драконом/стеной сбрасываем бег
+            if self.move_target then
+                self.move_target = nil
             end
         end
     end

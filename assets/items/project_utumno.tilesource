@@ -18,9 +18,29 @@ animations {
   end_tile: 3013
 }
 animations {
+  id: "cursor_arrow"
+  start_tile: 1
+  end_tile: 1
+}
+animations {
+  id: "cursor_hand"
+  start_tile: 1
+  end_tile: 1
+}
+animations {
+  id: "cursor_sword"
+  start_tile: 1329
+  end_tile: 1329
+}
+animations {
   id: "default_container"
   start_tile: 7
   end_tile: 7
+}
+animations {
+  id: "elder_green_dragon"
+  start_tile: 4310
+  end_tile: 4310
 }
 animations {
   id: "iron_sword"
@@ -36,6 +56,11 @@ animations {
   id: "lesser_mana_potion"
   start_tile: 2683
   end_tile: 2683
+}
+animations {
+  id: "sceleton"
+  start_tile: 4755
+  end_tile: 4755
 }
 animations {
   id: "slot_head_background"

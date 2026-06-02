@@ -1,0 +1,52 @@
+local settings = require("main.modules.data.settings")
+
+function init(self)
+	  msg.post(".", "acquire_input_focus")
+    self.pressed = false
+end
+
+function final(self)
+end
+
+function update(self, dt)
+    -- Если мышка ещё ни разу не двинулась — выходим
+    if not self.last_action then return end
+
+    -- 🎯 АДАПТИВНЫЙ ТРАНСФОРМ:
+    -- Наш оригинальный gui_utils сам посчитает сдвиг едущей камеры, масштабирование 
+    -- и тайлинг Hyprland, выдав идеальный world_pos в этой микросекунде!
+    local gui_utils = require("main.gui.gui_utils")
+    local _, world_pos = gui_utils.transform_coordinates(self.last_action, hash("/camera"))
+
+    -- Железно ставим физическую сферу курсора точно под остриё стрелки мыши в мире
+    go.set_position(vmath.vector3(world_pos.x, world_pos.y, 0))
+end
+
+function fixed_update(self, dt)
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("collision_response") and self.pressed then
+        print("collision_response:", message.other_id)
+
+    elseif message_id == hash("trigger_response") then
+        print("trigger_response: ", message.other_id)
+        msg.post("game_scene:/world", "trigger_response", message)
+    end
+end
+
+function on_input(self, action_id, action)
+    -- Защита от инпутов без координат
+    if not action.x then return false end
+
+    -- 🎯 КЭШИРУЕМ ЖИВОЙ ACTION: Сохраняем системную таблицу Defold со всеми масштабами ОС
+    self.last_action = action
+
+    -- Запоминаем нажатие ЛКМ (touch)
+    if action_id == hash("touch") then
+        self.pressed = action.pressed
+    end
+end
+
+function on_reload(self)
+end

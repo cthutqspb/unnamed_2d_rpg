@@ -14,8 +14,6 @@ function init(self)
     end
 
     local root = gui.get_node("root")
-    print("Root pos:", gui.get_position(root))
-    print("Root visible:", gui.get_visible(root))
 
     self.druid = druid.new(self)
 

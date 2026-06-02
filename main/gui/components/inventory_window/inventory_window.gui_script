@@ -34,13 +34,13 @@ function update(self, dt)
 
         -- 2. Тултипы (используем системный метод из базы)
         local mx, my = tooltip_manager.mouse_x, tooltip_manager.mouse_y
-        
+
         -- Вызываем метод БАЗЫ, который внутри себя вызовет get_hover_data окна
         local hovered = self.inventory_window:handle_hover(mx, my)
-        
+
         -- Если ничего не ховерится, но мышь над окном — прячем тултип
         if not hovered and gui.pick_node(self.inventory_window.root, mx, my) then
-            tooltip_manager.hide()
+            tooltip_manager.hide_gui_tooltips()
         end
     end
 end

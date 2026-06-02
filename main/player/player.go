@@ -12,6 +12,9 @@ embedded_components {
   "  texture: \"/assets/characters/mage.tilesource\"\n"
   "}\n"
   ""
+  position {
+    z: 1.0
+  }
 }
 embedded_components {
   id: "collisionobject"
@@ -21,20 +24,19 @@ embedded_components {
   "friction: 0.1\n"
   "restitution: 0.5\n"
   "group: \"player\"\n"
+  "mask: \"creature\"\n"
   "embedded_collision_shape {\n"
   "  shapes {\n"
-  "    shape_type: TYPE_BOX\n"
+  "    shape_type: TYPE_SPHERE\n"
   "    position {\n"
   "    }\n"
   "    rotation {\n"
   "    }\n"
   "    index: 0\n"
-  "    count: 3\n"
-  "    id: \"box\"\n"
+  "    count: 1\n"
   "  }\n"
-  "  data: 10.0\n"
-  "  data: 10.0\n"
-  "  data: 10.0\n"
+  "  data: 16.0\n"
   "}\n"
+  "event_trigger: false\n"
   ""
 }

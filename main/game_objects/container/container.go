@@ -24,7 +24,7 @@ embedded_components {
   "material: \"/builtins/materials/sprite.material\"\n"
   "textures {\n"
   "  sampler: \"texture_sampler\"\n"
-  "  texture: \"/assets/items/items_project_utumno.tilesource\"\n"
+  "  texture: \"/assets/items/project_utumno.tilesource\"\n"
   "}\n"
   ""
   position {
@@ -34,12 +34,12 @@ embedded_components {
 embedded_components {
   id: "collisionobject"
   type: "collisionobject"
-  data: "type: COLLISION_OBJECT_TYPE_KINEMATIC\n"
+  data: "type: COLLISION_OBJECT_TYPE_TRIGGER\n"
   "mass: 0.0\n"
   "friction: 0.1\n"
   "restitution: 0.5\n"
   "group: \"container\"\n"
-  "mask: \"cursor\"\n"
+  "mask: \"mouse\"\n"
   "embedded_collision_shape {\n"
   "  shapes {\n"
   "    shape_type: TYPE_BOX\n"
@@ -54,5 +54,7 @@ embedded_components {
   "  data: 10.0\n"
   "  data: 10.0\n"
   "}\n"
+  "event_collision: false\n"
+  "event_contact: false\n"
   ""
 }

@@ -6,8 +6,8 @@ local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
-local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
+local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 
 local h_touch = hash("touch")
 
@@ -58,12 +58,14 @@ function update(self, dt)
 
     -- 1. Если данные есть (мы над предметом)
     if hover_data then
+        CustomCursor.set_style("cursor_outline_yellow")
         tooltip_manager.show(hover_data.type, hover_data.item, { source = "container" })
     else
         -- 2. Если данных нет, но мы над окном — прячем
         if gui.pick_node(self.container_window.root, mx, my) then
             -- print("OVER WINDOW BUT NO ITEM")
-            tooltip_manager.hide()
+            CustomCursor.set_style("cursor_default")
+            tooltip_manager.hide_gui_tooltips()
         end
     end
 end
