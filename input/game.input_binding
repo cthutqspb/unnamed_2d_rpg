@@ -58,6 +58,14 @@ key_trigger {
   input: KEY_LSHIFT
   action: "key_lshift"
 }
+key_trigger {
+  input: KEY_J
+  action: "burn_mana"
+}
+key_trigger {
+  input: KEY_K
+  action: "restore_mana"
+}
 mouse_trigger {
   input: MOUSE_BUTTON_LEFT
   action: "touch"

@@ -35,8 +35,22 @@ function M.new_game()
     player_inventory.add_item("clown_hat", 1)
     player_inventory.add_item("crystal_sword", 1)
 
+    -- 2. ДИНАМИЧЕСКИЙ ДЕФОЛТ ДЛЯ МAГA В СТEЙТ ПAМЯТИ:
+    -- Наполняем пустую таблицу character_data.player.action_bars нужной раскладкой.
+    -- В Луа массивы идут строго с 1, поэтому прописываем индексы явно [1] и [2]!
+    character_data.player.action_bars = {
+        [1] = { -- Основная панель (кнопки 1, 2, 3... 12)
+            [1] = { action_type = "spell", action_id = "melee_attack" },
+            [2] = { action_type = "spell", action_id = "frostbolt" },
+            -- остальные слоты в Lua автоматически останутся nil
+        },
+        [2] = {}, -- Нижняя левая панель (пока пустая, ждет кнопок через Shift)
+    }
+
     -- 2. ГОВОРИМ ЛОАДЕРУ: Перезагрузи всю сцену
-    msg.post("main:/loader#script", "reload_game")
+    msg.post("main:/loader#script", "reload_game", {
+        action_bars = character_data.player.action_bars
+    })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
     -- Всё! При старте новой сцены все init() сработают на чистых данных
 end
@@ -52,7 +66,8 @@ function M.save_game()
             level = character_data.player.level,
             experience = character_data.player.experience,
             health = character_data.player.health,
-            last_pos = character_data.player.last_pos
+            last_pos = character_data.player.last_pos,
+            action_bars = character_data.player.action_bars
         },
         world = game_state.get_full_save_data()
     }
@@ -76,21 +91,23 @@ function M.load_game()
 
     local content = file:read("*all")
     file:close()
-    
+
     local data = json.decode(content)
     if not data then return false end
 
     -- Дальше твоя обычная логика восстановления
     player_inventory.load_save_data(data.inventory)
     player_paperdoll.load_save_data(data.paperdoll)
+    character_data.player.action_bars = data.player.action_bars
     game_state.restore_all(data.world)
-    
+
     -- character_data.player.last_pos = data.player.last_pos
     -- ...
-    
-    msg.post("main:/loader#script", "reload_game", { 
+
+    msg.post("main:/loader#script", "reload_game", {
         is_load = true,
-        last_pos = data.player.last_pos 
+        last_pos = data.player.last_pos,
+        action_bars = data.player.action_bars
     })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     return true

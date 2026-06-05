@@ -151,7 +151,7 @@ nodes {
 }
 nodes {
   position {
-    y: 95.0
+    y: 72.0
   }
   type: TYPE_TEMPLATE
   id: "static_grid"
@@ -191,6 +191,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "static_grid/slot_prefab/amount"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "static_grid/slot_prefab/bind"
   parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }

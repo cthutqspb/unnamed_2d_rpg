@@ -18,63 +18,235 @@ nodes {
 }
 nodes {
   position {
-    x: 80.0
+    x: 320.0
     y: 1000.0
   }
   type: TYPE_TEMPLATE
-  id: "health_bar"
+  id: "target_frame"
   parent: "root"
-  template: "/main/gui/components/health_bar/health_bar.gui"
+  inherit_alpha: true
+  template: "/main/gui/components/target_frame/target_frame.gui"
 }
 nodes {
   type: TYPE_BOX
-  id: "health_bar/root"
-  parent: "health_bar"
+  id: "target_frame/root"
+  parent: "target_frame"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "health_bar/background"
-  parent: "health_bar/root"
+  id: "target_frame/background"
+  parent: "target_frame/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "health_bar/fill"
-  parent: "health_bar/root"
+  id: "target_frame/target_level_background"
+  parent: "target_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "target_frame/target_level"
+  parent: "target_frame/target_level_background"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "target_frame/target_name"
+  parent: "target_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "target_frame/health_bar"
+  parent: "target_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/health_bar/root"
+  parent: "target_frame/health_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/health_bar/background"
+  parent: "target_frame/health_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/health_bar/fill"
+  parent: "target_frame/health_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "target_frame/mana_bar"
+  parent: "target_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/mana_bar/root"
+  parent: "target_frame/mana_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/mana_bar/background"
+  parent: "target_frame/mana_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "target_frame/mana_bar/fill"
+  parent: "target_frame/mana_bar/root"
   template_node_child: true
 }
 nodes {
   position {
-    x: 80.0
-    y: 980.0
+    x: 40.0
+    y: 1000.0
   }
   type: TYPE_TEMPLATE
-  id: "mana_bar"
+  id: "player_frame"
   parent: "root"
-  template: "/main/gui/components/mana_bar/mana_bar.gui"
+  inherit_alpha: true
+  template: "/main/gui/components/player_frame/player_frame.gui"
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/root"
-  parent: "mana_bar"
+  id: "player_frame/root"
+  parent: "player_frame"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/fill"
-  parent: "mana_bar/root"
+  id: "player_frame/background"
+  parent: "player_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/player_level_background"
+  parent: "player_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "player_frame/player_level"
+  parent: "player_frame/player_level_background"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "player_frame/player_name"
+  parent: "player_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "player_frame/health_bar"
+  parent: "player_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/health_bar/root"
+  parent: "player_frame/health_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/health_bar/background"
+  parent: "player_frame/health_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/health_bar/fill"
+  parent: "player_frame/health_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "player_frame/mana_bar"
+  parent: "player_frame/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/mana_bar/root"
+  parent: "player_frame/mana_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/mana_bar/background"
+  parent: "player_frame/mana_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "player_frame/mana_bar/fill"
+  parent: "player_frame/mana_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "menu_bar"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/menu_bar/menu_bar.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "menu_bar/root"
+  parent: "menu_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "menu_bar/container"
+  parent: "menu_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "menu_bar/button_inventory"
+  parent: "menu_bar/container"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "menu_bar/button_inventory/root"
+  parent: "menu_bar/button_inventory"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "menu_bar/button_character"
+  parent: "menu_bar/container"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "menu_bar/button_character/root"
+  parent: "menu_bar/button_character"
   template_node_child: true
 }
 nodes {
   position {
-    x: 1720.0
-    y: 20.0
+    x: 1200.0
+    y: 120.0
   }
   type: TYPE_TEMPLATE
   id: "action_bar"
   parent: "root"
-  template: "/main/gui/action_bar/action_bar.gui"
+  inherit_alpha: true
+  template: "/main/gui/components/action_bar/action_bar.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -83,33 +255,57 @@ nodes {
   template_node_child: true
 }
 nodes {
-  type: TYPE_BOX
-  id: "action_bar/container"
+  type: TYPE_TEMPLATE
+  id: "action_bar/static_grid"
   parent: "action_bar/root"
   template_node_child: true
 }
 nodes {
-  type: TYPE_TEMPLATE
-  id: "action_bar/button_inventory"
-  parent: "action_bar/container"
+  type: TYPE_BOX
+  id: "action_bar/static_grid/root"
+  parent: "action_bar/static_grid"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "action_bar/button_inventory/root"
-  parent: "action_bar/button_inventory"
+  id: "action_bar/static_grid/container"
+  parent: "action_bar/static_grid/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEMPLATE
-  id: "action_bar/button_character"
-  parent: "action_bar/container"
+  id: "action_bar/static_grid/slot_prefab"
+  parent: "action_bar/static_grid"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "action_bar/button_character/root"
-  parent: "action_bar/button_character"
+  id: "action_bar/static_grid/slot_prefab/root"
+  parent: "action_bar/static_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/static_grid/slot_prefab/icon"
+  parent: "action_bar/static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "action_bar/static_grid/slot_prefab/amount"
+  parent: "action_bar/static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "action_bar/static_grid/slot_prefab/bind"
+  parent: "action_bar/static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "action_bar/static_grid/drag_icon"
+  parent: "action_bar/static_grid"
   template_node_child: true
 }
 material: "/builtins/materials/gui.material"
@@ -117,21 +313,21 @@ layouts {
   name: "Portrait"
   nodes {
     position {
-      x: 80.0
+      x: 320.0
       y: 1200.0
     }
     type: TYPE_TEMPLATE
-    id: "health_bar"
+    id: "target_frame"
     parent: "root"
     overridden_fields: 1
   }
   nodes {
     position {
-      x: 80.0
-      y: 1180.0
+      x: 40.0
+      y: 1200.0
     }
     type: TYPE_TEMPLATE
-    id: "mana_bar"
+    id: "player_frame"
     parent: "root"
     overridden_fields: 1
   }

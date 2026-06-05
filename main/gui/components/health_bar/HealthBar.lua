@@ -6,9 +6,9 @@ local component = require("druid.component")
 local M = component.create("HealthBar")
 
 ---Инициализация компонента полоски здоровья персонажа
-function M:init()
+function M:init(template_id)
     -- Получаем узлы из GUI-шаблона
-    self.fill = gui.get_node("health_bar/fill")
+    self.fill = gui.get_node(template_id .. "/fill")
     self.max_width = gui.get_size(self.fill).x
 
     -- Устанавливаем дефолтное начальное значение на полный столб жизни

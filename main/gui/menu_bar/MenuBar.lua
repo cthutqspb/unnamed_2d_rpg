@@ -1,11 +1,11 @@
 local component = require("druid.component")
 local layout = require("druid.extended.layout") -- Проверь путь в Assets
 
----@class ActionBar : druid.component
-local M = component.create("ActionBar")
+---@class MenuBar : druid.component
+local M = component.create("MenuBar")
 
 function M:init(template_id)
-    self.template_id = template_id or "action_bar"
+    self.template_id = template_id or "menu_bar"
     local d = self:get_druid()
 
     local container_id = self.template_id .. "/container"

@@ -7,7 +7,9 @@ end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("reload_game") then
-        self.pending_pos = message.last_pos -- Берем только X и Y
+        self.pending_pos = message.last_pos
+        self.pending_action_bars = message.action_bars
+        print('reload_game, action_bars', message.action_bars[1])
         msg.post("#game_proxy", "unload")
 
     elseif message_id == hash("proxy_unloaded") then
@@ -16,12 +18,46 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("proxy_loaded") then
         msg.post(sender, "enable")
         msg.post(sender, "acquire_input_focus")
-
-        -- Сцена готова. Теперь просто "втыкаем" игрока и спавним лут
+        -- 🎯 ПИНГ ХУДA: Неважно, сейв это или новая игра — лоадер просто швыряет 
+        -- кэшированные панели в GUI. HUD просто слепо их рисует!
+        print('proxy_loaded action_bars', self.pending_action_bars)
+        msg.post("main:/gui_manager#hud", "initialize_action_bars", {
+            action_bars = self.pending_action_bars
+        })
+        -- Сбрасываем кэш панелей
+        self.pending_action_bars = nil
+        -- 1. СЦЕНА ГОТОВА: Проверяем, откуда мы стартуем
         if self.pending_pos then
+            -- 💾 А) ВЕТКА ЗАГРУЗКИ СЕЙВА:
+            -- Втыкаем игрока ровно туда, где он сохранился в JSON!
             msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_pos.x, self.pending_pos.y, 1) })
             msg.post("game_scene:/world#world", "spawn_all_saved_items")
             self.pending_pos = nil
+        else
+            -- 🌟 Б) ВЕТКА НОВОЙ ИГРЫ (Твой новый Data-Driven канон):
+            -- Мы даем один фрейм задержки, чтобы world_controller успел в своем первом update
+            -- заспавнить чанк Meadows, и точка спавна успела прописать себя в память!
+            timer.delay(0.01, false, function()
+                local map_config = require("main.modules.data.map_config")
+                -- Ищем в оперативной памяти точку, которую мы на прехабе Meadows обозвали hash("mage_start")
+                local spawn_data = map_config.get_spawn_point(hash("default_start"))
+
+                if spawn_data then
+                    -- Нашли точку! Телепортируем игрока в её честные мировые координаты чанка!
+                    msg.post("game_scene:/player", "teleport_to", { position = spawn_data.position })
+
+                    -- Здесь у тебя есть ПОЛНЫЙ доступ ко всем твоим go.property!
+                    print("ЭВЕНТ СТАРТА: ID чанка =", spawn_data.zone_id, "Метка сюжета =", spawn_data.story_milestone)
+
+                    -- Можешь запустить стартовый ролик или взвести квестовый флаг в бэкенд historias!
+                    if spawn_data.story_milestone == hash("prologue_done") then
+                        -- ...
+                    end
+                else
+                    -- Страховка: если точка не зарегистрировалась, ставим в дефолтный центр
+                    msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(1126, 725, 1) })
+                end
+            end)
         end
     end
 end

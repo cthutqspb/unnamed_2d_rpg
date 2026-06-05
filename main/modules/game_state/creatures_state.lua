@@ -1,7 +1,8 @@
 local creatures_db = require("main.modules.data.creatures_db")
 
 ---@class CreatureInstanceData
----@field creature_id string|nil Строковый ID вида ("skeleton")
+---@field name_key string
+---@field creature_id string Строковый ID вида ("skeleton")
 ---@field uid string Уникальный строковый UID конкретного монстра
 ---@field level number Текущий уровень существа
 ---@field type string Тип существа ("undead", "beast", "humanoid")
@@ -10,6 +11,15 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
 ---@field damage number Рассчитанный урон с учетом уровня
 ---@field speed number Скорость перемещения
+---@field hitbox_size number
+---@field attack_range_melee number
+---@field ai_profile string
+
+---@class RankModifiers
+---@field hp_mult number       Множитель максимального здоровья
+---@field dmg_mult number      Множитель базового урона
+---@field resists table<string, number> Задел под резисты к стихиям (fire, frost и т.д.)
+---@field bonus_abilities string[] Список дополнительных способностей, открываемых рангом
 
 local M = {}
 
@@ -21,18 +31,59 @@ M.registry = {}
 ---@type table<hash, string>
 M.instances = {}
 
+---Вычислить все геймплейные модификаторы и бонусы на основе ранга существа
+---@param rank string Ранг сложности ("common", "rare", "elite", "boss")
+---@return RankModifiers
+local function compute_rank_modifiers(rank)
+    -- Базовые дефолтные модификаторы для обычного моба (common)
+    ---@type RankModifiers
+    local modifiers = {
+        hp_mult = 1.0,
+        dmg_mult = 1.0,
+        resists = { fire = 0, frost = 0, shadow = 0 },
+        bonus_abilities = {}
+    }
+
+    if rank == "rare" then
+        modifiers.hp_mult = 1.5
+        modifiers.dmg_mult = 1.2
+        -- Редкий моб получает легкую защиту
+        modifiers.resists.fire = 10
+        modifiers.resists.frost = 10
+        -- table.insert(modifiers.bonus_abilities, "enrage") -- задел на будущее!
+
+    elseif rank == "elite" then
+        modifiers.hp_mult = 3.0
+        modifiers.dmg_mult = 1.5
+        modifiers.resists.fire = 25
+        modifiers.resists.frost = 25
+        modifiers.resists.shadow = 25
+        -- table.insert(modifiers.bonus_abilities, "shield_slam")
+
+    elseif rank == "boss" then
+        modifiers.hp_mult = 5.0
+        modifiers.dmg_mult = 2.0
+        -- Босс ультимативно защищен от магии
+        modifiers.resists.fire = 50
+        modifiers.resists.frost = 50
+        modifiers.resists.shadow = 50
+        -- table.insert(modifiers.bonus_abilities, "aoe_fireball")
+    end
+
+    return modifiers
+end
+
 ---Зарегистрировать заспавненного монстра в системе и рассчитать его характеристики
 ---@param go_id hash Движковый ID игрового объекта (/instance_skeleton_1)
 ---@param props { 
----   creature_id: hash|string,
+---   creature_id: string,
 ---   creature_uid: string,
 ---   level: number,
 ---   type: string,
 ---   rank: string,
---- }  🚩 ФИКС ТИПОВ: Разрешаем строку через hash|string!
+--- }
 ---@return CreatureInstanceData|nil
 function M.register(go_id, props)
-    print('CREATURE ID', props.creature_id)
     -- Распаковываем хэши из go.property обратно в строки для бэкенда (или подстраховываемся)
     local creature_id = props.creature_id
     local uid = props.creature_uid
@@ -53,19 +104,18 @@ function M.register(go_id, props)
     local max_hp = math.floor(cfg.base_hp * level_modifier_hp)
     local final_dmg = math.floor(cfg.base_damage * level_modifier_dmg)
 
-    if creature_rank == "rare" then
-        max_hp = math.floor(max_hp * 1.5)
-        final_dmg = math.floor(final_dmg * 1.2)
-    elseif creature_rank == "elite" then
-        max_hp = math.floor(max_hp * 3.0)
-        final_dmg = math.floor(final_dmg * 1.5)
-    elseif creature_rank == "boss" then
-        max_hp = math.floor(max_hp * 5.0) -- Босс жирнее в 5 раз!
-        final_dmg = math.floor(final_dmg * 2.0)
-    end
+     -- 2. 🎯 ВЫЗОВ НАШЕЙ НОВОЙ ФУНКЦИИ РАНГА:
+    -- Получаем готовую, заармированную таблицу со всеми множителями и бонусами
+    local rank_mods = compute_rank_modifiers(creature_rank)
+
+    -- Применяем множители
+    max_hp = math.floor(max_hp * rank_mods.hp_mult)
+    final_dmg = math.floor(final_dmg * rank_mods.dmg_mult)
+
     -- Собираем живую структуру данных монстра
     ---@type CreatureInstanceData
     local instance_data = {
+        name_key = cfg.name_key,
         creature_id = creature_id,
         uid = uid,
         level = props.level,
@@ -74,7 +124,10 @@ function M.register(go_id, props)
         max_health = max_hp,
         health = max_hp, -- на старте монстр полностью здоров
         damage = final_dmg,
-        speed = cfg.base_speed
+        speed = cfg.base_speed,
+        hitbox_size = cfg.hitbox_size,
+        attack_range_melee = cfg.attack_range_melee,
+        ai_profile = cfg.ai_profile or "aggressive_patrol"
     }
 
     -- Записываем в оперативную память реестров
@@ -82,7 +135,12 @@ function M.register(go_id, props)
     M.instances[go_id] = uid
 
     print(string.format("БЭКЕНД МОНСТРОВ: Успешно зарегистрирован %s [%s] | Уровень: %d | ХП: %d/%d | Урон: %d",
-        creature_id, uid, props.level, max_hp, max_hp, final_dmg))
+        creature_id,
+        uid,
+        props.level,
+        max_hp, max_hp,
+        final_dmg
+      ))
 
     return instance_data
 end
@@ -90,6 +148,7 @@ end
 ---Удалить монстра из реестров (при смерти)
 ---@param go_id hash
 function M.unregister(go_id)
+    ---@type string|nil
     local uid = M.instances[go_id]
     if uid then
         M.registry[uid] = nil

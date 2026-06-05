@@ -35,7 +35,7 @@ nodes {
   id: "button_inventory"
   parent: "container"
   inherit_alpha: true
-  template: "/main/gui/action_bar/buttons/button_inventory.gui"
+  template: "/main/gui/menu_bar/buttons/button_character.gui"
 }
 nodes {
   type: TYPE_BOX
@@ -48,7 +48,7 @@ nodes {
   id: "button_character"
   parent: "container"
   inherit_alpha: true
-  template: "/main/gui/action_bar/buttons/button_character.gui"
+  template: "/main/gui/menu_bar/buttons/button_character.gui"
 }
 nodes {
   type: TYPE_BOX

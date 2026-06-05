@@ -35,7 +35,7 @@ embedded_components {
   "    index: 0\n"
   "    count: 1\n"
   "  }\n"
-  "  data: 16.0\n"
+  "  data: 32.0\n"
   "}\n"
   "event_trigger: false\n"
   ""

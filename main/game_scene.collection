@@ -29,10 +29,6 @@ instances {
   }
 }
 instances {
-  id: "container"
-  prototype: "/main/game_objects/container/container.go"
-}
-instances {
   id: "cursor"
   prototype: "/main/player/cursor.go"
   position {

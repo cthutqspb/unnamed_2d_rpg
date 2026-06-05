@@ -1,7 +1,8 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
-local HealthBar = require("main.gui.components.health_bar.HealthBar")
-local ActionBar = require("main.gui.action_bar.action_bar")
+local PlayerFrame = require("main.gui.components.player_frame.PlayerFrame")
+local TargetFrame = require("main.gui.components.target_frame.TargetFrame")
+local ActionBar = require("main.gui.components.action_bar.ActionBar")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
@@ -10,12 +11,14 @@ local settings = require("main.modules.data.settings")
 
 ---@class HudScriptContext
 ---@field druid druid.instance Инстанс Друида для этого GUI-экрана
----@field action_bar table Компонент нижней панели скиллов
----@field health_bar table Компонент полоски здоровья персонажа
+---@field player_frame table
+---@field target_frame table
+---@field action_bar table
 ---@field is_shift_pressed boolean Системный флаг зажатия клавиши Shift
 ---@field on_inventory_event function Коллбэк для инвентарных бродкастов
 ---@field on_player_event function Коллбэк для характеристик игрока
 ---@field on_ui_event function Коллбэк для системных отмен фокусов и окон
+---@field on_target_event function
 ---@field static_grid table|nil Ссылка на сетку слотов, если она встроена в HUD
 
 local h_touch = hash("touch")
@@ -27,8 +30,28 @@ function init(self)
     defos.set_cursor_visible(false)
     -- Стилизованный курсор
 
-    self.action_bar = self.druid:new(ActionBar, "action_bar", self.druid)
-    self.health_bar = self.druid:new(HealthBar, "health_bar")
+    self.player_frame = self.druid:new(PlayerFrame, "player_frame")
+    self.target_frame = self.druid:new(TargetFrame, "target_frame")
+    self.action_bar = self.druid:new(
+        ActionBar,
+        "action_bar",
+        {
+            columns = 12,
+            rows = 1,
+            item_size = 40,
+            spacing = 2,
+            on_click = function(index, item)
+                msg.post(".", "player_action", {
+                    event = "action", -- тут наверно от типа зависит, вдруг там зелье в слоте
+                    data = {
+                        slot_index = index,
+                        action_type = item.action_type or "spell", -- тут тоже не ясно, спелл айди? абили айди?
+                        action_id = item.action_id
+                    }
+                })
+            end
+        }
+    )
 
     _G.HUD = self
     self.is_shift_pressed = false
@@ -51,6 +74,8 @@ function init(self)
     self.on_player_event = function(data)
         if data.message_id == hash("update_health") then
             msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.percentage })
+        elseif data.message_id == hash("update_mana") then
+            msg.post("main:/gui_manager#hud", "update_mana_deferred", { percentage = data.percentage })
         elseif data.message_id == hash("player_data_loaded") then
             msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.health_percentage })
         end
@@ -64,10 +89,24 @@ function init(self)
         end
     end
 
+    -- =========================================================================
+    -- 📬 СЛАЙС 4: БОЕВОЙ ТАРГЕТИНГ ПО КAНOНУ (target_events)
+    -- =========================================================================
+    -- Берем строго ОДИН аргумент data, полностью убирая краш nil-value!
+    -- Прокидываем данные через msg.post, гарантируя стабильность графического контекста!
+    self.on_target_event = function(data)
+        if data.message_id == hash("target_changed") then
+            msg.post("main:/gui_manager#hud", "target_changed_deferred", { uid = data.uid, go_id = data.go_id })
+        elseif data.message_id == hash("target_lost") then
+            msg.post("main:/gui_manager#hud", "target_lost_deferred")
+        end
+    end
+
     -- Оформляем подписки на наши Redux-каналы
     broadcast.subscribe("inventory_events", self.on_inventory_event)
     broadcast.subscribe("player_events", self.on_player_event)
     broadcast.subscribe("ui_events", self.on_ui_event)
+    broadcast.subscribe("target_events", self.on_target_event)
 
     print("HUD initialized successfully")
 end
@@ -80,7 +119,24 @@ function on_message(self, message_id, message, sender)
   -- 🎯 ТИПИЗИРОВАННЫЙ ПРИЕМНИК: Отложенный безопасный апдейт графики ХП
     if message_id == hash("update_health_deferred") then
         print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску ХП.")
-        self.health_bar:update_health(message.percentage)
+        self.player_frame:on_player_event(hash("update_health_deferred"), message)
+    end
+
+    if message_id == hash("update_mana_deferred") then
+        print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску МАНЫ.")
+        self.player_frame:on_player_event(hash("update_mana_deferred"), message)
+    end
+
+
+    -- 🎯 Б) ОТЛОЖЕННЫЙ БЕЗОПАСНЫЙ АПДЕЙТ ПЛАШКИ ТАРГЕТА:
+    -- Движок восстановил контекст кадра, теперь TargetFrame может легально
+    -- прочитать creatures_state.lua и плавно отрисовать лицо Скелета/Дракона!
+    if message_id == hash("target_changed_deferred") then
+        self.target_frame:on_target_event(hash("target_changed"), message)
+    end
+
+    if message_id == hash("target_lost_deferred") then
+        self.target_frame:on_target_event(hash("target_lost"), nil)
     end
 
     if message_id == hash("refresh_inventories") then
@@ -158,6 +214,7 @@ function final(self)
     broadcast.unsubscribe("inventory_events", self.on_inventory_event)
     broadcast.unsubscribe("player_events", self.on_player_event)
     broadcast.unsubscribe("ui_events", self.on_ui_event)
+    broadcast.unsubscribe("target_events", self.on_target_event)
     print("HUD final: отписались от всех каналов бродкаста")
 end
 

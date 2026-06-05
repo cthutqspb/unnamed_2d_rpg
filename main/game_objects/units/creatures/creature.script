@@ -9,32 +9,39 @@ local interaction = require("main.modules.interaction")
 local creatures_db = require("main.modules.data.creatures_db")
 local broadcast = require("main.modules.system.broadcast")
 local creatures_state = require("main.modules.game_state.creatures_state")
+local creature_ai = require("main.modules.creature.ai.creature_ai")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 
----@class CreatureScriptContext
+---@class CreatureScriptContext : AICreatureContext  -- Наследуем класс ИИ!
 ---@field go_id hash
----@field uid hash|string
+---@field uid string
 ---@field creature_id string
 ---@field creature_level number
 ---@field creature_rank string
 ---@field creature_type string
 ---@field is_from_factory boolean
+---@field speed number                 -- Наша рабочая скорость для ИИ
+---@field hitbox_size number           
+---@field attack_range_melee number    
+---@field ai_profile string            -- Профиль ИИ из базы данных
+---@field spawn_pos vector3            -- Точка дома для патруля
+---@field ai_is_patrolling boolean     -- Флаг снижения скорости в патруле
 
 ---@param self CreatureScriptContext
 function init(self)
 	  self.go_id = go.get_id()
+    self.spawn_pos = go.get_position()
 
     local string_uid = interaction.clean_id(self.uid) or ""
     self.creature_id = interaction.clean_id(self.creature_id) or "unknown_creature"
     self.creature_rank = interaction.clean_id(self.creature_rank) or "common"
     self.creature_type = interaction.clean_id(self.creature_rank) or ""
 
-    -- 2. Если это ПРЕДМЕТ ИЗ РЕДАКТОРА (is_from_factory == false)
     if not self.is_from_factory then
         -- Если UID пустой, генерируем по координатам
         if self.uid == hash("") or string_uid == "" then
-            local p = go.get_position()
-            string_uid = string.format("c_%d_%d", math.floor(p.x), math.floor(p.y))
-            self.uid = hash(string_uid)
+            local creature_position = go.get_position()
+            string_uid = string.format("c_%d_%d", math.floor(creature_position.x), math.floor(creature_position.y))
         end
 
         -- Проверка BG3: если загрузились и предмета нет в сейве — он уже собран
@@ -44,7 +51,9 @@ function init(self)
         end
     end
 
-    -- Регистрируем связь для рейкаста
+    self.uid = string_uid
+
+    -- Регистрируем связь для рейкаста, рейкаста уже нет, теперь курсор,но все так же нужно
     creatures_state.register(self.go_id, {
         creature_id = self.creature_id,
         creature_uid = string_uid,
@@ -52,6 +61,25 @@ function init(self)
         type = self.creature_type,            -- задел под фракции/типы
         rank = self.creature_rank            -- ранг моба
     })
+
+    -- 🎯 ВЫТАСКИВАЕМДАННЫЕ ИЗ БЭКЕНД-СТЕЙТА ДЛЯ ИИ:
+    -- Берем живые данные, которые creatures_state только что прочитал из creatures_db.lua
+    local creature_instance_data = creatures_state.get(string_uid)
+    if creature_instance_data then
+        self.speed = creature_instance_data.speed or 90
+        self.hitbox_size = creature_instance_data.hitbox_size or 64
+        self.attack_range_melee = creature_instance_data.attack_range_melee or 8
+        -- Достаем строковое имя профиля ("aggressive_patrol")
+        self.ai_profile = creature_instance_data.ai_profile
+    else
+        self.speed = 90
+        self.hitbox_size = 64
+        self.attack_range_melee = 8
+        self.ai_profile = "aggressive_patrol"
+    end
+
+    -- 🎯 ИНИЦИАЛИЗАЦИЯ ИИ: Менеджер сам навесит нужные таймеры и стейты внутрь self Скелета
+    creature_ai.init(self.ai_profile, self)
 
 end
 
@@ -63,6 +91,21 @@ function final(self)
 end
 
 function update(self, dt)
+     -- Опрашиваем профиль ИИ из базы данных, передавая контекст self конкретного моба
+    local move_dir = creature_ai.update(self.ai_profile, self, dt)
+
+    -- Если мозг выдал вектор направления движения — плавно сдвигаем Game Object в мире
+    if move_dir then
+        local current_speed = self.speed
+
+        -- Если профиль-мозг пометил флаг патруля, режем боевую скорость пополам
+        if self.ai_is_patrolling then
+            current_speed = current_speed * 0.5
+        end
+
+        local pos = go.get_position()
+        go.set_position(pos + move_dir * current_speed * dt)
+    end
 end
 
 function late_update(self, dt)
@@ -73,7 +116,11 @@ end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("click") then
-        print('Херанули по монстру, а может и не монстру!')
+        print(string.format("🖱️ КЛИК: Игрок выбрал тушку %s [%s]", self.creature_id, self.uid))
+        
+        -- 🎯 ЧИСТОКРОВНЫЙ WoW-КАНОН:
+        -- Зашиваем СИ-адрес и строковый GUID монстра в центральную ячейку таргета!
+        interaction_manager.set_target(self.go_id, self.uid)
     end
 end
 

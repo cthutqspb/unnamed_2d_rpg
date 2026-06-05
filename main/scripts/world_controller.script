@@ -1,10 +1,10 @@
 local CHUNKS = {
-    meadows = { 
-        url = "/world#factory_meadows", 
-        w = 8192, h = 4096, 
+    meadows = {
+        url = "/world#factory_meadows",
+        w = 8192, h = 4096,
         pos = vmath.vector3(0, 0, 0), -- Игрок появится в центре этой зоны
-        root_id = nil 
-    },    
+        root_id = nil
+    },
 }
 
 local PADDING = 500 -- Запас для подгрузки
@@ -21,37 +21,60 @@ function update(self, dt)
         local is_inside = p_pos.x >= x_min and p_pos.x <= x_max and
                           p_pos.y >= y_min and p_pos.y <= y_max
 
+        -- =========================================================================
         -- СПАВН
+        -- =========================================================================
         if is_inside and not chunk.root_id then
-            -- Вычисляем точку для левого нижнего угла
-            local spawn_pos = vmath.vector3(
-                chunk.pos.x - (chunk.w / 2), 
-                chunk.pos.y - (chunk.h / 2), 
-                0
-            )
-            
-            -- Спавним коллекцию в вычисленную точку
-            local ids = collectionfactory.create(chunk.url, spawn_pos)
-            
-            -- Находим root (как и раньше)
+            -- 1. Спавним коллекцию строго в её центр
+            local ids = collectionfactory.create(chunk.url, chunk.pos)
+
+            -- 2. Находим динамический /root
             for full_id, _ in pairs(ids) do
                 if string.find(tostring(full_id), "/root") then
                     chunk.root_id = full_id
                     break
                 end
             end
-            print("Чанк загружен и отцентрован: " .. name)
 
-        -- УДАЛЕНИЕ
-        elseif not is_inside and chunk.root_id then
-            -- Удаляем корневой объект, это автоматически удалит всё внутри него (тайлмап и т.д.)
+            -- 3. 🎯 СДВИГАЕМ ROOT ЧЕРЕЗ МИКРОТАКТ ДВИЖКА:
             if chunk.root_id then
-                go.delete(chunk.root_id)
-            else
-                print("Warning: trying to delete nil object")
+                -- Кэшируем root_id в локальную переменную, чтобы асинхронный таймер не потерял ссылку
+                local target_root = chunk.root_id
+
+                local offset_pos = vmath.vector3(
+                    chunk.pos.x - (chunk.w / 2),
+                    chunk.pos.y - (chunk.h / 2),
+                    0
+                )
+
+                -- 🧱 ТИТАНОВЫЙ БЕТОН ОТ КРАША INSTANCE NULL:
+                -- Даем движку завершить микротакт спавна фабрики.
+                -- На следующем кадре объект /root гарантированно существует в памяти движка,
+                -- и go.set_position отработает со 100% стабильностью без единого краша!
+                timer.delay(0, false, function()
+                    -- Страховка на случай, если за эту миллисекунду чанк успели выгрузить
+                    if go.exists(target_root) then
+                        go.set_position(offset_pos, target_root)
+                        print("Чанк физически сдвинут через движок: " .. name)
+                    end
+                end)
             end
+
+        -- =========================================================================
+        -- УДАЛЕНИЕ
+        -- =========================================================================
+        elseif not is_inside and chunk.root_id then
+            -- ТИТАНОВАЯ ЗАЩИТА: Проверяем, существует ли этот root в движке прямо сейчас
+            -- Это полностью убирает ошибку Instance (null) not found при удалении на границах чанка
+            if go.exists(chunk.root_id) then
+                go.delete(chunk.root_id)
+                print("Чанк выгружен: " .. name)
+            else
+                print("Предупреждение: Попытка удалить уже несуществующий чанк: " .. name)
+            end
+            -- Зануляем ID в любом случае, чтобы освободить стейт чанка
             chunk.root_id = nil
-            print("Чанк выгружен: " .. name)
         end
     end
 end
+

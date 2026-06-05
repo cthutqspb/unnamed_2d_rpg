@@ -62,28 +62,99 @@ function M.update_derived_stats()
     msg.post("game_scene:/player", "stats_changed")
 end
 
----Применить получение урона персонажем
----@param amount number Количество входящего дамага
-function M.take_damage(amount)
-    data.player.health = math.max(0, data.player.health - amount)
+---Применить получение ОЧИЩЕННОГО урона персонажем
+---@param final_amount number Количество дамага, который уже пробил все щиты и спасалки
+function M.take_damage(final_amount)
+    data.player.health = data.player.health - final_amount
 
-    -- 🎯 Бросаем сигнал изменения здоровья в канал игрока. HUD его поймает и обновит полоску ХП!
-     broadcast.send("player_events", {
+    -- Pathfinder Канон: если ХП ушло в минус, но не пробило смертельный порог выносливости,
+    -- персонаж просто падает без сознания, но флаг is_dead остается false!
+    local death_threshold = -M.get_total_stat("stamina") -- например, -25 ХП
+
+    if data.player.health <= death_threshold then
+        data.player.health = death_threshold
+        data.player.is_dead = true -- Тотальная смерть
+        print("💀 ИГРОК ОКОНЧАТЕЛЬНО УМЕР!")
+    elseif data.player.health <= 0 then
+        print("💤 ИГРОК БЕЗ СОЗНАНИЯ (Отрицательное ХП):", data.player.health)
+    end
+
+    -- Бросаем сигнал на HUD. Математику процентов пишем аккуратно, учитывая минусы
+    broadcast.send("player_events", {
         message_id = hash("update_health"),
-        percentage = data.player.health / data.player.max_health
+        percentage = math.max(0, data.player.health) / data.player.max_health
     })
 end
 
----Применить исцеление персонажа
+---Применить исцеление персонажа (С поддержкой отладочного воскрешения)
 ---@param amount number Количество восстанавливаемого здоровья
 function M.heal(amount)
     data.player.health = math.min(data.player.max_health, data.player.health + amount)
 
-    -- 🎯 Бросаем сигнал исцеления
-     broadcast.send("player_events", {
+    -- 🎯 МИРОВОЙ ПОРОГ ВОСКРЕШЕНИЯ (Канон Pathfinder):
+    -- Вытаскиваем текущий лимит тотальной смерти (минус стамина)
+    local death_threshold = -M.get_total_stat("stamina") -- например, -25 ХП
+
+    -- Если хил вытащил ХП из могилы и поднял его ВЫШЕ смертельного лимита:
+    if data.player.health > death_threshold and data.player.is_dead then
+        data.player.is_dead = false
+        print("👼 ЛОГИКА: Персонаж успешно воскрес из мертвых! Живое ХП:", data.player.health)
+
+        -- Сюда завтра можно повесить: broadcast.send("player_events", { message_id = hash("player_resurrected") })
+        -- Чтобы привязать анимацию вспышки света над головой мага!
+    end
+
+    -- 🎯 Бросаем сигнал исцеления на HUD (проценты считаем аккуратно)
+    broadcast.send("player_events", {
         message_id = hash("update_health"),
-        percentage = data.player.health / data.player.max_health
+        percentage = math.max(0, data.player.health) / data.player.max_health
     })
+end
+
+function M.burn_mana(amount)
+    data.player.mana = data.player.mana - amount
+
+    broadcast.send("player_events", {
+        message_id = hash("update_mana"),
+        percentage = math.max(0, data.player.mana) / data.player.max_mana
+    })
+end
+
+function M.restore_mana(amount)
+    data.player.mana = data.player.mana + amount
+
+    broadcast.send("player_events", {
+        message_id = hash("update_mana"),
+        percentage = math.max(0, data.player.mana) / data.player.max_mana
+    })
+end
+
+---Проверить магические щиты игрока и поглотить входящий урон
+---@param incoming_damage number Входящий сырой урон
+---@return number remaining_damage Остаток урона, который пробил щиты и должен пойти в ХП
+function M.consume_absorb_shield(incoming_damage)
+    -- Если щита нет или он пустой — весь урон летит в ХП без изменений
+    if not data.player.absorb_shield or data.player.absorb_shield <= 0 then
+        return incoming_damage
+    end
+
+    if data.player.absorb_shield >= incoming_damage then
+        -- Щит полностью впитал урон
+        data.player.absorb_shield = data.player.absorb_shield - incoming_damage
+        print("🛡️ ЛОГИКА: Магический щит полностью поглотил урон! Остаток щита:", data.player.absorb_shield)
+
+        -- Шлем бродкаст на HUD, чтобы перерисовать полоску щита (если она есть)
+        broadcast.send("player_events", { message_id = hash("update_shield"), value = data.player.absorb_shield })
+        return 0 -- Урон по ХП равен нулю!
+    else
+        -- Щит пробит, гасим часть урона
+        local remaining_damage = incoming_damage - data.player.absorb_shield
+        print("🛡️ ЛОГИКА: Магический щит ПРОБИТ! Остаток урона летит в ХП:", remaining_damage)
+        data.player.absorb_shield = 0
+
+        broadcast.send("player_events", { message_id = hash("update_shield"), value = 0 })
+        return remaining_damage -- Возвращаем то, что пробило щит
+    end
 end
 
 ---Добавить или отнять базовую характеристику персонажа (например, при прокачке левелапа)

@@ -1,0 +1,66 @@
+nodes {
+  size {
+    x: 40.0
+    y: 40.0
+  }
+  type: TYPE_BOX
+  id: "root"
+  alpha: 0.0
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "static_grid"
+  parent: "root"
+  template: "/main/gui/components/static_grid/StaticGrid.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/root"
+  parent: "static_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/container"
+  parent: "static_grid/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEMPLATE
+  id: "static_grid/slot_prefab"
+  parent: "static_grid"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/slot_prefab/root"
+  parent: "static_grid/slot_prefab"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/slot_prefab/icon"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "static_grid/slot_prefab/amount"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "static_grid/slot_prefab/bind"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/drag_icon"
+  parent: "static_grid"
+  template_node_child: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

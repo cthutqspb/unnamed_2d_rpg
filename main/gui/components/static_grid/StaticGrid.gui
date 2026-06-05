@@ -1,17 +1,16 @@
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 40.0
+    y: 40.0
   }
   type: TYPE_BOX
   id: "root"
-  pivot: PIVOT_N
   alpha: 0.0
 }
 nodes {
   size {
-    x: 200.0
-    y: 100.0
+    x: 40.0
+    y: 40.0
   }
   color {
     x: 0.2
@@ -20,7 +19,6 @@ nodes {
   }
   type: TYPE_BOX
   id: "container"
-  pivot: PIVOT_N
   parent: "root"
   alpha: 0.0
   size_mode: SIZE_MODE_AUTO
@@ -47,6 +45,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "slot_prefab/amount"
+  parent: "slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_prefab/bind"
   parent: "slot_prefab/root"
   template_node_child: true
 }

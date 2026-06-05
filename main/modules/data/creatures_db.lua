@@ -5,9 +5,12 @@
 ---@field base_damage number Базовый урон на 1 уровне
 ---@field damage_growth number Коэффициент роста урона за уровень
 ---@field base_speed number Базовая скорость перемещения в пикселях
+---@field hitbox_size number
+---@field attack_range_melee number
 ---@field animation string Имя дефолтной анимации покоя в атласе
 ---@field texture string Имя графического атласа/тайлсорса
 ---@field id? string Строковый ID существа для бэкенда
+---@field ai_profile string
 
 local M = {}
 
@@ -21,6 +24,8 @@ M.creatures = {
         base_damage = 3,
         damage_growth = 1.06, -- +6% урона за уровень
         base_speed = 90,      -- скелеты ходят чуть медленнее игрока
+        hitbox_size = 64,
+        attack_range_melee = 8,
         animation = "skeleton_idle",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol"
@@ -33,6 +38,8 @@ M.creatures = {
         base_damage = 4,      -- урон на 1 уровне
         damage_growth = 1.08, -- +8% урона за уровень
         base_speed = 120,     -- базовая скорость бега
+        hitbox_size = 64,
+        attack_range_melee = 8,
         animation = "boar_idle",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol"
@@ -45,6 +52,9 @@ M.creatures = {
         base_damage = 18,
         damage_growth = 1.2, -- +6% урона за уровень
         base_speed = 175,      -- скелеты ходят чуть медленнее игрока
+        hitbox_size = 128,
+        attack_range_melee = 16,
+        spellcast_range = 120,
         animation = "elder_green_dragon",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol"

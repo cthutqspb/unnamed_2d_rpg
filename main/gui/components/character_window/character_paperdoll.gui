@@ -38,6 +38,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "slot_head/bind"
+  parent: "slot_head/root"
+  template_node_child: true
+}
+nodes {
   position {
     y: 50.0
   }
@@ -66,6 +72,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "slot_chest/bind"
+  parent: "slot_chest/root"
+  template_node_child: true
+}
+nodes {
   position {
     y: -25.0
   }
@@ -90,6 +102,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "slot_legs/amount"
+  parent: "slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_legs/bind"
   parent: "slot_legs/root"
   template_node_child: true
 }
@@ -123,6 +141,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "slot_main_hand/bind"
+  parent: "slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
   position {
     x: 100.0
     y: 50.0
@@ -148,6 +172,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "slot_off_hand/amount"
+  parent: "slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "slot_off_hand/bind"
   parent: "slot_off_hand/root"
   template_node_child: true
 }

@@ -170,6 +170,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "static_grid/slot_prefab/bind"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_BOX
   id: "static_grid/drag_icon"
   parent: "static_grid"

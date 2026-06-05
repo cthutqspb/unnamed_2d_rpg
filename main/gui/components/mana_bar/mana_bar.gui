@@ -16,6 +16,21 @@ nodes {
     y: 16.0
   }
   color {
+    x: 0.6
+    y: 0.6
+    z: 0.6
+  }
+  type: TYPE_BOX
+  id: "background"
+  pivot: PIVOT_W
+  parent: "root"
+}
+nodes {
+  size {
+    x: 240.0
+    y: 16.0
+  }
+  color {
     x: 0.0
     y: 0.0
   }
@@ -23,7 +38,6 @@ nodes {
   id: "fill"
   pivot: PIVOT_W
   parent: "root"
-  size_mode: SIZE_MODE_AUTO
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

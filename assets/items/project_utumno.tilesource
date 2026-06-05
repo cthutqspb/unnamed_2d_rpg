@@ -3,7 +3,7 @@ tile_width: 32
 tile_height: 32
 collision_groups: "default"
 animations {
-  id: "anim"
+  id: "New Animation"
   start_tile: 1
   end_tile: 1
 }
@@ -33,6 +33,11 @@ animations {
   end_tile: 1329
 }
 animations {
+  id: "default"
+  start_tile: 1
+  end_tile: 1
+}
+animations {
   id: "default_container"
   start_tile: 7
   end_tile: 7
@@ -41,6 +46,11 @@ animations {
   id: "elder_green_dragon"
   start_tile: 4310
   end_tile: 4310
+}
+animations {
+  id: "frostbolt"
+  start_tile: 1650
+  end_tile: 1650
 }
 animations {
   id: "iron_sword"
@@ -56,6 +66,16 @@ animations {
   id: "lesser_mana_potion"
   start_tile: 2683
   end_tile: 2683
+}
+animations {
+  id: "melee_attack"
+  start_tile: 3266
+  end_tile: 3266
+}
+animations {
+  id: "player_spawn_point"
+  start_tile: 829
+  end_tile: 829
 }
 animations {
   id: "sceleton"

@@ -45,11 +45,25 @@ local function heal(self, amount)
     end
 end
 
+local function burn_mana(self, amount)
+    character_logic.burn_mana(amount)
+    if character_data.player.mana <= 0 then
+        print("No more MP!")
+    end
+end
+
+local function restore_mana(self, amount)
+    character_logic.restore_mana(amount)
+    if character_data.player.mana >= character_data.player.max_mana then
+        print("Already full MP!")
+    end
+end
+
 ---@param self PlayerScriptInstance
 function init(self)
     print("Player initialized at position:", go.get_position())
-    local center_x, center_y = settings.get_center()
-    go.set_position(vmath.vector3(center_x, center_y, 1.0))
+    --local center_x, center_y = settings.get_center()
+    go.set_position(vmath.vector3(0, 0, 1.0))
     msg.post(".", "acquire_input_focus")
     --msg.post("game_scene:/camera", "follow", { target = go.get_id(), lerp = 0.08 })
     self.pressed_keys = { up = 0, down = 0, left = 0, right = 0 }
@@ -74,7 +88,6 @@ function update(self, dt)
     local player = character_data.player
     local pos = go.get_position()
     character_data.player.last_pos = { x = pos.x, y = pos.y }
-
     local hp_mod = (player.health < 20) and 0.50 or 1.0
     local current_speed = self.base_speed * hp_mod
 
@@ -169,49 +182,15 @@ function on_input(self, action_id, action)
         msg.post("main:/context_menu_layer#gui", "hide_menu")
     end
 
-    -- ДВИЖЕНИЕ МЫШЬЮ И ПКМ КОНТЕКСТНОЕ МЕНЮ
-    -- if action_id == hash("mouse_right") and action.pressed then
-    --     -- ОДНА СТРОКА: Камера сама переведет клик ПКМ в точные координаты мира
-    --     -- ОДНА СТРОКА: Получаем сразу все нужные координаты
-    --     local gui_pos, world_pos = gui_utils.transform_coordinates(action, hash("/camera"))
-    --
-    --     local target_id = interaction.get_target_under_cursor(world_pos)
-    --
-    --     if target_id then
-    --         local target_type, uid, state_data = game_state.get_inspect_info(target_id)
-    --
-    --         if target_type and uid then
-    --             msg.post("main:/context_menu_layer#gui", "show_menu", {
-    --                 x = action.x,
-    --                 y = action.y,
-    --                 type = target_type,
-    --                 sub_type = nil,
-    --                 flags = {},
-    --                 data = {
-    --                     slot_index = nil,
-    --                     item_id = state_data and state_data.item_id or nil,
-    --                     source_url = msg.url(),
-    --                     target_go_id = target_id,
-    --                     target_uid = uid
-    --                 }
-    --             })
-    --
-    --             self.move_target = nil
-    --             self.move_input = vmath.vector3(0, 0, 0)
-    --         end
-    --     else
-    --         msg.post("main:/context_menu_layer#gui", "hide_menu")
-    --         self.move_target = vmath.vector3(world_pos.x, world_pos.y, 1.0)
-    --         self.move_input = vmath.vector3(0, 0, 0)
-    --         self.pending_item = nil
-    --         self.pending_event = nil
-    --     end
-
     -- Горячие клавиши
     if action_id == hash("take_damage") and action.pressed then
         take_damage(self, 10)
     elseif action_id == hash("heal") and action.pressed then
         heal(self, 10)
+    elseif action_id == hash("burn_mana") and action.pressed then
+        burn_mana(self, 10)
+    elseif action_id == hash("restore_mana") and action.pressed then
+        restore_mana(self, 10)
     elseif action_id == hash("toggle_inventory_window") and action.pressed then
         msg.post("main:/context_menu_layer#gui", "hide_menu")
         msg.post("main:/inventory_window#gui", "toggle_inventory_window")

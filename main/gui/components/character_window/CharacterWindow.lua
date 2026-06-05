@@ -152,8 +152,8 @@ function M:init(template_id, player_inventory)
     end
 
     -- Настройка визуала
-    gui.set_size(self.body, vmath.vector3(TOTAL_WIDTH, WINDOW_HEIGHT, 0))
-    gui.set_size(self.header, vmath.vector3(TOTAL_WIDTH, 80, 0))
+    -- gui.set_size(self.body, vmath.vector3(TOTAL_WIDTH, WINDOW_HEIGHT, 0))
+    -- gui.set_size(self.header, vmath.vector3(TOTAL_WIDTH, 80, 0))
 
     self.modules = {
         self.static_grid,

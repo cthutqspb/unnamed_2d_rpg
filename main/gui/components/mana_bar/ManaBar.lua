@@ -3,9 +3,9 @@ local component = require("druid.component")
 ---@class ManaBar : druid.component
 local M = component.create("ManaBar")
 
-function M:init()
+function M:init(template_id)
     -- Получаем узлы из шаблона
-    self.fill = gui.get_node("mana_bar/fill")
+    self.fill = gui.get_node(template_id .. "/fill")
     self.max_width = 240  -- или можно получить из размера fill или bg
 
     -- Устанавливаем начальное значение
@@ -20,11 +20,11 @@ function M:update_mana(percentage)
      gui.animate(self.fill, gui.PROP_SIZE, vmath.vector3(target_width, gui.get_size(self.fill).y, 0), gui.EASING_OUTSINE, 0.3)
 
     -- Цвет (зелёный -> жёлтый -> красный)
-    local color = vmath.vector4(0, 1, 0, 1)
-    if percentage < 0.3 then 
-        color = vmath.vector4(1, 0, 0, 1)
-    elseif percentage < 0.6 then 
-        color = vmath.vector4(1, 1, 0, 1) 
+    local color = vmath.vector4(0, 0.27, 0.92, 1)
+    if percentage < 0.3 then
+        color = vmath.vector4(0.27, 0.72, 0.92, 1)
+    elseif percentage < 0.7 then
+        color = vmath.vector4(0, 0.5, 1, 1)
     end
     gui.set_color(self.fill, color)
 end

@@ -33,7 +33,6 @@ nodes {
   type: TYPE_BOX
   id: "header"
   parent: "root"
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   size {
@@ -96,7 +95,6 @@ nodes {
   id: "body"
   parent: "root"
   alpha: 0.72
-  size_mode: SIZE_MODE_AUTO
 }
 nodes {
   position {
@@ -373,6 +371,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "character_paperdoll/slot_head/bind"
+  parent: "character_paperdoll/slot_head/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll/slot_chest"
   parent: "character_paperdoll/root"
@@ -393,6 +397,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "character_paperdoll/slot_chest/amount"
+  parent: "character_paperdoll/slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_paperdoll/slot_chest/bind"
   parent: "character_paperdoll/slot_chest/root"
   template_node_child: true
 }
@@ -421,6 +431,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "character_paperdoll/slot_legs/bind"
+  parent: "character_paperdoll/slot_legs/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll/slot_main_hand"
   parent: "character_paperdoll/root"
@@ -441,6 +457,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "character_paperdoll/slot_main_hand/amount"
+  parent: "character_paperdoll/slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "character_paperdoll/slot_main_hand/bind"
   parent: "character_paperdoll/slot_main_hand/root"
   template_node_child: true
 }
@@ -469,6 +491,12 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_TEXT
+  id: "character_paperdoll/slot_off_hand/bind"
+  parent: "character_paperdoll/slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
   position {
     x: 315.0
   }
@@ -490,7 +518,7 @@ nodes {
 }
 nodes {
   position {
-    y: 250.0
+    y: 220.0
   }
   type: TYPE_TEMPLATE
   id: "static_grid"
@@ -531,6 +559,12 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "static_grid/slot_prefab/amount"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "static_grid/slot_prefab/bind"
   parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }

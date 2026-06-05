@@ -32,8 +32,13 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	  if message_id == hash("set_offset") then
-        go.set_position(message.pos)
+    if message_id == hash("set_offset") then
+        -- message.w и message.h придут из таблицы CHUNKS
+        local current_pos = go.get_position()
+        current_pos.x = current_pos.x - (message.w / 2)
+        current_pos.y = current_pos.y - (message.h / 2)
+        print('CHUNK_POS', current_pos.x, current_pos.y)
+        go.set_position(current_pos)
     end
 end
 
