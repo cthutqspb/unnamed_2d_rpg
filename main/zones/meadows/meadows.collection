@@ -189,7 +189,7 @@ instances {
     id: "creature"
     properties {
       id: "uid"
-      value: "skeleton_warrior_001"
+      value: "skeleton_warrior_002"
       type: PROPERTY_TYPE_HASH
     }
     properties {
@@ -221,7 +221,7 @@ instances {
     id: "creature"
     properties {
       id: "uid"
-      value: "skeleton_warrior_001"
+      value: "skeleton_warrior_003"
       type: PROPERTY_TYPE_HASH
     }
     properties {

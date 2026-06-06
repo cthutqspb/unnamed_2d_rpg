@@ -1,5 +1,6 @@
 local player_inventory = require("main.modules.player.player_inventory")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
+local character_data = require("main.modules.character.character_data")
 local broadcast = require("main.modules.system.broadcast")
 
 ---@class InteractionManager
@@ -79,5 +80,8 @@ function M.get_player_paperdoll()
     return player_paperdoll
 end
 
+function M.get_player_action_bar(index)
+    return character_data.player.action_bars[index] or {}
+end
 
 return M

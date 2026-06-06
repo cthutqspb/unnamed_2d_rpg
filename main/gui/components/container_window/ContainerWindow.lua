@@ -90,7 +90,6 @@ function M:init(template_id, config)
         self:close()
     end)
 
-    
     -- Начальные настройки
     -- gui.set_text(self.title, config.title or "Container")
     self.set_title(self, config.title or "Container")

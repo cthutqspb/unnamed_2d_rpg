@@ -1,5 +1,6 @@
 local item_transfer_manager = require("main.modules.item_transfer_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
 ---@class DragManager
 local M = {}
@@ -9,6 +10,7 @@ local M = {}
 ---@field slot number|string @Индекс или тип слота-источника
 ---@field item table @Модель данных перетаскиваемого предмета
 ---@field item_cfg table @Конфигурация предмета из items_db
+---@field drag_type string
 ---@field amount number @Количество предметов в пачке
 ---@field texture string|hash @Текстура атласа
 ---@field animation hash @Хеш имени анимации/иконки
@@ -30,11 +32,12 @@ function M.start(source, slot, item, item_cfg)
     local animation_name = item_cfg.animation or item_cfg.icon
 
     active_drag = {
+        drag_type = item_cfg.action_type,
         source = source,
         slot = slot,
         item = item,
         item_cfg = item_cfg,
-        amount = item.amount,
+        amount = item.amount or 0,
         texture = item_cfg.texture,
         animation = hash(animation_name),
         x = 0, y = 0
@@ -45,8 +48,8 @@ end
 function M.abort_drag()
     if not active_drag then return end
 
-    local d = active_drag 
-    
+    local d = active_drag
+
     -- Вытаскиваем чистую бэкенд-модель источника
     local source_model = d.source
     if type(source_model) == "table" and source_model.get_data_source then
@@ -57,10 +60,10 @@ function M.abort_drag()
     -- значит это ЛЮБОЕ внешнее окно (торговец, сундук, банк, алхимия)
     if source_model ~= interaction_manager.get_player_inventory() then
         print("DRAG_MANAGER: Внешний фокус потерян. Отменяем перетаскивание!")
-        
+
         active_drag = nil
         is_over_any_gui = false
-        
+
         -- Возвращаем оригинальный стак предметов на место
         item_transfer_manager.finalize()
     end
@@ -112,6 +115,78 @@ function M.finish(target_component, target_slot)
     local d = active_drag
     active_drag = nil
 
+    local is_to_bar = target_component and target_component.grid_type == "action_bar"
+    local is_from_bar = d.source and d.source.grid_type == "action_bar"
+
+    -- =========================================================================
+    -- 🎯 ФИКС КОНВЕЙЕРА (Развод доменов):
+    -- Боевой блок имеет право сработать ТОЛЬКО если это была абилка,
+    -- ЛИБО если это был предмет, который физически летит НА или С боевой панели!
+    -- =========================================================================
+    if d.drag_type == "ability" or (d.drag_type == "item" and (is_to_bar or is_from_bar)) then
+
+        -- 1. ЗАЩИТА WoW: Если тащим банку НЕ из личной сумки на панель — гасим драг
+        if d.drag_type == "item" and is_to_bar and not is_from_bar then
+            local player_inv = require("main.modules.player.player_inventory")
+            if d.source:get_data_source() ~= player_inv then
+                print("❌ ГЕЙМДИЗАЙН: Нельзя тащить вещи из чужих сундуков сразу на панель!")
+                if d.source then d.source:request_refresh() end
+                is_over_any_gui = false
+                return
+            end
+        end
+
+        -- 2. ВЫЧИСЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ РОКИРОВКИ И ОЧИСТКИ
+        local target_bar, target_idx, target_type, target_id
+        local old_data = nil
+
+        if target_component ~= nil then
+            -- 🟢 КЕЙС А: Бросили НА какую-то сетку интерфейса (target_component ГАРАНТИРОВАННО существует!)
+            -- Проверяем, является ли эта сетка боевым экшен-баром
+            if target_component.grid_type == "action_bar" then
+                target_bar  = target_component.bar_index or 1
+                target_idx  = target_slot
+                target_type = d.drag_type
+                target_id   = d.item.item_id or d.item.action_id
+                old_data    = target_component:get_slot_data(target_slot)
+            else
+                -- Страховка на случай непредвиденного домена
+                target_bar  = d.source.bar_index or 1
+                target_idx  = d.slot
+                target_type = "empty"
+                target_id   = nil
+            end
+        else
+            -- 🔵 КЕЙС Б: Выбросили в пустой мир / мимо интерфейсов (target_component равен nil)
+            -- Очищаем исходный слот экшен-бара, откуда Серёга потянул спелл
+            target_bar  = d.source.bar_index or 1
+            target_idx  = d.slot
+            target_type = "empty"
+            target_id   = nil
+        end
+
+        -- 3. Единственный вызов редьюсера на целевой слот
+        actions_dispatcher.REDUCERS["action_bar_assign"]({
+            target_bar_index = target_bar,
+            target_slot_index = target_idx,
+            drag_type = target_type,
+            action_id = target_id
+        })
+
+        -- 4. Уничтожаем дюп при перемещении ВНУТРИ экшен-бара
+        if is_from_bar then
+            actions_dispatcher.REDUCERS["action_bar_assign"]({
+                target_bar_index = d.source.bar_index,
+                target_slot_index = d.slot,
+                drag_type = old_data and old_data.action_type or "empty",
+                action_id = old_data and old_data.action_id or nil
+            })
+        end
+
+        is_over_any_gui = false
+        return -- Выходим наглухо, инвентарь ниже застрахован!
+    end
+
     -- 1. ОПРЕДЕЛЯЕМ ЧИСТУЮ МОДЕЛЬ ИСТОЧНИКА (View -> Model)
     local source_model = d.source
     if type(source_model) == "table" then
@@ -144,7 +219,6 @@ function M.finish(target_component, target_slot)
         end
 
         local is_from_doll = (source_model == require("main.modules.logic.interaction_manager").get_player_paperdoll())
-        local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
         -- Диспатчим экшен переноса, ПРОБРАСЫВАЯ МЕТКИ СПЛИТА В PAYLOAD
         actions_dispatcher.REDUCERS["item_transfer"]({

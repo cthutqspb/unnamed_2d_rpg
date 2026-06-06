@@ -9,6 +9,8 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field data_source table|nil Модель данных инвентаря/сундука
 ---@field columns number|nil Количество колонок в сетке (дефолт: 6)
 ---@field rows number|nil Количество строк в сетке (дефолт: 4)
+---@field bar_index number|nil
+---@field grid_type "inventory"|"action_bar"|nil Тип сетки (дефолт: "inventory")
 ---@field item_size number|nil Размер ячейки в пикселях (дефолт: 40)
 ---@field spacing number|nil Расстояние между ячейками (дефолт: 2)
 ---@field on_double_click function|nil Коллбэк при быстром двойном клике по слоту
@@ -17,6 +19,8 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field root node Корневой узел прехаба слота
 ---@field icon node Узел спрайта иконки предмета
 ---@field amount node Узел текстовой этикетки количества
+---@field bind node|nil 🎯
+---@field button table
 
 ---@class StaticGrid : druid.component
 ---@field druid druid.instance
@@ -24,6 +28,7 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field data_source table|nil Активная модель данных
 ---@field columns number
 ---@field rows number
+---@field bar_index number|nil
 ---@field item_size number
 ---@field spacing number
 ---@field container node Контейнер-держатель сетки Друида
@@ -44,6 +49,9 @@ function M:init(template_id, config)
     self.data_source = config.data_source
     self.columns = config.columns or 6
     self.rows = config.rows or 4
+
+    self.grid_type = config.grid_type or "inventory"
+    self.bar_index = config.bar_index or nil
 
     self.item_size = config.item_size or 40
     self.spacing = config.spacing or 2
@@ -115,20 +123,42 @@ function M:request_refresh()
     self._dirty = true
 end
 
----Полная перерисовка иконок и цифр количества предметов на основе Модели данных
+---Абсолютно полиморфный рефреш всей сетки (Работает строго на готовом Payload)
 function M:refresh()
     local ds = self:get_data_source()
-    if not ds or not ds.items then return end
+    if not ds then return end
 
-    for i = 1, #self.slots do
-        local item = ds:get_item(i)
-        if item and item.item_id then
-            Layout.draw_slot(self, i, item.item_id, item.amount)
-        else
-            Layout.clear_slot_visual(self, i)
+    -- РEЖИМ А: ЭКШEН-БAР
+    if self.grid_type == "action_bar" then
+        for i = 1, #self.slots do
+            -- Просто слепо швыряем структуру {action_type, action_id} в Layout!
+            Layout.draw_slot(self, i, ds[i] or {})
         end
+        return
+    end
+
+    -- РEЖИМ Б: ИНВEНТAРЬ
+    if not ds.items then return end
+    for i = 1, #self.slots do
+        -- Просто слепо швыряем твой чистый item {item_id, amount} в Layout!
+        Layout.draw_slot(self, i, ds:get_item(i) or {})
     end
 end
+
+-- ---Полная перерисовка иконок и цифр количества предметов на основе Модели данных
+-- function M:refresh()
+--     local ds = self:get_data_source()
+--     if not ds or not ds.items then return end
+--
+--     for i = 1, #self.slots do
+--         local item = ds:get_item(i)
+--         if item and item.item_id then
+--             Layout.draw_slot(self, i, item.item_id, item.amount)
+--         else
+--             Layout.clear_slot_visual(self, i)
+--         end
+--     end
+-- end
 
 ---Дефолтный триггер клика по заполненому слоту (например, для сплита стака)
 ---@param index number Числовой индекс нажатого слота
@@ -150,13 +180,45 @@ function M:set_data_source(data_source)
     self:refresh()
 end
 
----Получить текущую модель данных (если не задана — по умолчанию отдает рюкзак игрока)
----@return table
+---Получить текущую модель данных с жесткой защитой доменов (WoW-канон)
+---@return table|nil
 function M:get_data_source()
-    return self.data_source or interaction_manager.get_player_inventory()
+    -- Если сорс явно задан в self.data_source — отдаем его без разговоров
+    if self.data_source then
+        return self.data_source
+    end
+
+    -- 🧱 ТИТАНОВАЯ ЗАЩИТА ОТ ЛOЖНOГO ДРAГA ПРEДМEТOВ:
+     -- Если это боевая панель способностей и у неё взведен индекс (1, 2 или 3),
+    -- она САМА идёт в interaction_manager и забирает нужный массив!
+    if self.grid_type == "action_bar" and self.bar_index then
+        return interaction_manager.get_player_action_bar(self.bar_index)
+    end
+
+    if self.grid_type == "action_bar" then
+        return nil
+    end
+
+    -- Только если это чистокровная сумка инвентаря, возвращаем рюкзак по умолчанию
+    return interaction_manager.get_player_inventory()
 end
 
--- 🚩 УБРАЛИ ВТОРОЙ ДУБЛИКАТ ЭТОГО МЕТОДА СНИЗУ! ОСТАЛСЯ СТРОГО ОДИН!
+---Универсальный геттер сырых данных ячейки (Инвентарь vs Экшен-бар)
+---@param index number Числовой индекс слота
+---@return table|nil
+function M:get_slot_data(index)
+    local ds = self:get_data_source()
+    if not ds then return nil end
+
+    -- Если у сорса есть метод get_item (это рюкзак или сундук) — вызываем его
+    if ds.get_item then
+        return ds:get_item(index)
+    end
+
+    -- Во всех остальных случаях (это экшен-бар) — читаем плоскую таблицу матрицы
+    return ds[index]
+end
+
 ---Посчитать пиксели ячеек на экране и вернуть индекс слота под курсором мыши
 ---@param x number Экранная координата X мыши
 ---@param y number Экранная координата Y мыши
@@ -183,6 +245,7 @@ end
 ---@return boolean true если предмет успешно сброшен в ячейку
 function M:on_drop(x, y)
     -- Если сетка или окно скрыты — полный игнор
+
     if not gui.is_enabled(self.root, true) then return false end
 
     -- Ищем, над каким конкретно числовым индексом слота отпустили мышь

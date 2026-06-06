@@ -25,6 +25,7 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field attack_range_melee number    
 ---@field ai_profile string            -- Профиль ИИ из базы данных
 ---@field spawn_pos vector3            -- Точка дома для патруля
+---@field saved_position vector3
 ---@field ai_is_patrolling boolean     -- Флаг снижения скорости в патруле
 
 ---@param self CreatureScriptContext
@@ -38,13 +39,24 @@ function init(self)
     self.creature_type = interaction.clean_id(self.creature_rank) or ""
 
     if not self.is_from_factory then
-        -- Если UID пустой, генерируем по координатам
+        -- Если UID пустой, генерируем по начальной точке спавна (пока он не ушел по ИИ)
         if self.uid == hash("") or string_uid == "" then
             local creature_position = go.get_position()
             string_uid = string.format("c_%d_%d", math.floor(creature_position.x), math.floor(creature_position.y))
         end
 
-        -- Проверка BG3: если загрузились и предмета нет в сейве — он уже собран
+        -- ХАК ДЛЯ ПЕРЕЗАГРУЗКИ ЧАНКА (BG3-style):
+        -- Если существо с таким UID УЖЕ существует в вашей базе данных creatures_state,
+        -- это значит, что фабрика чанка пытается создать ДУБЛИКАТ (оригинал уже где-то ходит или записан в памяти).
+        if creatures_state.get(string_uid) then
+            -- Вариант 1: Моб уже был создан, сохранен и, возможно, сместился. 
+            -- Нам нужно удалить эту фабричную "пустышку", потому что менеджер мира 
+            -- либо уже восстановил его, либо оригинальный скрипт моба управляет им.
+            go.delete()
+            return
+        end
+
+        -- Проверка старого сейва (если загрузили игру из файла, а моб был убит)
         if creatures_state.is_loaded_from_save and not creatures_state.exists(string_uid) then
             go.delete()
             return
@@ -71,6 +83,11 @@ function init(self)
         self.attack_range_melee = creature_instance_data.attack_range_melee or 8
         -- Достаем строковое имя профиля ("aggressive_patrol")
         self.ai_profile = creature_instance_data.ai_profile
+        -- 🌟 ВОЗВРАЩАЕМ НА МЕСТО: Если в базе есть сохраненная позиция, 
+        -- сдвигаем моба туда из точки спавна фабрики
+        if creature_instance_data.saved_position then
+            go.set_position(creature_instance_data.saved_position)
+        end
     else
         self.speed = 90
         self.hitbox_size = 64
@@ -85,7 +102,13 @@ end
 
 ---@param self CreatureScriptContext
 function final(self)
-	  if creatures_state.unregister then
+    if creatures_state.unregister then
+        -- Перед удалением отправляем текущую позицию ИИ в бэкенд-стейт
+        local current_data = creatures_state.get(self.uid) or {}
+        current_data.saved_position = go.get_position()
+        -- Сохраняем измененные данные (включая ХП, если есть) обратно в creatures_db/state
+        creatures_state.update_data(self.uid, current_data)
+
         creatures_state.unregister(self.go_id)
     end
 end
@@ -117,7 +140,7 @@ end
 function on_message(self, message_id, message, sender)
     if message_id == hash("click") then
         print(string.format("🖱️ КЛИК: Игрок выбрал тушку %s [%s]", self.creature_id, self.uid))
-        
+
         -- 🎯 ЧИСТОКРОВНЫЙ WoW-КАНОН:
         -- Зашиваем СИ-адрес и строковый GUID монстра в центральную ячейку таргета!
         interaction_manager.set_target(self.go_id, self.uid)

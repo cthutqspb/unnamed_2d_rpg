@@ -2,6 +2,7 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 local item_transfer_manager = require("main.modules.item_transfer_manager")
 local items_db = require("main.modules.data.items_db")
 local character_data = require("main.modules.character.character_data")
+local character_logic = require("main.modules.character.character_logic")
 
 ---@class ActionPayload
 ---@field slot_index number|string|nil Индекс слота (число для сумки, строка для куклы)
@@ -92,10 +93,21 @@ M.REDUCERS = {
         end
     end,
 
+    -- === СЛАЙС 3: БОЕВОЙ ТАРГЕТИНГ И ПАНЕЛИ СПОСОБНОСТЕЙ ===
+    ["action_bar_assign"] = function(data)
+        -- Перенаправляем чистый payload в метод мутации памяти
+        character_logic.set_action_bar_slot(
+            data.target_bar_index,
+            data.target_slot_index,
+            data.drag_type, -- "ablity / "item" / "empty"
+            data.action_id  -- "melee_attack" / "frostbolt" / nil
+        )
+    end,
+
     ["creature_attack"] = function(data)
         -- ⚔️ ЗАДЕЛ НА БУДУЩЕЕ: Сюда прилетит клик "Атаковать кабана" из меню!
         print("БЭКЕНД БОЯ: Начинаем охоту на кабана:", data.target_go_id)
-    end
+    end,
 }
 
 return M

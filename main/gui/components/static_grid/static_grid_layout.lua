@@ -1,4 +1,19 @@
 local items_db = require("main.modules.data.items_db")
+local abilities_db = require("main.modules.data.abilities_db")
+
+---@class SlotVisualState
+---@field icon_texture string|nil     Имя атласа (например, "project_utumno")
+---@field icon_animation string|hash|nil Имя флипбука/спрайта/иконки внутри атласа
+---@field icon_color vector4|nil      Подсветка редкости предмета или яркость КД
+---@field amount_text string|nil      Текст количества в стаке (для инвентаря)
+---@field bind_text string|nil        Текст горячей клавиши (для экшен-бара)
+---@field is_icon_enabled boolean     Включена ли картинка в слоте
+
+---@class GridSlotNodeCache
+---@field root node
+---@field icon node
+---@field amount node
+---@field bind node|nil
 
 ---@class StaticGridLayoutModule
 local M = {}
@@ -14,6 +29,7 @@ function M.create_slots(self)
     local path_root  = hash(base_path .. "/root")
     local path_icon  = hash(base_path .. "/icon")
     local path_amount = hash(base_path .. "/amount")
+    local path_bind   = hash(base_path .. "/bind")
 
     for i = 1, self.columns * self.rows do
         local nodes = gui.clone_tree(prefab_root)
@@ -26,44 +42,102 @@ function M.create_slots(self)
         -- Регистрируем созданную ячейку во внутреннем статическом гриде Druid
         self.grid:add(slot_root)
 
-        -- Кэшируем ссылки на визуальные ноды ячейки для мгновенного доступа при рефреше
-        table.insert(self.slots, {
-            root = slot_root,
-            icon = nodes[path_icon],
-            amount = nodes[path_amount]
-        })
+        ---@type GridSlotNodeCache
+        local slot_cache = {
+            root   = slot_root,
+            icon   = nodes[path_icon],
+            amount = nodes[path_amount],
+            bind   = nodes[path_bind]
+        }
+        table.insert(self.slots, slot_cache)
     end
 end
 
----Отрисовать текстуру, цвет и количество предметов внутри конкретного графического слота
 ---@param self StaticGrid
----@param index number Порядковый индекс ячейки в массиве slots
----@param item_id string Строковый идентификатор предмета из базы данных ("sword", "gold")
----@param amount number Текущее количество предметов в стаке
-function M.draw_slot(self, index, item_id, amount)
+---@param index number
+---@param data table Таблица данных из бэкенд-массива (item или action_data)
+function M.draw_slot(self, index, data)
+    ---@type StaticGridSlotVisual
     local slot = self.slots[index]
-    if not slot then return end
+    if not slot or not data then return end
 
-    local data = items_db.get_item(item_id)
-    if data then
-        gui.set_enabled(slot.icon, true)
+    -- =========================================================================
+    -- ВEТКA А: ЭКШEН-БAР (ПАНЕЛЬ СПОСОБНОСТЕЙ)
+    -- =========================================================================
+    if self.grid_type == "action_bar" then
+        -- Вычисляем строку хоткея строго по индексу ячейки (1..12)
+        local bind_string = tostring(index == 11 and "-" or (index == 12 and "=" or (index == 10 and "0" or index)))
 
-        -- Устанавливаем цвет иконки (например, серый/зеленый/фиолетовый в зависимости от раритетности)
-        gui.set_color(slot.icon, data.color or vmath.vector4(1.0, 1.0, 1.0, 1.0))
-
-        if data.texture then
-            gui.set_texture(slot.icon, data.texture)
+        if slot.bind then
+            gui.set_enabled(slot.bind, true)
+            gui.set_text(slot.bind, bind_string)
         end
+        if slot.amount then gui.set_enabled(slot.amount, false) end
 
-        -- Запускаем анимацию иконки из флипбука (атласа)
-        gui.play_flipbook(slot.icon, hash(data.animation or data.icon))
+        -- Если в слоте сидит способность — лезем в базу спеллов!
+        if data.action_id and data.action_type == "ability" then
+            local cfg = abilities_db.get_ability(data.action_id)
+            if cfg then
+                gui.set_enabled(slot.icon, true)
+                if cfg.texture then gui.set_texture(slot.icon, cfg.texture) end
+                gui.play_flipbook(slot.icon, hash(cfg.animation or data.action_id))
+                gui.set_color(slot.icon, vmath.vector4(1, 1, 1, 1))
+            end
+        -- 2. 🎯 СЛОТ СОДЕРЖИТ ПРЕДМЕТ (Зелья / Оружие / Мусор):
+        elseif data.action_id and data.action_type == "item" then
+            local item_cfg = items_db.get_item(data.action_id)
+            if item_cfg then
+                gui.set_enabled(slot.icon, true)
+                if item_cfg.texture then gui.set_texture(slot.icon, item_cfg.texture) end
+                gui.play_flipbook(slot.icon, hash(item_cfg.animation or data.action_id))
 
-        -- Отображаем цифру количества только если в стаке больше одного предмета
-        local is_stack = amount and amount > 1
-        gui.set_enabled(slot.amount, is_stack)
-        if is_stack then
-            gui.set_text(slot.amount, tostring(amount))
+                -- 🧱 СИ-ЗАЩИТА И ЗАТЕМНЕНИЕ НЕЮЗАБЕЛЬНЫХ ПРЕДМЕТОВ (WoW-канон):
+                -- Проверяем, есть ли у шмотки активный прожимаемый use_effects в базе данных
+                if item_cfg.use_effects and #item_cfg.use_effects > 0 then
+                    -- Предмет можно прожать (зелье маны) -> Даем иконке 100% сочный цвет
+                    gui.set_color(slot.icon, vmath.vector4(1, 1, 1, 1))
+                else
+                    -- Предмет не имеет юза (меч, глина, панцирь) -> Насильно ТEМНИМ иконку в серый!
+                    -- Слот заблокирован, но иконка шмотки красиво сидит на экшен-баре!
+                    gui.set_color(slot.icon, vmath.vector4(0.3, 0.3, 0.3, 1.0))
+                end
+            end
+        else
+            -- Пустой боевой слот
+            gui.set_enabled(slot.icon, false)
         end
+        return -- Выходим
+    end
+
+    -- =========================================================================
+    -- ВEТКA Б: ТТOЙ РOДНOЙ ИНВEНТAРЬ (Остается в полной безопасности)
+    -- =========================================================================
+    -- data здесь — это твой чистый item, у которого есть поле item_id!
+    if slot.bind then gui.set_enabled(slot.bind, false) end
+
+    if data.item_id then
+        -- Лезем в твою базу предметов по item_id, как это и работало раньше!
+        local item_cfg = items_db.get_item(data.item_id)
+        if item_cfg then
+            gui.set_enabled(slot.icon, true)
+            gui.set_color(slot.icon, item_cfg.color or vmath.vector4(1, 1, 1, 1))
+
+            if item_cfg.texture then
+                gui.set_texture(slot.icon, item_cfg.texture)
+            end
+            gui.play_flipbook(slot.icon, hash(item_cfg.animation or data.item_id))
+
+            -- Твой родной вывод количества предметов
+            local is_stack = data.amount and data.amount > 1
+            gui.set_enabled(slot.amount, is_stack)
+            if is_stack then
+                gui.set_text(slot.amount, tostring(data.amount))
+            end
+        end
+    else
+        -- Пустой слот сумки
+        gui.set_enabled(slot.icon, false)
+        gui.set_enabled(slot.amount, false)
     end
 end
 
@@ -75,6 +149,7 @@ function M.clear_slot_visual(self, index)
     if slot then
         gui.set_enabled(slot.icon, false)
         gui.set_enabled(slot.amount, false)
+        gui.set_enabled(slot.bind, false)
     end
 end
 

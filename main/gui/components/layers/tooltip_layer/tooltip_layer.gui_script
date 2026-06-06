@@ -196,8 +196,16 @@ local function render_item(self, item_context, context)
     -- [БЛОК 5: ЭФФЕКТЫ И ОПИСАНИЕ]
     if cfg.effects then
         for _, eff in ipairs(cfg.effects) do
-            local pattern = locales.get("effect_" .. eff.id)
+            local pattern = locales.get("effect_" .. eff.aura_id)
             local text = string.format(pattern, eff.value or "")
+            add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+        end
+    end
+
+    if cfg.use_effects then
+        for _, use_eff in ipairs(cfg.use_effects) do
+            local pattern = locales.get("use_effect_" .. use_eff.ability_id)
+            local text = string.format(pattern, use_eff.value or "")
             add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
         end
     end

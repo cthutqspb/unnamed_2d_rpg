@@ -115,7 +115,12 @@ function on_message(self, message_id, message, sender)
             }
 
             -- Взводим драг от лица сетки инвентаря
-            drag_manager.start(self.character_window.static_grid, slot_index, split_item, item_cfg)
+            drag_manager.start(
+                self.character_window.static_grid,
+                slot_index,
+                split_item,
+                item_cfg
+            )
         end
 
 

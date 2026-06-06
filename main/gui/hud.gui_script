@@ -6,8 +6,6 @@ local ActionBar = require("main.gui.components.action_bar.ActionBar")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
-local gui_utils = require("main.gui.gui_utils")
-local settings = require("main.modules.data.settings")
 
 ---@class HudScriptContext
 ---@field druid druid.instance Инстанс Друида для этого GUI-экрана
@@ -16,12 +14,11 @@ local settings = require("main.modules.data.settings")
 ---@field action_bar table
 ---@field is_shift_pressed boolean Системный флаг зажатия клавиши Shift
 ---@field on_inventory_event function Коллбэк для инвентарных бродкастов
+---@field on_action_bar_event function
 ---@field on_player_event function Коллбэк для характеристик игрока
 ---@field on_ui_event function Коллбэк для системных отмен фокусов и окон
 ---@field on_target_event function
 ---@field static_grid table|nil Ссылка на сетку слотов, если она встроена в HUD
-
-local h_touch = hash("touch")
 
 ---@param self HudScriptContext
 function init(self)
@@ -35,25 +32,14 @@ function init(self)
     self.action_bar = self.druid:new(
         ActionBar,
         "action_bar",
-        {
+        {   bar_index = 1,
             columns = 12,
             rows = 1,
             item_size = 40,
-            spacing = 2,
-            on_click = function(index, item)
-                msg.post(".", "player_action", {
-                    event = "action", -- тут наверно от типа зависит, вдруг там зелье в слоте
-                    data = {
-                        slot_index = index,
-                        action_type = item.action_type or "spell", -- тут тоже не ясно, спелл айди? абили айди?
-                        action_id = item.action_id
-                    }
-                })
-            end
+            spacing = 2
         }
     )
 
-    _G.HUD = self
     self.is_shift_pressed = false
 
     -- 📬 СЛАЙС 1: ИНВЕНТАРНЫЕ СОБЫТИЯ (inventory_events)
@@ -65,6 +51,12 @@ function init(self)
                 msg.post("main:/inventory_window#gui", "refresh")
                 if self.static_grid then self.static_grid:refresh() end
             end
+        end
+    end
+
+    self.on_action_bar_event = function (data)
+        if data.message_id == hash("action_bars_changed") then
+            msg.post("main:/gui_manager#hud",  "refresh_action_bars")
         end
     end
 
@@ -104,6 +96,7 @@ function init(self)
 
     -- Оформляем подписки на наши Redux-каналы
     broadcast.subscribe("inventory_events", self.on_inventory_event)
+    broadcast.subscribe("action_bar_events", self.on_action_bar_event)
     broadcast.subscribe("player_events", self.on_player_event)
     broadcast.subscribe("ui_events", self.on_ui_event)
     broadcast.subscribe("target_events", self.on_target_event)
@@ -143,6 +136,10 @@ function on_message(self, message_id, message, sender)
         msg.post("main:/character_window#gui", "refresh")
         msg.post("main:/inventory_window#gui", "refresh")
     end
+
+    if message_id == hash("refresh_action_bars") then
+        self.action_bar:refresh()
+    end
 end
 
 ---@param self HudScriptContext
@@ -150,39 +147,48 @@ end
 ---@param action table
 ---@return boolean
 function on_input(self, action_id, action)
-    if action.x and action.y then
-        --ocal cursor_node = gui.get_node("custom_cursor")
-        -- 
-        -- local window_w, window_h = window.get_size()
-        -- local project_w = sys.get_config_int("display.width")
-        -- local project_h = sys.get_config_int("display.height")
-        --
-        -- -- 3. Вычисление масштабирования и позиции для GUI-слоя (Stretch / Адаптив)
-        -- local scale_x = window_w / project_w
-        -- local scale_y = window_h / project_h
-        --
-        --  -- 3. ПЕРЕСЧЁТ КООРДИНАТ В GUI-ПРОСТРАНСТВО:
-        -- -- Делим пиксели мыши на масштаб, переводя их в жесткую сетку логического разрешения!
-        -- local gui_x = action.x / scale_x
-        -- local gui_y = action.y / scale_y
-        -- local gui_pos, world_pos = gui_utils.transform_coordinates(action, hash("/camera"))
-        -- gui.set_position(self.cursor_view_node, world_pos)
-    end
-
+    -- 1. Системный Shift
     if action_id == hash("key_lshift") then
         if action.pressed then self.is_shift_pressed = true
         elseif action.released then self.is_shift_pressed = false end
         return false
     end
 
-    if not action_id then
-        self.druid:on_input(action_id or hash(""), action)
-        return false
+    -- =========================================================================
+    -- 🎯 2. ПEРВЫЙ ПOГРAНИЧНЫЙ СЛOЙ ХУДA: ЛОГИКА АКТИВНОГО ДРАГА
+    -- Выносим её на самый верх, полностью выжигая блокировку от 'handled = true'!
+    -- =========================================================================
+    if drag_manager.is_dragging() then
+        -- А) Движение мыши (Плавно тащим иконку банки/спелла за курсором)
+        if not action_id or action_id == hash("touch") then
+            drag_manager.update(action.x, action.y)
+        end
+
+        -- Б) Отпускание мыши (Drop) над экшен-баром или в мир
+        if action_id == hash("touch") and action.released then
+            local bar_grid = self.action_bar and (self.action_bar.static_grid or self.action_bar.grid)
+            
+            -- Опрашиваем боевую сетку напрямую!
+            if bar_grid and bar_grid:on_drop(action.x, action.y) then
+                print("🚩 ХУД: Боевая сетка успешно сожрала дроп из инвентаря!")
+                return true -- Поглощаем инпут, цепь замкнулась!
+            end
+
+            -- Если промахнулись мимо экшен-бара — дефолтный выброс под ноги в Meadows
+            print("HUD: Промахнулись мимо панели. Выбрасываем предмет в мир...")
+            drag_manager.finish(nil, nil)
+            broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+            return true
+        end
     end
 
+    -- =========================================================================
+    -- 3. ВТОРОЙ СЛОЙ ХУДA: Отдаем инпут Друиду (Только если драг НЕ активен!)
+    -- =========================================================================
     local handled = self.druid:on_input(action_id, action)
     if handled then return true end
 
+    -- 4. Системный ESC (Закрытие окон / Меню)
     if action_id == hash("key_esc") and action.pressed then
         handled = window_manager.close_top()
         if not handled then
@@ -191,27 +197,97 @@ function on_input(self, action_id, action)
         return true
     end
 
-    if not action.x or not action.y then
-        return false
-    end
+    -- =========================================================================
+    -- 🎯 ЧИСТОКРОВНЫЙ СИ-ПЕРЕХВАТ ХOТКEEВ КЛAВИAТУРЫ (1..12):
+    -- =========================================================================
+    if action.pressed and action_id then
+        local key_index = nil
+        
+        -- Быстрый развод Си-хэшей числового ряда клавиатуры движка Defold
+        if     action_id == hash("key_1") then key_index = 1
+        elseif action_id == hash("key_2") then key_index = 2
+        elseif action_id == hash("key_3") then key_index = 3
+        elseif action_id == hash("key_4") then key_index = 4
+        elseif action_id == hash("key_5") then key_index = 5
+        elseif action_id == hash("key_6") then key_index = 6
+        elseif action_id == hash("key_7") then key_index = 7
+        elseif action_id == hash("key_8") then key_index = 8
+        elseif action_id == hash("key_9") then key_index = 9
+        elseif action_id == hash("key_0") then key_index = 10
+        -- (Если в твоем input.input_binding заведены минус и плюс, раскомментируй слоты 11 и 12):
+        -- elseif action_id == hash("key_minus") then key_index = 11
+        -- elseif action_id == hash("key_equal") then key_index = 12
+        end
 
-    if not action_id and drag_manager.is_dragging() then
-        drag_manager.update(action.x, action.y)
-    end
-
-    if action_id == hash("touch") and action.released and drag_manager.is_dragging() then
-        print("HUD: Выбрасываем предмет в игровой мир...")
-        drag_manager.finish(nil, nil)
-        broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
-        return true
+        if key_index then
+            if self.action_bar then
+                -- Панель сама залезет в память, проверит КД, зажжет визуал и пнет player.script!
+                self.action_bar:on_slot_click(key_index)
+                return true -- Поглощаем инпут, мир Meadows эту кнопку не читает
+            end
+        end
     end
 
     return false
 end
+-- function on_input(self, action_id, action)
+--     -- 1. Системный Shift
+--     if action_id == hash("key_lshift") then
+--         if action.pressed then self.is_shift_pressed = true
+--         elseif action.released then self.is_shift_pressed = false end
+--         return false
+--     end
+--
+--     -- 2. 🎯 ФИКС МИНЫ 3 (Драг мыши без кликов):
+--     -- Если игрок просто двигает мышь (action_id == nil), мы НЕ обрываем функцию ретурном!
+--     -- Мы даем Друиду обсчитать hover-статусы, а менеджеру драга — плавно двигать иконку!
+--     if not action_id and drag_manager.is_dragging() then
+--         drag_manager.update(action.x, action.y)
+--     end
+--
+--     -- 3. Пропускаем базовые инпуты через Си-ядро Друида
+--     local handled = self.druid:on_input(action_id, action)
+--     -- if handled then return true end
+--
+--     -- 4. Системный ESC (Закрытие окон / Меню)
+--     if action_id == hash("key_esc") and action.pressed then
+--         handled = window_manager.close_top()
+--         if not handled then
+--             msg.post("main:/main_menu#gui", "toggle_main_menu")
+--         end
+--         return true
+--     end
+--
+--     -- 5. Сброс шмотки / способности с курсора мышкой
+--     if action_id == hash("touch") and action.released and drag_manager.is_dragging() then
+--         print("HUD DROP")
+--         -- 🎯 ПРOВEРКA НAД БOEВOЙ ПAНEЛЬЮ (Фикс слепоты драга):
+--         -- Просим сетку экшен-бара проверить, легли ли координаты X/Y отпускания мыши над её слотами.
+--         -- Если да — метод on_drop внутри StaticGrid сам вызовет правильный drag_manager.finish(self, index)!
+--         if self.action_bar and self.action_bar.static_grid then
+--             local dropped_on_bar = self.action_bar.static_grid:on_drop(action.x, action.y)
+--             
+--             if dropped_on_bar then
+--                 return true -- Успех! Экшен-бар сожрал драг, в мир ничего не выбрасываем
+--             end
+--         end
+--
+--         -- =========================================================================
+--         -- ВEТКA ВЫБРOСA В МИР (Сработает ТОЛЬКО если промахнулись мимо всех сумок и панелей!)
+--         -- =========================================================================
+--         print("HUD: Промахнулись мимо интерфейсов. Выбрасываем предмет в игровой мир...")
+--         drag_manager.finish(nil, nil)
+--         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+--         return true
+--     end
+--
+--     return false
+-- end
 
 ---@param self HudScriptContext
 function final(self)
     broadcast.unsubscribe("inventory_events", self.on_inventory_event)
+    broadcast.unsubscribe("action_bar_events", self.on_action_bar_event)
     broadcast.unsubscribe("player_events", self.on_player_event)
     broadcast.unsubscribe("ui_events", self.on_ui_event)
     broadcast.unsubscribe("target_events", self.on_target_event)

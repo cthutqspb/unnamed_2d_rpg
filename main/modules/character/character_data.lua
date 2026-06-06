@@ -9,7 +9,7 @@
 ---@field y number Координата Y в мире
 
 ---@class ActionSlotData
----@field action_type "spell"|"item"|"empty" Тип действия в слоте
+---@field action_type "ablity"|"item"|"empty" Тип действия в слоте
 ---@field action_id string|nil            Строковый ID из базы способностей или предметов
 
 ---@class PlayerDataStructure

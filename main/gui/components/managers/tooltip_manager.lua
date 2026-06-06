@@ -22,7 +22,7 @@ M.WORLD_TYPES = {
 
 M.GUI_TYPES = {
     ["gui_item"]   = "GUI_ITEM",  -- шмотки в сумках/кукле
-    ["gui_spell"]  = "GUI_SPELL", -- спеллы на панелях
+    ["gui_ability"]  = "GUI_ABILITY", -- спеллы на панелях
     ["gui_stat"]   = "GUI_STAT",  -- статы в окне персонажа
 }
 

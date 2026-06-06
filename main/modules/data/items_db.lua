@@ -15,7 +15,27 @@
 ---@field max number Максимальный урон
 ---@field type string Тип урона ("physical", "magic")
 
+---@class ItemBonusDamageConfig
+---@field min number Минимальный доп. урон
+---@field max number Максимальный доп. урон
+---@field type string Школа магии доп. урона ("arcane", "fire")
+
+---@class ItemPassiveEffectsConfig
+---@field aura_id string ID скрытой пассивной ауры в боевой системе ("mana_leech_on_hit")
+---@field value number Сила или процент срабатывания эффекта
+---@field chance number Шанс прока в процентах (0..100)
+
+---@class ItemEffectValue
+---@field min number Минимальное значение силы эффекта (лечения/мана-регена)
+---@field max number Максимальное значение силы эффекта
+
+---@class ItemUseEffectsConfig
+---@field ability_id string Ссылка на ID заклинания из базы способностей abilities_db ("restore_mana")
+---@field value ItemEffectValue Диапазон силы применения предмета
+---@field cooldown number Кулдаун категории предметов в секундах (например, 300)
+
 ---@class ItemConfig
+---@field action_type string
 ---@field name_key string Локализационный ключ имени шмотки
 ---@field desc_key string Локализационный ключ описания шмотки
 ---@field animation string Имя анимации флипбука в атласе
@@ -30,7 +50,10 @@
 ---@field weapon_type string|nil Подтип оружия ("one_hand_sword", "staff")
 ---@field required ItemRequiredStats Структура требований к характеристикам
 ---@field stats ItemBonusStats Структура добавляемых статов при экипировке
+---@field effects ItemPassiveEffectsConfig[]|nil Массив пассивных аур предмета
+---@field use_effects ItemUseEffectsConfig[]|nil Массив активных прожимаемых эффектов (зелья/тринкеты)
 ---@field damage ItemDamageConfig|nil Параметры боевого урона для оружия
+---@field bonus_damage ItemBonusDamageConfig[]|nil
 ---@field price number Стоимость предмета у торговцев
 ---@field weight number Физический вес шмотки в рюкзаке
 ---@field id? string Строковый ID ("iron_sword"), пропишем при инициализации для редьюсеров
@@ -39,6 +62,7 @@ local M = {}
 ---@type table<string, any>
 M.items_raw = {
     ["iron_sword"] = {
+        action_type = "item",
         name_key = "item_iron_sword_name",
         desc_key = "item_iron_sword_desc",
         animation = "iron_sword",
@@ -71,6 +95,7 @@ M.items_raw = {
         -- rotation = 0,          -- угол поворота на земле
     },
     ["crystal_sword"] = {
+        action_type = "item",
         name_key = "item_crystal_sword_name",
         desc_key = "item_crystal_sword_desc",
         animation = "crystal_sword",
@@ -92,11 +117,15 @@ M.items_raw = {
             intellect = 2
         },
         effects = {
-            { id = "mana_leech_on_hit", value = 1.0, chance = 100 }
+            {
+                aura_id = "mana_leech_on_hit",
+                value = 1.0,
+                chance = 100
+            }
         },
         use_effects = {
             {
-                id = "restore_mana",
+                ability_id = "restore_mana",
                 value = { min = 10, max = 10},
                 cooldown = 300
             }
@@ -120,6 +149,7 @@ M.items_raw = {
         weight = 2.4
     },
     ["leather_helmet"] = {
+        action_type = "item",
         name_key = "item_leather_helmet_name",
         desc_key = "item_leather_helmet_desc",
         animation = "leather_helmet",
@@ -140,13 +170,17 @@ M.items_raw = {
             agility = 2
         },
         effects = {
-            { id = "increase_max_health", value = 20 }
+            {
+                aura_id = "increase_max_health",
+                value = 20
+            }
         },
         armor_rating = 27,
         price = 15,
         weight = 1.0,
     },
     ["clown_hat"] = {
+        action_type = "item",
         name_key = "item_clown_hat_name",
         desc_key = "item_clown_hat_desc",
         animation = "clown_hat",
@@ -170,13 +204,17 @@ M.items_raw = {
             intellect = 5
         },
         effects = {
-            { id = "chance_to_critical_hit", value = 2.5 }
+            {
+                aura_id = "chance_to_critical_hit",
+                value = 2.5
+            }
         },
         armor_rating = 15,
         price = 40,
         weight = 1.2
     },
     ["lesser_mana_potion"] = {
+        action_type = "item",
         name_key = "item_lesser_mana_potion_name",
         desc_key = "item_lesser_mana_potion_desc",
         animation = "lesser_mana_potion",
@@ -193,8 +231,11 @@ M.items_raw = {
         },
         use_effects = {
             {
-                id = "restore_mana",
-                value = {min = 20, max = 40},
+                ability_id = "restore_mana",
+                value = {
+                    min = 20,
+                    max = 40
+                },
                 cooldown = 1
             }
         },
@@ -218,11 +259,19 @@ end
 
 ---Универсальная быстрая функция получения статического конфига предмета
 ---@param id any Идентификатор предмета (хэш Defold или чистая Lua-строка)
----@return ItemConfig|nil data 🚩 АВТОДОПОЛНЕНИЕ СОХРАНЕНО: Все окна будут видеть строгие подсказки полей!
+---@return ItemConfig|nil data
 function M.get_item(id)
-    -- Если прилетел хэш (из коллизий/мира), мгновенно забираем из кэша. 
-    -- Если прилетела строка (из сумок/РЕДАКСА), забираем из items_raw.
-    return items_by_hash[id] or M.items_raw[id]
+    local cfg = items_by_hash[id] or M.items_raw[id]
+    
+    -- 🎯 ААА-ИНЖЕКЦИЯ МЕТА-ТИПА:
+    -- Если предмет найден в базе, мы прямо в оперативной памяти вклеиваем ему 
+    -- системное поле action_type = "item". В самом файле базы этого поля НЕТ, 
+    -- оно не мусорит, но любой скрипт в игре теперь видит его автоматически!
+    if cfg and not cfg.action_type then
+        cfg.action_type = "item"
+    end
+    
+    return cfg
 end
 
 return M

@@ -8,8 +8,6 @@ end
 function on_message(self, message_id, message, sender)
     if message_id == hash("reload_game") then
         self.pending_pos = message.last_pos
-        self.pending_action_bars = message.action_bars
-        print('reload_game, action_bars', message.action_bars[1])
         msg.post("#game_proxy", "unload")
 
     elseif message_id == hash("proxy_unloaded") then
@@ -18,12 +16,7 @@ function on_message(self, message_id, message, sender)
     elseif message_id == hash("proxy_loaded") then
         msg.post(sender, "enable")
         msg.post(sender, "acquire_input_focus")
-        -- 🎯 ПИНГ ХУДA: Неважно, сейв это или новая игра — лоадер просто швыряет 
-        -- кэшированные панели в GUI. HUD просто слепо их рисует!
-        print('proxy_loaded action_bars', self.pending_action_bars)
-        msg.post("main:/gui_manager#hud", "initialize_action_bars", {
-            action_bars = self.pending_action_bars
-        })
+
         -- Сбрасываем кэш панелей
         self.pending_action_bars = nil
         -- 1. СЦЕНА ГОТОВА: Проверяем, откуда мы стартуем

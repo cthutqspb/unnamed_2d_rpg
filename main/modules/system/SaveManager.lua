@@ -40,22 +40,23 @@ function M.new_game()
     -- В Луа массивы идут строго с 1, поэтому прописываем индексы явно [1] и [2]!
     character_data.player.action_bars = {
         [1] = { -- Основная панель (кнопки 1, 2, 3... 12)
-            [1] = { action_type = "spell", action_id = "melee_attack" },
-            [2] = { action_type = "spell", action_id = "frostbolt" },
+            [1] = { action_type = "ability", action_id = "melee_attack" },
+            [2] = { action_type = "ability", action_id = "frostbolt" },
+            [3] = { action_type = "item",    action_id = "lesser_mana_potion" }, -- Юзабельное зелье [C]
+            [4] = { action_type = "item",    action_id = "iron_sword" },
             -- остальные слоты в Lua автоматически останутся nil
         },
         [2] = {}, -- Нижняя левая панель (пока пустая, ждет кнопок через Shift)
     }
 
     -- 2. ГОВОРИМ ЛОАДЕРУ: Перезагрузи всю сцену
-    msg.post("main:/loader#script", "reload_game", {
-        action_bars = character_data.player.action_bars
-    })
+    msg.post("main:/loader#script", "reload_game", { last_pos = nil })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
+    broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
     -- Всё! При старте новой сцены все init() сработают на чистых данных
 end
 
--- СОХРАНЕНИЕ\
+-- СОХРАНЕНИЕ
 function M.save_game()
     local data = {
         version = 1,
