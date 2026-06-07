@@ -86,5 +86,6 @@ embedded_components {
   "  }\n"
   "  data: 32.0\n"
   "}\n"
+  "event_trigger: false\n"
   ""
 }

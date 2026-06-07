@@ -78,7 +78,7 @@ animations {
   end_tile: 829
 }
 animations {
-  id: "sceleton"
+  id: "skeleton_warrior"
   start_tile: 4755
   end_tile: 4755
 }

@@ -106,6 +106,8 @@ PROFILES["aggressive_patrol"] = {
                 print(string.format("💀 ИИ: [%s] Жертва мертва, расходимся по домам.", ctx.creature_id))
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil -- Сбрасываем старую цель, хелпер сам пересчитает дом от spawn_pos
+
+                creatures_state.set_combat(ctx.uid, false)
             end
             -- Просто просим хелпер вести нас к спавну
             return return_to_spawn(ctx, pos)
@@ -148,6 +150,9 @@ PROFILES["aggressive_patrol"] = {
                 print(string.format("🏃‍♂️ ИИ: [%s] потерял цель, возвращаюсь домой...", ctx.creature_id))
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil
+
+                creatures_state.set_combat(ctx.uid, false)
+
                 return return_to_spawn(ctx, pos) -- Ювелирно топаем домой по этой же формуле!
 
             elseif dist_to_player <= ctx.attack_range then
@@ -167,6 +172,8 @@ PROFILES["aggressive_patrol"] = {
                 print(string.format("💀 ИИ: [%s] обнаружил нарушителя в Meadows! АГРO!", ctx.creature_id))
                 ctx.ai_state = "CHASE"
                 msg.post("main:/context_menu_layer#gui", "hide_menu")
+
+                creatures_state.set_combat(ctx.uid, true)
                 move_dir = vmath.normalize(player_pos - pos)
             elseif ctx.ai_state == "IDLE" then
                 ctx.ai_timer = ctx.ai_timer - dt

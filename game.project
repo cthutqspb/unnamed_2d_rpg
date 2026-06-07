@@ -25,6 +25,7 @@ scale_mode = stretch
 [project]
 title = WoW Proto
 version = 0.1
+custom_resources = 
 dependencies#0 = https://github.com/Insality/defold-event/archive/refs/tags/14.zip
 dependencies#1 = https://github.com/Insality/druid/archive/refs/tags/1.2.2.zip
 dependencies#2 = https://github.com/britzl/defold-orthographic/archive/master.zip

@@ -35,7 +35,7 @@ local function spawn_saved_items(self)
 
             if item_cfg then
                 -- 1. Спавним пустую физическую сущность из фабрики
-                local item_go = factory.create("#pickup_factory", pos, nil, { is_from_factory = true })
+                local item_go = factory.create("#item_factory", pos, nil, { is_from_factory = true })
 
                 -- 2. 🎯 MVC-ФИКС: Шлем объекту РЕАЛЬНЫЕ ДАННЫЕ.
                 -- Объект сам прочитает свой конфиг и настроит свой спрайт, имя и масштаб!

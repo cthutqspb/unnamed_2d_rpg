@@ -26,7 +26,7 @@ M.creatures = {
         base_speed = 90,      -- скелеты ходят чуть медленнее игрока
         hitbox_size = 64,
         attack_range_melee = 8,
-        animation = "skeleton_idle",
+        animation = "skeleton_warrior",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol"
     },

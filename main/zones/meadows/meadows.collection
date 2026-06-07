@@ -105,38 +105,6 @@ instances {
   }
 }
 instances {
-  id: "skeleton_01"
-  prototype: "/main/game_objects/units/creatures/creature.go"
-  position {
-    x: 5170.0
-    y: 2972.0
-    z: 1.0
-  }
-  component_properties {
-    id: "creature"
-    properties {
-      id: "uid"
-      value: "skeleton_warrior_001"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_id"
-      value: "skeleton_warrior"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_level"
-      value: "2.0"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "creature_rank"
-      value: ""
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
   id: "dragon"
   prototype: "/main/game_objects/units/creatures/dragon.go"
   position {
@@ -178,65 +146,52 @@ instances {
   }
 }
 instances {
-  id: "skeleton_02"
-  prototype: "/main/game_objects/units/creatures/creature.go"
+  id: "sceleton_warrior"
+  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
   position {
-    x: 5316.0
-    y: 3070.0
+    x: 5052.0527
+    y: 3044.74
     z: 1.0
   }
   component_properties {
     id: "creature"
     properties {
-      id: "uid"
-      value: "skeleton_warrior_002"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
       id: "creature_id"
       value: "skeleton_warrior"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_level"
-      value: "2.0"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "creature_rank"
-      value: ""
       type: PROPERTY_TYPE_HASH
     }
   }
 }
 instances {
-  id: "skeleton_03"
-  prototype: "/main/game_objects/units/creatures/creature.go"
+  id: "sceleton_warrior1"
+  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
   position {
-    x: 5467.0
-    y: 3054.0
+    x: 5265.7285
+    y: 3155.4863
     z: 1.0
   }
   component_properties {
     id: "creature"
     properties {
-      id: "uid"
-      value: "skeleton_warrior_003"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
       id: "creature_id"
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
     }
+  }
+}
+instances {
+  id: "sceleton_warrior2"
+  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
+  position {
+    x: 5330.8735
+    y: 3039.5283
+    z: 1.0
+  }
+  component_properties {
+    id: "creature"
     properties {
-      id: "creature_level"
-      value: "2.0"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "creature_rank"
-      value: ""
+      id: "creature_id"
+      value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
     }
   }
@@ -250,9 +205,9 @@ embedded_instances {
   children: "lootable_item"
   children: "lootable_item1"
   children: "player_spawn_point"
-  children: "skeleton_01"
-  children: "skeleton_02"
-  children: "skeleton_03"
+  children: "sceleton_warrior"
+  children: "sceleton_warrior1"
+  children: "sceleton_warrior2"
   children: "world_item"
   data: "components {\n"
   "  id: \"chunk_meadows\"\n"

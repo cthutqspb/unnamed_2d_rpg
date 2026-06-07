@@ -11,6 +11,7 @@ local broadcast = require("main.modules.system.broadcast")
 local creatures_state = require("main.modules.game_state.creatures_state")
 local creature_ai = require("main.modules.creature.ai.creature_ai")
 local interaction_manager = require("main.modules.logic.interaction_manager")
+local map_config = require("main.modules.data.map_config")
 
 ---@class CreatureScriptContext : AICreatureContext  -- Наследуем класс ИИ!
 ---@field go_id hash
@@ -30,28 +31,54 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 
 ---@param self CreatureScriptContext
 function init(self)
-	  self.go_id = go.get_id()
+    self.go_id = go.get_id()
     self.spawn_pos = go.get_position()
 
     local string_uid = interaction.clean_id(self.uid) or ""
-    self.creature_id = interaction.clean_id(self.creature_id) or "unknown_creature"
-    self.creature_rank = interaction.clean_id(self.creature_rank) or "common"
-    self.creature_type = interaction.clean_id(self.creature_rank) or ""
+    local string_id = interaction.clean_id(self.creature_id) or "unknown_creature"
+    local string_rank = interaction.clean_id(self.creature_rank) or "common"
+    local string_type = interaction.clean_id(self.creature_type) or ""
 
+    -- =========================================================================
+    -- 1. РЕЖИМ ЗАПЕКАНИЯ СУЩНОСТИ (Bake Mode)
+    -- Если Скелет родился напрямую из редактора, он работает как энтити-маркер
+    -- =========================================================================
     if not self.is_from_factory then
-        -- Если UID пустой, генерируем по начальной точке спавна (пока он не ушел по ИИ)
+        -- Если UID пустой, генерируем по начальной точке спавна
         if self.uid == hash("") or string_uid == "" then
             local creature_position = go.get_position()
             string_uid = string.format("c_%d_%d", math.floor(creature_position.x), math.floor(creature_position.y))
         end
 
+        
+
+        -- ПОЛИМОРФНОЕ ЗАПЕКАНИЕ СУЩНОСТИ:
+        -- Упаковываем параметры в плоскую таблицу и шлем в центральный конфиг
+        local entity_data = {
+            id = string_id,
+            level = self.creature_level or 1,
+            rank = string_rank
+        }
+        map_config.bake_entity("meadows", string_uid, "creature", entity_data, self.spawn_pos)
+
+        -- РЕГИСТРИРУЕМ ДУШУ В ПАМЯТИ БЭКЕНДА (Если это первый старт новой игры)
+        if not creatures_state.exists_by_uid or not creatures_state.exists_by_uid(string_uid) then
+            if creatures_state.register_by_uid then
+                creatures_state.register_by_uid(string_uid, {
+                    creature_id = string_id,
+                    level = self.creature_level or 1,
+                    rank = string_rank,
+                    type = string_type,
+                    saved_position = self.spawn_pos,
+                    zone_id = "meadows"
+                })
+            end
+        end
+
         -- ХАК ДЛЯ ПЕРЕЗАГРУЗКИ ЧАНКА (BG3-style):
-        -- Если существо с таким UID УЖЕ существует в вашей базе данных creatures_state,
-        -- это значит, что фабрика чанка пытается создать ДУБЛИКАТ (оригинал уже где-то ходит или записан в памяти).
+        -- Если существо с таким UID УЖЕ существует в вашей базе данных,
+        -- это значит, что фабрика чанка пытается создать дубликат.
         if creatures_state.get(string_uid) then
-            -- Вариант 1: Моб уже был создан, сохранен и, возможно, сместился. 
-            -- Нам нужно удалить эту фабричную "пустышку", потому что менеджер мира 
-            -- либо уже восстановил его, либо оригинальный скрипт моба управляет им.
             go.delete()
             return
         end
@@ -63,28 +90,42 @@ function init(self)
         end
     end
 
+    -- =========================================================================
+    -- 2. БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для живых тел из Фабрики!)
+    -- =========================================================================
     self.uid = string_uid
 
-    -- Регистрируем связь для рейкаста, рейкаста уже нет, теперь курсор,но все так же нужно
+    -- Регистрируем связь для рейкаста и курсора в памяти бэкенда
     creatures_state.register(self.go_id, {
         creature_id = self.creature_id,
         creature_uid = string_uid,
-        level = self.creature_level or 1, -- передаем уровень для скалирования ХП
-        type = self.creature_type,            -- задел под фракции/типы
-        rank = self.creature_rank            -- ранг моба
+        level = self.creature_level or 1,
+        type = string_type,
+        rank = string_rank
     })
 
-    -- 🎯 ВЫТАСКИВАЕМДАННЫЕ ИЗ БЭКЕНД-СТЕЙТА ДЛЯ ИИ:
-    -- Берем живые данные, которые creatures_state только что прочитал из creatures_db.lua
+    -- ВЫТАСКИВАЕМ ДАННЫЕ ИЗ БЭКЕНД-СТЕЙТА ДЛЯ ИИ:
     local creature_instance_data = creatures_state.get(string_uid)
     if creature_instance_data then
         self.speed = creature_instance_data.speed or 90
         self.hitbox_size = creature_instance_data.hitbox_size or 64
         self.attack_range_melee = creature_instance_data.attack_range_melee or 8
-        -- Достаем строковое имя профиля ("aggressive_patrol")
         self.ai_profile = creature_instance_data.ai_profile
-        -- 🌟 ВОЗВРАЩАЕМ НА МЕСТО: Если в базе есть сохраненная позиция, 
-        -- сдвигаем моба туда из точки спавна фабрики
+
+        -- 🎯 ЗРЯЧАЯ СМЕНА СПРАЙТА:
+        -- Мы стучимся в твою оригинальную базу данных criaturas_db за базовым конфигом!
+        local db_cfg = creatures_db.get_creature(self.creature_id)
+
+        -- Посмотри, как у тебя в creatures_db называется поле с именем анимации!
+        -- Если поле называется animation, оставь db_cfg.animation. 
+        -- Если поля нет, можно использовать очищенный id типа string_id.
+        local anim_name = db_cfg and db_cfg.animation or string_id
+
+        if sprite then
+            sprite.play_flipbook("#sprite", hash(anim_name))
+        end
+
+        -- ВОЗВРАЩАЕМ НА МЕСТО: Если в базе есть сохраненная позиция, сдвигаем моба туда
         if creature_instance_data.saved_position then
             go.set_position(creature_instance_data.saved_position)
         end
@@ -95,10 +136,10 @@ function init(self)
         self.ai_profile = "aggressive_patrol"
     end
 
-    -- 🎯 ИНИЦИАЛИЗАЦИЯ ИИ: Менеджер сам навесит нужные таймеры и стейты внутрь self Скелета
+    -- ИНИЦИАЛИЗАЦИЯ ИИ: Менеджер сам навесит нужные таймеры и стейты внутрь self
     creature_ai.init(self.ai_profile, self)
-
 end
+
 
 ---@param self CreatureScriptContext
 function final(self)

@@ -207,5 +207,33 @@ function M.update_data(uid, current_data)
     end
 end
 
+---Установить или снять боевой режим для существа (Инкапсулированный WoW-канон)
+---@param uid string Уникальный строковый UID моба
+---@param is_in_combat boolean Флаг входа/выхода из боя
+function M.set_combat(uid, is_in_combat)
+    if M.registry and M.registry[uid] then
+        M.registry[uid].is_in_combat = is_in_combat
+
+        -- Задел на будущее: тут можно кидать бродкаст "моб_вошел_в_бой" для HUD
+        if is_in_combat then
+            print("💾 БЭКЕНД: Душа [" .. uid .. "] официально перешла в БОЕВОЙ РЕЖИМ!")
+        else
+            print("💾 БЭКЕНД: Душа [" .. uid .. "] вышла из боя, покой восстановлен.")
+        end
+    end
+end
+
+---Проверить, находится ли Душа моба в боевом состоянии (WoW-канон)
+---@param uid string
+---@return boolean
+function M.is_creature_in_combat(uid)
+    local creature_state = M.registry and M.registry[uid]
+    if not creature_state then return false end
+
+    -- Вся логика флагов ИИ и агро спрятана внутри синглтона стейта!
+    -- Прямое, моментальное чтение полей без создания ООП-геттеров и метатаблиц!
+    return creature_state.is_in_combat == true or creature_state.ai_target ~= nil
+end
+
 return M
 
