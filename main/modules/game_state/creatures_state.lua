@@ -15,6 +15,8 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field attack_range_melee number
 ---@field ai_profile string
 ---@field saved_position vector3|nil
+---@field is_in_combat boolean|nil
+---@field ai_target vector3|nil
 
 ---@class RankModifiers
 ---@field hp_mult number       Множитель максимального здоровья
@@ -135,13 +137,13 @@ function M.register(go_id, props)
     M.registry[uid] = instance_data
     M.instances[go_id] = uid
 
-    print(string.format("БЭКЕНД МОНСТРОВ: Успешно зарегистрирован %s [%s] | Уровень: %d | ХП: %d/%d | Урон: %d",
-        creature_id,
-        uid,
-        props.level,
-        max_hp, max_hp,
-        final_dmg
-      ))
+    -- print(string.format("БЭКЕНД МОНСТРОВ: Успешно зарегистрирован %s [%s] | Уровень: %d | ХП: %d/%d | Урон: %d",
+    --     creature_id,
+    --     uid,
+    --     props.level,
+    --     max_hp, max_hp,
+    --     final_dmg
+    --   ))
 
     return instance_data
 end
@@ -190,13 +192,13 @@ function M.update_data(uid, current_data)
         -- Мы не заменяем всю таблицу целиком, чтобы не сбить типы, а аккуратно 
         -- перезаписываем только то, что изменилось в creature.script перед выгрузкой!
         M.registry[uid].saved_position = current_data.saved_position
-        
+
         -- Задел на будущее: если моб ранен — сохраняем текущее ХП, чтобы он не лечился за экраном!
         if current_data.health then
             M.registry[uid].health = current_data.health
         end
 
-        print(string.format("💾 БЭКЕНД [update_data]: Записаны живые координаты для [%s] -> X: %d, Y: %d", 
+        print(string.format("💾 БЭКЕНД [update_data]: Записаны живые координаты для [%s] -> X: %d, Y: %d",
             uid, math.floor(current_data.saved_position.x), math.floor(current_data.saved_position.y)))
     else
         -- Если по какой-то причине паспорта нет (например, моба стерли), страхуем рантайм

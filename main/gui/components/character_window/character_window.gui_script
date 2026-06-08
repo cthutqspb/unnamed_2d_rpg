@@ -63,8 +63,17 @@ function update(self, dt)
     local hover_data = self.character_window:handle_hover(mx, my)
 
     if hover_data then
+        local slot_action_type = hover_data.item.action_type or "item" -- инвентарь по дефолту всегда item
+
         CustomCursor.set_style("cursor_outline_yellow")
-        tooltip_manager.show(hover_data.type, hover_data.item, { source = "inventory" })
+        tooltip_manager.show(
+            hover_data.type,
+            hover_data.item,
+            {
+                --source = "inventory",
+                action_type = slot_action_type
+            }
+        )
     else
         -- Проверяем, над окном ли мы, чтобы скрыть тултип мира/предмета
         if self.character_window:is_over_window(mx, my) then

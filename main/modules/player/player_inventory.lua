@@ -4,7 +4,7 @@ local interaction = require("main.modules.interaction")
 ---@class Inventory
 local M = {}
 
-M.max_slots = 48
+M.max_slots = 49
 ---@type Item[]
 M.items = {}
 
@@ -46,8 +46,10 @@ end
 ---@param item_id hash|string
 ---@param amount number
 ---@param uid string|nil
+---@param items table|nil Внутренний лут бочки (если подобрали с земли)
+---@param is_looted boolean|nil Статус обыска бочки
 ---@return boolean
-function M.add_item(item_id, amount, uid) -- Добавили uid
+function M.add_item(item_id, amount, uid, items, is_looted)
     local data = items_db.get_item(item_id)
     if not data then return false end
 
@@ -61,26 +63,38 @@ function M.add_item(item_id, amount, uid) -- Добавили uid
             local slot = M.items[i]
             if slot and slot.item_id == item_hash and slot.amount < max_stack then
                 local add = math.min(remaining, max_stack - slot.amount)
-                ---@diagnostic disable-next-line: assign-type-mismatch
                 slot.amount = slot.amount + add
                 remaining = remaining - add
-                -- При стаке UID не сохраняем, т.к. это "расходник"
                 if remaining <= 0 then return true end
             end
         end
     end
 
-    -- 2. ЛОГИКА ДЛЯ НОВЫХ СЛОТОВ (Мечи, броня или остатки стака)
+    -- 2. ЛОГИКА ДЛЯ НОВЫХ СЛОТОВ (Каноничный поиск свободного места)
     for i = 1, M.max_slots do
         local slot = M.items[i]
-        if slot and not slot.item_id then
+        
+        -- ИСПРАВЛЕНИЕ: Слот считается пустым, если таблицы нет (nil) ИЛИ если это пустая заглушка без ID
+        if not slot or not slot.item_id then
             local add = math.min(remaining, max_stack)
-            slot.item_id = item_hash
-            ---@diagnostic disable-next-line: assign-type-mismatch
-            slot.amount = add
-            -- ВАЖНО: сохраняем UID только если это первый предмет в слоте
-            -- и если это не стакаемый хлам (либо стак из 1 предмета)
-            slot.uid = uid
+            
+            -- Рождаем полноценный объект предмета со всеми его паспортами и Душой!
+            local new_item = {
+                item_id = item_hash,
+                amount = add,
+                uid = uid,                    -- 🦾 ТИТАНОВЫЙ ФИКС: Паспорт теперь в кармане!
+                items = items or nil,         -- Переносим сгенерированный на земле лут
+                is_looted = is_looted or nil
+            }
+
+            -- 🎯 СТРАХОВКА: Если бочка поднята из редактора (без UID), генерируем паспорт прямо на лету!
+            if not new_item.uid and data.action_type == "container_item" then
+                local s_id = interaction.clean_id(item_id) or "container"
+                new_item.uid = string.format("%s_%d_%d", s_id, os.time(), math.random(1000, 9999))
+            end
+
+            -- Записываем готовый предмет в массив инвентаря
+            M.items[i] = new_item
 
             remaining = remaining - add
             if remaining <= 0 then return true end
@@ -88,6 +102,7 @@ function M.add_item(item_id, amount, uid) -- Добавили uid
     end
     return remaining <= 0
 end
+
 
 ---@param _item Item
 ---@param _slot_idx number
@@ -298,11 +313,33 @@ function M.get_save_data()
         local item = M.items[i]
         if item and item.item_id then
             local id_str = interaction.clean_id(item.item_id)
+            
+            -- Создаем слепок предмета
             data[i] = {
                 id = id_str,
                 amount = item.amount,
-                uid = item.uid -- СОХРАНЯЕМ UID
+                uid = item.uid
             }
+            
+            -- 🎯 КРИТИЧЕСКИЙ ФИКС: Если это сундук/бочка, забираем в сейв её статус и шмотки!
+            if item.is_looted then
+                data[i].is_looted = item.is_looted
+            end
+            
+            if item.items then
+                -- Рекурсивно сохраняем вложенные шмотки. 
+                -- Так как они тоже таблицы, мы подготавливаем их структуру
+                data[i].items = {}
+                for sub_idx, sub_item in pairs(item.items) do
+                    if sub_item then
+                        data[i].items[sub_idx] = {
+                            id = interaction.clean_id(sub_item.item_id),
+                            amount = sub_item.amount,
+                            uid = sub_item.uid
+                        }
+                    end
+                end
+            end
         else
             data[i] = { id = nil, amount = 0, uid = nil }
         end
@@ -317,11 +354,30 @@ function M.load_save_data(data)
     for index, saved in pairs(data) do
         local i = tonumber(index)
         if i and saved and saved.id then
-            M.items[i] = {
+            -- Восстанавливаем саму бочку
+            local restored_item = {
                 item_id = hash(saved.id),
                 amount = saved.amount,
-                uid = saved.uid -- ВОССТАНАВЛИВАЕМ UID
+                uid = saved.uid,
+                is_looted = saved.is_looted or nil
             }
+            
+            -- 🎯 КРИТИЧЕСКИЙ ФИКС: Восстанавливаем внутренности бочки
+            if saved.items then
+                restored_item.items = {}
+                for sub_idx, sub_saved in pairs(saved.items) do
+                    local idx = tonumber(sub_idx)
+                    if idx and sub_saved and sub_saved.id then
+                        restored_item.items[idx] = {
+                            item_id = hash(sub_saved.id),
+                            amount = sub_saved.amount,
+                            uid = sub_saved.uid
+                        }
+                    end
+                end
+            end
+            
+            M.items[i] = restored_item
         end
     end
 end

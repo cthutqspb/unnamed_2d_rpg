@@ -17,7 +17,8 @@ return {
     ["item_potion_name"] = "Зелье здоровья",
 
     --world containers
-    ["container_common_chest_name"] = "Простой сундук",
+    ["container_chest_common_name"] = "Простой сундук",
+    ["container_wooden_barrel_name"] = "Деревянная бочка",
     ["container_status_empty"] = "Пусто",
 
     -- item effects

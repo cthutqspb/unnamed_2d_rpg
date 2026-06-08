@@ -1,107 +1,176 @@
 local map_config = require("main.modules.data.map_config")
 local creatures_state = require("main.modules.game_state.creatures_state")
+local world_items_state = require("main.modules.game_state.world_items_state")
 
+---@class SpawnManagerModule
 local M = {}
 
+---Кэш живых Си-адресов существ на сцене [go_id] = uid
+---@type table<hash, string>
 local active_bodies = {}
 
+---Кэш живых Си-адресов предметов на сцене [go_id] = uid
+---@type table<hash, string>
+local active_items = {}
+
+---Метод А: Материализовать СУЩЕСТВ чанка (Скелеты/Дракон) строго по чертежам редактора
+---@param zone_name string Имя активного чанка ("meadows")
 function M.spawn_zone(zone_name)
     local entity_list = map_config.baked_entities[zone_name]
     if not entity_list or #entity_list == 0 then return end
 
-    print("БЭКЕНД: Проверяем необходимость материализации тушек для " .. zone_name)
+    print("БЭКЕНД [SpawnManager]: Материализуем мобов чанка для " .. zone_name)
 
-    for i, entity_node in ipairs(entity_list) do
+    for _, entity_node in ipairs(entity_list) do
         local uid = entity_node.uid
         local entity_type = entity_node.type
         local entity_data = entity_node.data
         local base_pos = entity_node.pos
 
-        -- 🎯 ТИТАНОВЫЙ СИ-ЗАМОК (WoW-канон):
-        -- Мы проверяем, привязано ли уже какое-то живое тело к этому UID в стейте?
-        -- Посмотри, как у тебя в creatures_state называется таблица инстансов.
-        -- Если у тебя есть метод получения go_id по uid, или таблица обратного поиска, 
-        -- мы можем напрямую проверить, существует ли физический объект на сцене.
-        local has_physical_body = false
-        
-        -- Сканируем реестр creatures_state.instances, чтобы узнать, 
-        -- зарегистрировал ли себя уже оригинальный Скелет из редактора?
-        if creatures_state.instances then
-            for registered_go_id, registered_uid in pairs(creatures_state.instances) do
-                if registered_uid == uid and go.exists(registered_go_id) then
-                    has_physical_body = true
-                    -- 🧱 Кэшируем оригинального Скелета из редактора в наш активный список, 
-                    -- чтобы спавнер знал о нем и смог стерильно удалить его тело при уходе из чанка!
-                    active_bodies[registered_go_id] = uid
-                    break
-                end
-            end
-        end
-
-        -- Если тело в мире уже зарегистрировано (моб из редактора стоит на траве) — фабрика ОТДЫХАЕТ!
-        if not has_physical_body then
+        if entity_type == "creature" then
             local is_alive = true
             if creatures_state.exists and not creatures_state.exists(uid) then
                 is_alive = false
             end
 
             if is_alive then
-                local final_pos = base_pos
-                local saved_data = creatures_state.get(uid)
-                if saved_data and saved_data.saved_position then
-                    final_pos = saved_data.saved_position
+                local has_physical_body = false
+                if creatures_state.instances then
+                    for registered_go_id, registered_uid in pairs(creatures_state.instances) do
+                        if registered_uid == uid and go.exists(registered_go_id) then
+                            has_physical_body = true
+                            active_bodies[registered_go_id] = uid
+                            break
+                        end
+                    end
                 end
 
-                local factory_url = "game_scene:/world_controller#creature_factory"
+                if not has_physical_body then
+                    local final_pos = base_pos
+                    local saved_data = creatures_state.get(uid)
+                    if saved_data and saved_data.saved_position then
+                        final_pos = saved_data.saved_position
+                    end
 
-                -- Спавним через фабрику ТОЛЬКО при повторном возвращении в чанк!
-                local go_id = factory.create(factory_url, final_pos, nil, {
-                    uid = hash(uid),
-                    creature_id = hash(entity_data.id),
-                    creature_level = entity_data.level or 1,
-                    creature_rank = hash(entity_data.rank or "common"),
-                    is_from_factory = true
-                })
-
-                if go_id then
-                    active_bodies[go_id] = uid
+                    local factory_url = "game_scene:/world_controller#creature_factory"
+                    local go_id = factory.create(factory_url, final_pos, nil, {
+                        uid = hash(uid),
+                        creature_id = hash(entity_data.id),
+                        creature_level = entity_data.level or 1,
+                        creature_rank = hash(entity_data.rank or "common"),
+                        is_from_factory = true
+                    })
+                    if go_id then active_bodies[go_id] = uid end
                 end
             end
         end
     end
 end
 
+---МЕТОД Б (BG3 Монолит): Двухсторонний стриминг ПРЕДМЕТОВ по площади экрана
+---@param current_zone string Текущая активная локация мага ("overworld", "necropolis")
+---@param x_min number Левая граница экрана
+---@param x_max number Правая граница экрана
+---@param y_min number Нижняя граница экрана
+---@param y_max number Верхняя граница экрана
+function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
+    if not world_items_state or not world_items_state.get_all then return end
+
+    local registry = world_items_state.get_all()
+    local factory_url = "game_scene:/world_controller#item_factory"
+
+    -- 🦾 ПОТОК 1: СПАВН ИЗ ОБЛАСТИ ВИДИМОСТИ
+    for uid, data in pairs(registry) do
+        if not data.is_collected then
+            -- 🎯 СИ-ЗАМОК ДАНЖЕЙ: Меч спавнится, только если его зона совпадает с комнатой мага!
+            local item_zone = data.zone_id or "overworld"
+
+            if item_zone == current_zone then
+                local item_x = data.pos.x
+                local item_y = data.pos.y
+
+                local is_inside_view = item_x >= x_min and item_x <= x_max and
+                                       item_y >= y_min and item_y <= y_max
+
+                if is_inside_view then
+                    local already_spawned = false
+                    for registered_go_id, registered_uid in pairs(active_items) do
+                        if registered_uid == uid and go.exists(registered_go_id) then
+                            already_spawned = true
+                            break
+                        end
+                    end
+
+                    -- 🦾 УЛЬТИМАТИВНЫЙ БЕЗБАЖНЫЙ СПАВН:
+                    -- Мы полностью убрали отсюда зависимость от items_db! Фабрика штампует 
+                    -- прехаб world_item.go СЛЕПО, потому что он сам внутри своего on_message
+                    -- натянет визуал по своей внутренней логике хэшей!
+                    if not already_spawned then
+                        local pos = vmath.vector3(item_x, item_y, data.pos.z or 1.0)
+                        local item_go = factory.create(factory_url, pos, nil, { is_from_factory = true })
+
+                        if item_go then
+                            active_items[item_go] = uid
+                            world_items_state.register(item_go, uid)
+
+                            msg.post(item_go, "set_item_id", {
+                                item_id = data.item_id, -- Шлем строку/хэш "as is"
+                                amount = data.amount,
+                                uid = uid
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 🦾 ПОТОК 2: АВТО-КЛИНИНГ ЗА ЭКРАНОМ
+    local survivors = {}
+    for item_go, item_uid in pairs(active_items) do
+        if go.exists(item_go) then
+            local item_data = world_items_state.get_item_by_uid(item_uid)
+            if item_data then
+                local item_x = item_data.pos.x
+                local item_y = item_data.pos.y
+                local item_zone = item_data.zone_id or "overworld"
+
+                local is_inside_view = item_x >= x_min and item_x <= x_max and
+                                       item_y >= y_min and item_y <= y_max
+
+                if item_zone == current_zone and is_inside_view and not item_data.is_collected then
+                    survivors[item_go] = item_uid
+                else
+                    go.delete(item_go)
+                end
+            else
+                go.delete(item_go)
+            end
+        end
+    end
+    active_items = survivors
+end
+
+---Умная выгрузка тел существ при уходе игрока из чанка земли
+---@param zone_name string Имя покидаемого чанка
 function M.clear_all_bodies(zone_name)
     print("БЭКЕНД: Умная выгрузка тел для зоны " .. zone_name)
     
     local survivors = {}
-
-    for go_id, uid in pairs(active_bodies) do
-        if go.exists(go_id) then
-            
-            if creatures_state.is_creature_in_combat(uid) then
-                -- Скелет кайтится за магом, его тело легально живет в мире!
-                survivors[go_id] = uid
-                print("⚔️ БЭКЕНД: Скелет " .. uid .. " в бою! Блокируем удаление из памяти.")
+    for creature_go, creature_uid in pairs(active_bodies) do
+        if go.exists(creature_go) then
+            if creatures_state.is_creature_in_combat and creatures_state.is_creature_in_combat(creature_uid) then
+                survivors[creature_go] = creature_uid
             else
-                -- Скелет мирно стоял дома — стерильно удаляем его тело, спасая FPS
-                go.delete(go_id)
+                go.delete(creature_go)
             end
         end
     end
-    
-    -- Обновляем кэш активных тел на экране
     active_bodies = survivors
-    -- 
-    -- -- Предметы с земли выгружаем без изменений
-    -- for item_go, item_uid in pairs(active_items) do
-    --     if go.exists(item_go) then go.delete(item_go) end
-    -- end
-    -- active_items = {}
-    -- 
-    -- if map_config.clear_entity_spawns then
-    --     map_config.clear_entity_spawns(zone_name)
-    -- end
+
+    if map_config.clear_entity_spawns then
+        map_config.clear_entity_spawns(zone_name)
+    end
 end
 
 return M

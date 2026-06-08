@@ -248,7 +248,7 @@ local function render_world_object(self, info, context)
     local display_name = "Unknown"
 
     -- 1. Если это ПРЕДМЕТ (item_loot)
-    if context.kind == "item_loot" then
+    if context.kind == "world_item" then
         local item_cfg = items_db.get_item(info.item_id)
 
         if item_cfg then
@@ -261,7 +261,7 @@ local function render_world_object(self, info, context)
         -- self:add_text("Количество: " .. (info.amount or 1))
 
     -- 2. Если это КОНТЕЙНЕР
-    elseif context.kind == "container" then
+    elseif context.kind == "world_object" then
         -- local item_cfg = items_db.get_item(info.item_id)
         -- if item_cfg then
         --     display_name = locales.get(item_cfg.container_name)
@@ -357,11 +357,37 @@ function update(self, dt)
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
 
+    -- =========================================================================
+    -- СЛОЙ ИНТЕРФЕЙСА (GUI ЭЛEМEНТЫ)
+    -- =========================================================================
     if pack.type == "gui_item" then
-        render_item(self, pack.info, pack.context)
-    elseif pack.type == "world_unit" then
+        local action_type = pack.context and pack.context.action_type or "item"
+
+        if action_type == "ability" then
+            -- Спеллы на панелях (Frostbolt) уходят в свой рендерер магии
+            -- render_ability(self, pack.info, pack.context)
+        else
+            -- Обычные мечи/банки в сумках уходят в твой родной render_item
+            render_item(self, pack.info, pack.context)
+        end
+
+    -- =========================================================================
+    -- СЛОЙ ИГРОВОГО МИРА (БЕСШОВНЫЕ КООРДИНАТЫ Meadows)
+    -- =========================================================================
+    elseif pack.type == "world_item" then
+        local action_type = pack.context and pack.context.action_type or "item"
+        if action_type == "ability" then
+            -- render_ability(self, pack.info, pack.context) -- Пока закомментировано
+        else
+            render_item(self, pack.info, pack.context)
+        end
+
+    elseif pack.type == "world_object" then
+        -- 🎯 ТВОЙ ААА-КАНОН: Стационарные гробницы и дупла рендерим ТЕМ ЖЕ методом!
         render_world_object(self, pack.info, pack.context)
-    elseif pack.type == "world_prop" then
+
+    elseif pack.type == "world_unit" then
+        -- Скелеты, кабаны и шакальный Дракон 128х128
         render_world_object(self, pack.info, pack.context)
     end
 

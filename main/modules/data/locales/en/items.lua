@@ -18,7 +18,8 @@ return {
     ["item_potion_name"] = "Health Potion",
 
     --world containers
-    ["container_common_chest_name"] = "Common chest",
+    ["container_chest_common_name"] = "Common chest",
+    ["container_wooden_barrel_name"] = "Wooden barrel",
     ["container_status_empty"] = "Empty",
 
     -- item effects

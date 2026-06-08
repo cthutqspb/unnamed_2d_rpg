@@ -4,7 +4,7 @@ local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local InventoryModel = require("main.modules.inventory_model")
-local containers_state = require("main.modules.game_state.containers_state")
+local world_items_state = require("main.modules.game_state.world_items_state")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local gui_utils = require("main.gui.gui_utils")
 
@@ -101,30 +101,30 @@ function M:init(template_id, config)
     self:set_visible(false)
 end
 
----@param container_uid string Уникальный UID конкретной бочки в мире
----@param container_id string|hash Шаблонный ID типа контейнера
----@param container_name string Ключ локализации заголовка (например, "prop_barrel")
----@param columns number Количество колонок сетки
----@param rows number Количество строк сетки
----@param world_pos vector3 Мировые координаты сундука
----@param player_pos vector3 Мировые координаты игрока
-function M:open(container_uid, container_id, container_name, columns, rows, world_pos, player_pos)
-    self.uid = container_uid
-    local container_data = containers_state.get(container_uid)
-    if not container_data then
-        print("ERROR: Container state not found")
-        return
-    end
-
-    -- 1. Устанавливаем данные
-    local model = InventoryModel.wrap(container_data)
-
-    model.max_slots = columns * rows
-    self:set_data_source(model)
+---@param container_model table Готовая обернутая модель InventoryModel
+---@param container_name hash Ключ имени для локализации
+---@param world_pos vector3|nil Координаты контейнера
+---@param player_pos vector3|nil Координаты игрока
+function M:open(container_model, container_name, world_pos, player_pos)
+    -- 1. Привязываем источник данных
+    self:set_data_source(container_model)
     self.set_title(self, locales.get(container_name))
-    -- 2. Вычисляем позицию
-    local screen_x, screen_y = gui_utils.world_to_screen(world_pos, player_pos)
-    local window_w = columns * (48 + 4) - 4
+
+    -- 2. Вытаскиваем размеры сетки из самой модели (или из её внутренней таблицы)
+    -- Если твоя ООП-модель прокидывает свойства наружу, пишем так:
+    local cols = container_model.columns or 6
+    local rows = container_model.rows or 4
+    
+    -- (Если они лежат глубже, например в container_model.data.columns, подставь свой путь)
+
+    -- 3. Вычисляем позицию (твой оригинальный расчет от строк и столбцов)
+    local screen_x, screen_y = 640, 360
+    if world_pos and player_pos then
+        screen_x, screen_y = gui_utils.world_to_screen(world_pos, player_pos)
+    end
+    
+    -- Твоя родная математика размеров окна, теперь зависимая от cols и rows модели!
+    local window_w = cols * (48 + 4) - 4
     local window_h = rows * (48 + 4) - 4
 
     local offset_x, offset_y = 50, 50
@@ -139,7 +139,7 @@ function M:open(container_uid, container_id, container_name, columns, rows, worl
         final_y = math.floor(screen_y - window_h - offset_y)
     end
 
-    -- 3. Показываем
+    -- 4. Показываем окно
     gui.set_position(self.root, vmath.vector3(final_x, final_y, 0))
 end
 

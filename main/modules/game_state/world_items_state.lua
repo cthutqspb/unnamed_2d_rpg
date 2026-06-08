@@ -5,6 +5,8 @@ local interaction = require("main.modules.interaction")
 ---@field pos {x: number, y: number} Координаты предмета на игровой карте
 ---@field amount number Количество предметов в кучке на земле
 ---@field is_dynamic boolean Флаг: выброшен игроком (true) или лежал изначально на карте (false)
+---@field is_collected boolean|nil
+---@field zone_id string|nil Паспорт локации ("overworld" для материка, "necropolis" для данжей)
 
 ---@class WorldItemsState
 ---@field registry table<string, WorldItemData> Глобальный реестр ВСЕХ живых лут-объектов в мире
@@ -16,89 +18,102 @@ M.registry = {}
 M.is_loaded_from_save = false
 M.instances = {}
 
----Вспомогательная функция-чистильщик: преобразует hash("item") или url в чистую строку
----@private
----@param id any Произвольный идентификатор (строка, хеш или url)
----@return string|nil Чистая строка или nil, если аргумент пустой
-local function to_str(id)
-    if not id then return nil end
-    local s = tostring(id)
-    -- Регулярка вырезает текст, находящийся внутри квадратных скобок [ ]
-    return s:match("%[(.+)%]") or s
+---Связать физический Game Object в мире с его уникальным строковым UID (Канон Скелетов)
+---@param go_id hash Движковый хэш объекта
+---@param uid string Чистая строковая переменная UID
+function M.register(go_id, uid)
+    -- Записываем хэш ключом, а чистую строку значением! Никаких тупых регулярок!
+    M.instances[go_id] = uid
 end
 
----Связать физический Game Object в мире с его уникальным строковым UID.
----@param id hash Идентификатор игрового объекта (go.get_id())
----@param uid string|hash Уникальный идентификатор предмета в реестре данных
-function M.register(id, uid)
-    M.instances[id] = to_str(uid)
+---Разорвать связь между физическим объектом и реестром инстансов
+---@param go_id hash
+function M.unregister(go_id)
+    M.instances[go_id] = nil
 end
 
----Разорвать связь между физическим объектом и реестром
----@param id hash Идентификатор уничтожаемого игрового объекта (go.get_id())
-function M.unregister(id)
-    -- Убрали лишний if, так как таблица гарантированно существует
-    M.instances[id] = nil
-end
-
----Добавить новый предмет в глобальный реестр предметов, лежащих на земле.
----@param item_id string|hash Строковый ID типа предмета
----@param pos vector3|table Мировые координаты спавна
----@param amount number|nil Количество (дефолт: 1)
----@param is_dynamic boolean|nil Выброшен ли игроком вручную из сумки
+---Добавить новый предмет в глобальный реестр (Для динамического дропа из инвентаря)
+---@param item_id string Строковый ID типа предмета
+---@param pos vector3 Мировые координаты спавна
+---@param amount number Количество
+---@param is_dynamic boolean Выброшен ли игроком вручную
 ---@param existing_uid string|nil Опциональный UID
----@return string uid Сгенерированный или переданный уникальный строковый UID предмета
-function M.add(item_id, pos, amount, is_dynamic, existing_uid)
+---@param zone_id string|nil Опциональный паспорт зоны (дефолт: "overworld")
+---@return string uid Генерируемый строковый UID предмета
+function M.add(item_id, pos, amount, is_dynamic, existing_uid, zone_id)
     local salt = math.random(1000, 9999)
-    local s_item_id = to_str(item_id)
 
-    -- Если существующий UID не передан, собираем уникальную строку: "id_время_соль"
-    local uid = existing_uid or string.format("%s_%d_%d", s_item_id or "unknown", os.time(), salt)
+    -- 🎯 ТИТАНОВЫЙ СИ-ФИКС ТИПОВ:
+    -- Мы принудительно прогоняем прилетевший из рюкзака хэш item_id через to_str!
+    -- Из hash("crystal_sword") получится чистая Lua-строка "crystal_sword".
+    -- Мутантские префиксы "hash: [...]" уничтожены во всей вселенной бэкенда!
+    local s_item_id = interaction.clean_id(item_id) or "unknown"
+
+    -- Собираем UID из КРИСТАЛЬНО ЧИСТОЙ строки s_item_id!
+    local uid = existing_uid or string.format("%s_%d_%d", s_item_id, os.time(), salt)
 
     M.registry[uid] = {
-        item_id = s_item_id,
+        item_id = s_item_id, -- 🦾 Записываем чистую строку "crystal_sword"!
         pos = { x = pos.x, y = pos.y },
         amount = amount or 1,
-        is_dynamic = (is_dynamic == true)
+        is_dynamic = (is_dynamic == true),
+        is_collected = false,
+        -- 🎯 СИ-ЗАМОК ДЛЯ ДАНЖЕЙ (WoW-канон):
+        -- Если зона не передана, вещь канонично падает в Большой Открытый Мир ("overworld").
+        -- Когда сделаешь пещеру, world.script будет передавать сюда "necropolis"!
+        zone_id = zone_id or "overworld"
     }
+
     return uid
 end
 
----Проверить, существует ли предмет с таким UID в глобальном реестре данных на земле
----@param uid string|hash Уникальный идентификатор предмета
----@return boolean @Возвращает true если предмет еще не подобрали и он записан в памяти
+---Проверить, существует ли Душа предмета в глобальной памяти бэкенда (Для спавнера)
+---@param uid string Чистая строка UID
+---@return boolean
 function M.exists(uid)
-    local key = interaction.clean_id(uid)
-    return M.registry[key] ~= nil
+    -- Прямой, моментальный поиск по хэш-мапе за 1 Си-такт процессора!
+    return M.registry[uid] ~= nil
 end
 
----Получить полную структуру данных предмета на земле по его UID
----@param uid string|hash Уникальный идентификатор предмета
----@return WorldItemData|nil Таблица с данными предмета или nil, если объект не найден
+---Получить полную структуру данных предмета по его строковому UID
+---@param uid string
+---@return table|nil
 function M.get_item_by_uid(uid)
-    return M.registry[to_str(uid)]
+    return M.registry[uid]
 end
 
----Удалить предмет из реестра данных
----@param uid string|hash Уникальный идентификатор удаляемого предмета
+---Пометить предмет на земле как собранный (WoW/BG3 канон)
+---@param uid string Чистая строка UID
 function M.remove(uid)
-    M.registry[to_str(uid)] = nil
+    if M.registry and M.registry[uid] then
+        -- 🎯 ФИКС: Душа вечно живет в памяти, но получает метку сбора!
+        M.registry[uid].is_collected = true
+        print("💾 БЭКЕНД: Душа предмета [" .. uid .. "] запечатана флагом is_collected!")
+    else
+        print("🚨 БЭКЕНД: Ошибка удаления! Ключ [" .. tostring(uid) .. "] не найден в registry!")
+    end
 end
 
----Полностью очистить состояние менеджера предметов
+---Дополнительный быстрый метод-вопрос для скриптов
+---@param uid string
+---@return boolean
+function M.is_item_collected(uid)
+    if M.registry and M.registry[uid] then
+        return M.registry[uid].is_collected == true
+    end
+    return false
+end
+
 function M.clear()
     M.registry = {}
     M.is_loaded_from_save = false
+    M.instances = {}
 end
 
----Получить весь глобальный реестр предметов на земле
----@return table<string, WorldItemData>
 function M.get_all()
     return M.registry
 end
 
----Восстановить состояние предметов из файла сохранения
----@param data table<string, WorldItemData> Таблица данных из сейва
 function M.restore_all(data)
     M.registry = data or {}
     M.is_loaded_from_save = true

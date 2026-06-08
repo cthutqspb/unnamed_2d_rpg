@@ -30,7 +30,9 @@ local is_over_any_gui = false
 ---@param item_cfg table @Конфиг предмета из БД
 function M.start(source, slot, item, item_cfg)
     local animation_name = item_cfg.animation or item_cfg.icon
-
+    for k,v in pairs(item) do
+        print("ITEM", k,v)
+    end
     active_drag = {
         drag_type = item_cfg.action_type,
         source = source,

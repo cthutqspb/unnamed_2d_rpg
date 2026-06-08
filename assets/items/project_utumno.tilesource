@@ -3,9 +3,9 @@ tile_width: 32
 tile_height: 32
 collision_groups: "default"
 animations {
-  id: "New Animation"
-  start_tile: 1
-  end_tile: 1
+  id: "chest_common"
+  start_tile: 7
+  end_tile: 7
 }
 animations {
   id: "clown_hat"
@@ -86,5 +86,10 @@ animations {
   id: "slot_head_background"
   start_tile: 2358
   end_tile: 2358
+}
+animations {
+  id: "wooden_barrel"
+  start_tile: 8
+  end_tile: 8
 }
 extrude_borders: 2

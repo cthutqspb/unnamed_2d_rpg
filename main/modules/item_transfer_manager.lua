@@ -15,7 +15,9 @@ function M.drop_to_world(source, source_slot, item, mouse_x, mouse_y)
         item_id = item.item_id,
         amount = item.amount,
         mouse_x = mouse_x,
-        mouse_y = mouse_y
+        mouse_y = mouse_y,
+        items = item.items or nil,         -- 🎯 Передаем шмотки из бочки обратно в мир!
+        is_looted = item.is_looted or nil  -- 🎯 Передаем статус обыска!
     })
 
     if item.source_split_slot then
@@ -41,6 +43,12 @@ end
 ---@param item table @Данные предмета
 ---@param item_cfg table @Конфиг предмета из БД
 function M.execute_transfer(source, source_slot, target, target_slot, item, item_cfg)
+    -- Проверяем, что все критические данные для трансфера доехали успешно
+    if not source or not target or not item or not item_cfg then
+        print("🚨 СЕРВИС [Transfer]: Критическая ошибка! Переданы пустые данные (nil) в execute_transfer!")
+        M.finalize()
+        return
+    end
     -- ЛОГИКА АВТО-ЛУТА (если не указан конкретный слот назначения)
     if target_slot == nil then
         if item_cfg.stackable and target.try_stack_item_anywhere then

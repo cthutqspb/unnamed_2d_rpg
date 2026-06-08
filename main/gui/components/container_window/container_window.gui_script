@@ -7,7 +7,9 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local items_db = require("main.modules.data.items_db")
+local world_items_state = require("main.modules.game_state.world_items_state")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
+local InventoryModel = require("main.modules.inventory_model")
 
 local h_touch = hash("touch")
 
@@ -31,8 +33,9 @@ function init(self)
         if data.message_id == hash("inventory_changed") then
             -- Сундуку не нужно пересчитывать статы персонажа, 
             -- ему нужно просто обновить иконки
-            if self.container_window then
+            if self.container_window and self.container_window:is_visible() then
                 self.container_window:request_refresh()
+                print("🔬 GUI [ContainerWindow]: Окно открыто, сочно обновили иконки лута.")
             end
         end
     end
@@ -79,18 +82,52 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("open_container_window") then
         msg.post(".", "acquire_input_focus")
 
+        -- =========================================================================
+        -- 🕹️ КОНТРОЛЛЕР: Собираем данные и упаковываем в Модель
+        -- =========================================================================
+        local container_data = nil
+
+        if message.from_inventory and message.slot_index then
+            -- Бочка в кармане: достаем её «Душу» прямо из инвентаря игрока
+            local player_inv = interaction_manager.get_player_inventory()
+            container_data = player_inv and player_inv:get_item(message.slot_index)
+        else
+            -- Бочка на земле: достаем её из глобального стейта мира
+            container_data = world_items_state.get_item_by_uid(message.container_uid)
+        end
+
+        -- Си-мост / Гвард: если данных нет, создаем структуру на лету из того, что прислал бэкенд
+        if not container_data then
+            container_data = {
+                items = message.container_items or {}
+            }
+        end
+
+        -- Насыщаем конфигурацией сетки и страхуем массив предметов
+        container_data.columns = message.columns or 6
+        container_data.rows = message.rows or 4
+        if not container_data.items then 
+            container_data.items = {} 
+        end
+
+        -- Оборачиваем голые данные в твою ООП-модель
+        local model = InventoryModel.wrap(container_data)
+        model.max_slots = container_data.columns * container_data.rows
+
+        -- Решаем вопрос с фокусом драг-энд-дропа (теперь на уровне Контроллера)
+        interaction_manager.set_focus(model)
+
+        -- =========================================================================
+        -- 🎨 ПРЕДСТАВЛЕНИЕ (View): Отдаем готовую модель на отрисовку
+        -- =========================================================================
         self.container_window:open(
-            message.container_uid,
-            message.container_id,
-            message.container_name,
-            message.columns,
-            message.rows,
-            message.position,
-            message.player_pos
+            model,                              -- Передаем ЖИВУЮ модель инвентаря!
+            message.container_name,             -- Хэш локализации заголовка
+            message.position,                   -- Мировая позиция сундука (для сдвига окна)
+            message.player_pos                  -- Мировая позиция игрока
         )
         self.container_window:toggle()
     end
-
     -- ЗАКРЫТИЕ (от ESC или менеджера окон)
     if message_id == hash("close_window") then
         if self.container_window:is_visible() then
@@ -98,7 +135,6 @@ function on_message(self, message_id, message, sender)
         end
 
     elseif message_id == hash("set_focus_visual") then
-      print('SETFOCUS CONTAIENR')
         -- Вызываем метод базового окна. 
         -- Теперь мы находимся внутри родной сцены, и Defold будет счастлив!
         if self.container_window and self.container_window.set_focus_visual then
@@ -182,23 +218,57 @@ function on_message(self, message_id, message, sender)
         end
         if message.event == "item_loot_all" then
             local target = interaction_manager.get_player_inventory()
+            
             for i = 1, data_source.max_slots do
-
                 local _item = data_source:get_item(i)
                 local _item_cfg = _item and _item.item_id and items_db.get_item(_item.item_id)
 
                 if _item and _item_cfg then
-                    item_transfer_manager.execute_transfer(
-                        data_source,
-                        i,
-                        target,
-                        nil,
-                        _item,
-                        _item_cfg
-                    )
+                    -- =========================================================================
+                    -- 🛡️ ГВАРД АННИГИЛЯЦИИ ДЛЯ СИСТЕМЫ TAKE ALL
+                    -- =========================================================================
+                    -- Проверяем: не пытается ли массовый лут засунуть текущий контейнер в самого себя?
+                    -- Сравниваем физические адреса массивов лута в RAM
+                    local is_self_loot = (_item.items and data_source.items and _item.items == data_source.items)
+                    
+                    -- Сравниваем UID паспорта (пробиваемся через возможные поля)
+                    local source_uid = data_source.uid or (data_source.item_data and data_source.item_data.uid)
+                    local is_same_uid = (_item.uid and source_uid and _item.uid == source_uid)
+
+                    if is_self_loot or is_same_uid then
+                        print("⚠️ ГЕЙМДИЗАЙН [LootAll]: Пропущен перенос контейнера в самого себя в слоте:", i)
+                        -- ИСПОЛЬЗУЕМ КЛЮЧЕВОЕ СЛОВО Lua для пропуска итерации (в Lua 5.1+ через goto или просто инверсию условия)
+                        -- Чтобы не плодить goto, мы просто оборачиваем трансфер в инвертированное условие:
+                    else
+                        -- Рекурсивный гвард: проверяем, чтобы внутри забираемого предмета не лежал наш текущий источник
+                        local is_nested_paradox = false
+                        if _item.items then
+                            for _, sub_item in pairs(_item.items) do
+                                if sub_item and sub_item.items and sub_item.items == data_source.items then
+                                    is_nested_paradox = true
+                                    break
+                                end
+                            end
+                        end
+
+                        if not is_nested_paradox then
+                            -- Только если все проверки на парадоксы пройдены — безопасно забираем вещь в карман!
+                            item_transfer_manager.execute_transfer(
+                                data_source,
+                                i,
+                                target,
+                                nil,
+                                _item,
+                                _item_cfg
+                            )
+                        else
+                            print("⚠️ ГЕЙМДИЗАЙН [LootAll]: Пропущен вложенный парадокс матрешки в слоте:", i)
+                        end
+                    end
+                    -- =========================================================================
                 end
             end
-        end
+        end    
     end
 end
 

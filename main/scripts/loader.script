@@ -24,7 +24,7 @@ function on_message(self, message_id, message, sender)
             -- 💾 А) ВЕТКА ЗАГРУЗКИ СЕЙВА:
             -- Втыкаем игрока ровно туда, где он сохранился в JSON!
             msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_pos.x, self.pending_pos.y, 1) })
-            msg.post("game_scene:/world#world", "spawn_all_saved_items")
+           -- msg.post("game_scene:/world#world", "spawn_all_saved_items")
             self.pending_pos = nil
         else
             -- 🌟 Б) ВЕТКА НОВОЙ ИГРЫ (Твой новый Data-Driven канон):

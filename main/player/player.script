@@ -260,8 +260,8 @@ function on_message(self, message_id, message, sender)
             self.pending_item = target_go_id
 
             -- Выставляем дистанцию и ивент в зависимости от выбора в меню
-            if message.event == "item_loot_pickup" then
-                self.pending_event = "click" -- Сигнал подбора предмета с земли
+            if message.event == "item_pickup" then
+                self.pending_event = "item_pickup" -- Сигнал подбора предмета с земли
                 self.pending_range = 25      -- 🎯 ДЛЯ ЛУТА НА ЗЕМЛЕ: Уменьшаем радиус до 25 пикселей
             else
                 self.pending_event = "click" -- Для сундуков и бочек

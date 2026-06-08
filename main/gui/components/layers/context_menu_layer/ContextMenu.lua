@@ -25,17 +25,28 @@ function M:init()
     gui.set_enabled(self.root, false)
 end
 
----Показать контекстное меню в указанных координатах
----@param x number Экранная координата X
----@param y number Экранная координата Y
----@param type string Тип объекта ("item_loot", "container", "creature")
----@param sub_type string|nil Подтип предмета ("weapon", "armor", "scroll")
----@param flags table|nil Флаги состояния объекта для фильтрации кнопок
----@param data table Системные данные предмета/объекта (UID, слот, URL источника)
+---@param x number Экранная координата X курсора
+---@param y number Экранная координата Y курсора
+---@param type string Главный тип инспекции ("gui_item", "world_item", "world_object", "creature")
+---@param sub_type string|nil Устаревший подтип (Игнорируем, теперь все рулится через data и конфиги)
+---@param flags table|nil Флаги состояния (is_equipped, can_split)
+---@param data table|nil Полный пейлод метаданных (item_id, slot_index, target_uid)
 function M:show(x, y, type, sub_type, flags, data)
     self:clear_cache()
 
-    local actions = context_db.get_actions(type, sub_type, flags)
+    -- 🎯 ЗРЯЧЕЕ AAA-ВЫЧИСЛЕНИЕ КОНФИГА:
+    -- Если в пейлоде data прилетел item_id (неважно, из рюкзака или с земли Meadows),
+    -- мы ОДИН РАЗ на пороге открытия меню вытаскиваем его чистый конфиг из items_db!
+    local items_db = require("main.modules.data.items_db")
+    local item_cfg = nil
+    if data and data.item_id then
+        item_cfg = items_db.get_item(data.item_id)
+    end
+
+    -- 🦾 ТИТАНОВЫЙ СИНХРОН: Кормим базу меню правильными изолированными аргументами!
+    -- Передаем: тип, вытащенный конфиг, флаги и полный пейлод (где сидит slot_index)
+    local actions = context_db.get_actions(type, item_cfg, flags, data)
+
     local cfg = {
         padding = 2,
         spacing = 2,
@@ -50,7 +61,8 @@ function M:show(x, y, type, sub_type, flags, data)
 
     local total_height = (#actions * cfg.btn_height) + ((#actions - 1) * cfg.spacing) + (cfg.padding * 2)
     gui.set_size(self.background, vmath.vector3(cfg.menu_width, total_height, 0))
-    -- Наполнение
+    
+    -- Наполнение кнопок на экране HUD
     for i, action in ipairs(actions) do
         self:create_menu_button(action, i, data, cfg)
     end

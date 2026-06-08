@@ -200,7 +200,11 @@ function M:get_hover_data(mx, my)
             local item_data = player_paperdoll.slots[slot_type]
             if item_data and item_data.item_id then
                 CustomCursor.set_style("cursor_outline_yellow")
-                return { type = "gui_item", item = item_data }
+                return {
+                    type = "gui_item",
+                    item = item_data,
+                    action_type = item_data.action_type
+                }
             end
             CustomCursor.set_style("cursor_default")
         end

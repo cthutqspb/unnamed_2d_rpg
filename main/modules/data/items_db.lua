@@ -56,11 +56,48 @@
 ---@field bonus_damage ItemBonusDamageConfig[]|nil
 ---@field price number Стоимость предмета у торговцев
 ---@field weight number Физический вес шмотки в рюкзаке
+---@field durability number|nil
+---@field columns number|nil
+---@field rows number|nil
 ---@field id? string Строковый ID ("iron_sword"), пропишем при инициализации для редьюсеров
 local M = {}
 
 ---@type table<string, any>
 M.items_raw = {
+    ["chest_common"] = {
+        action_type = "container_item",
+        name_key = "container_chest_common_name",
+        desc_key = "container_chest_common_desc",
+        animation = "chest_common",
+        tile_index = 7,
+        texture = "project_utumno",
+        type = "container",
+        columns = 6,
+        rows = 4,
+        quality = "common",
+        stackable = false,
+        max_stack = 1,
+        price = 8,
+        weight = 25,
+        durability = 275
+    },
+    ["wooden_barrel"] = {
+        action_type = "container_item",
+        name_key = "container_barrel_common_name",
+        desc_key = "container_barrel_common_desc",
+        animation = "wooden_barrel",
+        tile_index = 8,
+        texture = "project_utumno",
+        type = "container",
+        columns = 6,
+        rows = 2,
+        quality = "common",
+        stackable = false,
+        max_stack = 1,
+        price = 8,
+        weight = 12.5,
+        durability = 125,
+    },
     ["iron_sword"] = {
         action_type = "item",
         name_key = "item_iron_sword_name",

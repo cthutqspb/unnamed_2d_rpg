@@ -46,7 +46,42 @@ M.REDUCERS = {
 
         if item and item_cfg then
             local target_slot = data.target_slot -- куда бросили мышку
+            -- =========================================================================
+            -- 🛡️ АБСОЛЮТНАЯ ЗАЩИТА ОТ АННИГИЛЯЦИИ (Версия 4.0 — Финал)
+            -- =========================================================================
+            if target and target.items and item then
+                -- Капкан А: Если совпали физические ссылки на массивы предметов (наша RAM-магия)
+                local is_same_array = (item.items and item.items == target.items)
+                
+                -- Капкан Б: Проверяем UID. Если у перетаскиваемого предмета совпал UID 
+                -- с UID целевой модели (если ты прокинул его в gui_script)
+                local target_uid = target.uid or (target.item_data and target.item_data.uid)
+                local is_same_uid = (item.uid and target_uid and item.uid == target_uid)
 
+                -- 💥 ЕСЛИ СРАБОТАЛ ХОТЬ ОДИН КАПКАН — ОТМЕНЯЕМ СИНГУЛЯРНОСТЬ!
+                if is_same_array or is_same_uid then
+                    print("🚨 СИНГУЛЯРНОСТЬ [Dispatcher]: Заблокирована попытка засунуть бочку в себя! UID:", item.uid)
+                    item_transfer_manager.finalize() -- Сбрасываем визуал драга, возвращая иконку на место
+                    return -- Наглухо выходим, спасая рантайм
+                end
+
+                -- Рекурсивный гвард (Матрёшка): проверяем, не суем ли мы родителя в ребенка,
+                -- который лежит у него же в кармане
+                if item.items then
+                    for _, sub_item in pairs(item.items) do
+                        if sub_item then
+                            local sub_same_array = (sub_item.items and sub_item.items == target.items)
+                            local sub_same_uid = (sub_item.uid and target_uid and sub_item.uid == target_uid)
+                            
+                            if sub_same_array or sub_same_uid then
+                                print("🚨 СИНГУЛЯРНОСТЬ [Dispatcher]: Заблокирована попытка положить родителя во вложенную сумку!")
+                                item_transfer_manager.finalize()
+                                return
+                            end
+                        end
+                    end
+                end
+            end
             -- Вычисляем целевой слот для даблкликов, если его нет
             if not target_slot then
                 if target == interaction_manager.get_player_paperdoll() then
@@ -80,13 +115,24 @@ M.REDUCERS = {
 
     -- === СЛАЙС 2: ГЛОБАЛЬНЫЕ ДЕЙСТВИЯ В МИРЕ (context_menu_action по объектам) ===
     ["container_open"] = function(data)
-        -- Логика вскрытия бочки (проксируем обычный клик объекту мира)
+        -- ВЕТКА А: Бочка стоит на земле Meadows (Есть физический ID тела)
         if data.target_go_id then
             msg.post(data.target_go_id, "click")
+        
+        -- 🎯 ВЕТКА Б: БОЧКА В КАРМАНЕ (Твой нативный чистый msg.post):
+        -- Если физического ID нет, но прилетел slot_index — значит, открываем Матрёшку из рюкзака!
+        -- Шлём Си-сигнал напрямую в GUI окна контейнеров, передавая паспорт ячейки.
+        elseif data.slot_index then
+            msg.post("game_scene:/world#world", "prepare_pocket_container", {
+                container_uid = data.target_uid,
+                item_id = data.item_id,
+                slot_index = data.slot_index
+            })
+            print("КОНТРОЛЛЕР [Dispatcher]: Запрос Бэкенду на генерацию лута в карманной бочке. Слот: " .. data.slot_index)
         end
     end,
 
-    ["item_loot_pickup"] = function(data)
+    ["item_pickup"] = function(data)
         -- Логика подбора шмотки с земли
         if data.target_go_id then
             msg.post(data.target_go_id, "click")

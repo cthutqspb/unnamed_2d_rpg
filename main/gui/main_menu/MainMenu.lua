@@ -1,5 +1,5 @@
 local locales = require("main.modules.data.locales.locale_manager")
-local SaveManager = require("main.modules.system.SaveManager")
+local save_manager = require("main.modules.system.save_manager")
 
 ---@class MainMenu
 local M = {}
@@ -81,14 +81,14 @@ end
 ---@param self table
 function M.on_new_game(self)
     print("Starting New Game...")
-    SaveManager.new_game()
+    save_manager.new_game()
     self:set_visible(false)
     msg.post("game_scene:/world", "start_game")
 end
 
 ---@param self table
 function M.on_continue(self)
-    if SaveManager.load_game() then
+    if save_manager.load_game() then
         self:set_visible(false)
         print("Game Loaded Successfully")
     end
@@ -97,7 +97,7 @@ end
 ---@param self table
 function M.on_save_game(self)
     print("Saving game...")
-    SaveManager.save_game()
+    save_manager.save_game()
     self:set_visible(false)
     msg.post("game_scene:/world", "save_game")
 end
@@ -105,7 +105,7 @@ end
 ---@param self table
 function M.on_load_game(self)
     print("Loading saving game...")
-    SaveManager.load_game()
+    save_manager.load_game()
     self:set_visible(false)
     msg.post("game_scene:/world", "load_game")
 end

@@ -274,7 +274,8 @@ function M:get_hover_data(mx, my)
         if item and item.item_id then
             return {
                 type = "gui_item",
-                item = item
+                item = item,
+                action_type = item.action_type
             }
         end
     end

@@ -25,7 +25,7 @@ M.baked_entities = {
 ---Автоматически прописать полиморфную сущность из редактора в конфиг карты (Bake)
 ---@param zone_id string Имя чанка/зоны ("meadows")
 ---@param entity_uid string Сгенерированный по координатам UID ("c_1200_750")
----@param entity_type "creature"|"container"|"interactable" Мета-тип сущности
+---@param entity_type "item" | "creature"|"container"|"interactable" Мета-тип сущности
 ---@param entity_data table Кастомный мешок свойств из инспектора Defold {id, level, rank}
 ---@param pos vector3 Мировые координаты спавна из редактора
 function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
@@ -41,7 +41,7 @@ function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
         pos = pos            -- Точка дома
     })
 
-    print(string.format("💾 БЭКЕНД [Bake]: Сущность [%s] запечена в %s! Тип: %s | ID: %s", 
+    print(string.format("💾 БЭКЕНД [Bake]: Сущность [%s] запечена в %s! Тип: %s | ID: %s",
         entity_uid, zone_id, entity_type, entity_data.id or "unknown"))
 end
 

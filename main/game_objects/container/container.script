@@ -82,8 +82,6 @@ function init(self)
         items = {} -- пусто по умолчанию
     })
 
-    -- 3. РЕГИСТРАЦИЯ СВЯЗИ (всегда!)
-    -- Чтобы рейкаст мог найти UID этого конкретного сундука прямо сейчас
     containers_state.register(self.go_id, self.container_uid)
     apply_container_visual(self)
 

@@ -2,12 +2,14 @@ go.property("uid", hash("")) -- Для предметов из редактор�
 go.property("item_id",  hash("unknown"))
 go.property("amount", 1)
 go.property("is_from_factory", false) -- В редакторе всегда false
+go.property("loot_table_id", hash("empty"))
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interaction = require("main.modules.interaction")
 local items_db = require("main.modules.data.items_db")
 local broadcast = require("main.modules.system.broadcast")
 local world_items_state = require("main.modules.game_state.world_items_state")
+local loot_tables = require("main.modules.data.loot_tables")
 
 -- Вспомогательные функции для HUD
 ---@class WorldItemScriptContext
@@ -15,6 +17,7 @@ local world_items_state = require("main.modules.game_state.world_items_state")
 ---@field uid hash|string Уникальный идентификатор предмета в сейве
 ---@field item_id string Строковый ID предмета из items_db ("sword", "potion")
 ---@field amount number Количество предметов в этой кучке
+---@field loot_table_id hash|nil
 ---@field is_from_factory boolean Спавнится ли фабрикой (дроп) или стоит изначально в редакторе
 ---@field is_interactable boolean Флаг доступности для кликов мыши
 ---@field broadcast_handler function Ссылка на анонимную функцию-слушатель для корректной отписки
@@ -54,41 +57,63 @@ end
 ---@param self WorldItemScriptContext
 function init(self)
     self.go_id = go.get_id()
+    local p = go.get_position()
 
-    -- 1. Получаем гарантированную чистую строку UID
-    local s_uid = interaction.clean_id(self.uid) or ""
+    -- 🎯 ШАГ 1: ГЕНЕРИРУЕМ ЧИСТУЮ СТРОКУ (Не трогая движковый self.uid!)
+    local string_uid = interaction.clean_id(self.uid) or ""
+    if self.uid == hash("") or string_uid == "" or string.find(string_uid, "unknown") then
+        string_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
+    end
+
     self.item_id = interaction.clean_id(self.item_id) or "unknown"
 
-    -- 2. Если это ПРЕДМЕТ ИЗ РЕДАКТОРА (is_from_factory == false)
-    if not self.is_from_factory then
-        -- Если UID пустой, генерируем по координатам
-        if self.uid == hash("") or s_uid == "" then
-            local p = go.get_position()
-            s_uid = string.format("i_%d_%d", math.floor(p.x), math.floor(p.y))
-            self.uid = hash(s_uid)
-        end
+    -- Кэшируем чистую строку в СВОЮ собственную переменную контекста!
+    self.uid = string_uid
 
-        -- Проверка BG3: если загрузились и предмета нет в сейве — он уже собран
-        if world_items_state.is_loaded_from_save and not world_items_state.exists(s_uid) then
+    -- =========================================================================
+    -- 1. РЕЖИМ ЗАПЕКАНИЯ ПРЕДМЕТА (Bake Mode)
+    -- =========================================================================
+    if not self.is_from_factory then
+        if world_items_state.is_item_collected and world_items_state.is_item_collected(string_uid) then
             go.delete()
             return
         end
 
-        -- Если мы выжили, регистрируем себя как статику (пишем в базу ЧИСТУЮ СТРОКУ item_id)
-        if not world_items_state.exists(s_uid) then
-            world_items_state.registry[s_uid] = {
-                item_id = self.item_id, -- Теперь тут лежит железная строка "sword"
-                pos = { x = go.get_position().x, y = go.get_position().y },
+        if world_items_state.is_loaded_from_save and not world_items_state.exists(string_uid) then
+            go.delete()
+            return
+        end
+
+        local entity_data = {
+            id = self.item_id,
+            amount = self.amount or 1
+        }
+        local map_config = require("main.modules.data.map_config")
+        map_config.bake_entity("meadows", string_uid, "item", entity_data, p)
+
+        if not world_items_state.exists(string_uid) then
+            local string_loot_id = interaction.clean_id(self.loot_table_id) or "empty"
+
+            world_items_state.registry[string_uid] = {
+                item_id = self.item_id,
+                pos = { x = p.x, y = p.y },
                 amount = self.amount or 1,
-                is_dynamic = false
+                is_dynamic = false,
+                is_collected = false,
+                loot_table_id = string_loot_id
             }
         end
+
+        go.delete()
+        return
     end
 
-    -- Регистрируем связь для рейкаста
-    world_items_state.register(self.go_id, s_uid)
+    -- =========================================================================
+    -- 2. БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для предметов из Фабрики)
+    -- =========================================================================
+    -- Передаем чистую локальную строку string_uid напрямую
+    world_items_state.register(self.go_id, string_uid)
 
-    -- Визуал и подписки
     self.is_interactable = true
     if self.item_id ~= "unknown" and self.item_id ~= hash("unknown") then
         apply_item_visual(self)
@@ -104,14 +129,21 @@ function init(self)
     broadcast.subscribe("world_events", self.broadcast_handler)
 end
 
+
 ---@param self WorldItemScriptContext
 function final(self)
-    -- ⚡️ ВЫПИСЫВАЕМСЯ ИЗ РЕЕСТРА (проверяем метод)
+    -- 🎯 ЗEРКAЛЬНЫЙ ААА-ДЕСТРУКТОР (По канону Скелетов):
+    -- Перед физическим удалением тела с экрана при стриминге чанков,
+    -- мы бережно берем текущие координаты предмета и сохраняем их в Душу в Model!
+    if world_items_state.registry and world_items_state.registry[self.uid] then
+        local p = go.get_position()
+        world_items_state.registry[self.uid].pos = { x = p.x, y = p.y }
+    end
+
     if world_items_state.unregister then
         world_items_state.unregister(self.go_id)
     end
 
-    -- ГЛАВНЫЙ ФИКС: отписываемся только если подписка была создана
     if self.broadcast_handler then
         broadcast.unsubscribe("world_events", self.broadcast_handler)
     end
@@ -120,11 +152,9 @@ end
 ---@param self WorldItemScriptContext
 ---@param dt number
 function update(self, dt)
-
 end
 
 function fixed_update(self, dt)
-
 end
 
 ---@param self WorldItemScriptContext
@@ -132,23 +162,20 @@ end
 ---@param message table
 ---@param sender url
 function on_message(self, message_id, message, sender)
-    -- 1. Сигнал от фабрики мира при динамическом спавне дропа
+    -- =========================================================================
+    -- 1. СИГНАЛ ИНИЦИАЛИЗАЦИИ ОТ ФАБРИКИ (Материализация на земле)
+    -- =========================================================================
     if message_id == hash("set_item_id") then
-        -- Гарантированно очищаем прилетевший ID от хэшей движка
-        local s_item_id = interaction.clean_id(message.item_id) or "unknown"
-        local s_uid = interaction.clean_id(message.uid) or ""
+        local string_item_id = interaction.clean_id(message.item_id) or "unknown"
+        local string_uid = interaction.clean_id(message.uid) or ""
 
-        self.item_id = s_item_id
+        self.item_id = string_item_id
         self.amount = message.amount or 1
-        self.uid = s_uid
+        self.uid = string_uid
 
-        -- 🚩 ФИКС ТИПОВ: Регистрируем очищенную строку s_uid, а не сырой хэш из сообщения
-        world_items_state.register(self.go_id, s_uid)
-
-        -- Перерисовываем иконку предмета
+        world_items_state.register(self.go_id, string_uid)
         apply_item_visual(self)
 
-        -- Обновляем текстовые плашки над предметом
         local data = items_db.get_item(self.item_id)
         if data then
             local item_name = locales.get(data.name_key)
@@ -161,20 +188,99 @@ function on_message(self, message_id, message, sender)
         end
     end
 
-    -- 2. Сигнал клика ЛКМ в упор или добежавшего автолута из player.script
+    -- =========================================================================
+    -- 2. 🎯 ПРЯМОЙ ПЕРЕХВАТ ЛУТAНИЯ (Из Контекстного Меню ПКМ "Забрать коробку")
+    -- =========================================================================
+    if message_id == hash("item_pickup") then
+        print("БЭКЕНД [WorldItem]: Получена прямая команда подбора в инвентарь: " .. self.item_id)
+        
+        -- 🎯 СИ-ЗАМОК ДУШИ (Разрыв слепоты фабрики):
+        -- Вместо пустого Си-свойства self.loot_table_id мы лезем в Единую Базу world_items_state
+        -- по нашему бессмертному self.uid! И забираем оттуда ту самую строковую таблицу лута,
+        -- которую маркер бережно запек туда при старте Новой Игры!
+        local item_data = world_items_state.get_item_by_uid(self.uid)
+        
+        -- Если Душа помнит таблицу из инспектора Tiled — берем её! 
+        -- А если Души нет (вещь дропнули из сумки), подстрахуемся дефолтом из items_db
+        local string_loot_table_id = "empty"
+        if item_data and item_data.loot_table_id and item_data.loot_table_id ~= "empty" then
+            string_loot_table_id = item_data.loot_table_id
+        else
+            local db_cfg = items_db.get_item(self.item_id)
+            string_loot_table_id = db_cfg and db_cfg.loot_table_id or "empty"
+        end
+
+        print("🔬 СИ-ДЕБАГ: Вытащили зрячую таблицу из Души шмотки мира:", string_loot_table_id)
+
+        -- Пуляем зрячую посылку в мир! Теперь бэкенд соседа гарантированно увидит "chest_common"!
+        msg.post("/world#world", "item_pickup", {
+            item_id = self.item_id,
+            amount = self.amount,
+            uid = self.uid,
+            loot_table_id = string_loot_table_id -- Улетела зрячая строка контента! [🔍]
+        })
+        return 
+    end
+
+    -- =========================================================================
+    -- 3. СИГНАЛ КЛИКА ЛКМ (Обычный подход ногами)
+    -- =========================================================================
     if message_id == hash("click") then
         interaction.handle_click(self, 50, function()
-            print("PICKUP: Игрок залутал предмет с земли:", self.item_id)
+            local db_cfg = items_db.get_item(self.item_id)
+            local action_type = db_cfg and db_cfg.action_type or "item"
 
-            -- Передаем точный строковый UID в мир, чтобы вычеркнуть его из базы сохранений
-            msg.post("/world#world", "item_pickup", {
-                item_id = self.item_id,
-                amount = self.amount,
-                uid = self.uid
-            })
+            -- -----------------------------------------------------------------
+            -- ВЕТКА А: ОБЫЧНЫЙ ЛУТ (Меч, зелье, шлем под ногами)
+            -- -----------------------------------------------------------------
+            if action_type ~= "container_item" then
+                print("PICKUP: Игрок залутал предмет с земли:", self.item_id)
+                msg.post("/world#world", "item_pickup", {
+                    item_id = self.item_id,
+                    amount = self.amount,
+                    uid = self.uid
+                })
+
+            -- -----------------------------------------------------------------
+            -- ВЕТКА Б: МАТРЁШКА (Обычный подход ногами -> Обыск бочки)
+            -- -----------------------------------------------------------------
+            else
+                print("GUI: Игрок обыскивает контейнер-предмет на земле! UID:", self.uid)
+
+                local item_data = world_items_state.get_item_by_uid(self.uid)
+
+                if item_data then
+                    -- Если внутри Души бочки еще нет сгенерированного массива предметов — рождаем его!
+                    if not item_data.items then
+                        local final_loot_id = item_data.loot_table_id or "empty"
+                        if final_loot_id == "" or final_loot_id == "unknown" then
+                            final_loot_id = "empty"
+                        end
+
+                        print("БЭКЕНД: Первая генерация лута Матрёшки по сохраненной таблице:", final_loot_id)
+                        local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
+                        item_data.items = generated_loot
+                    end
+
+                    -- Шлём монолитное сообщение в GUI-окно сундуков
+                    msg.post("main:/container_window#gui", "open_container_window", {
+                        container_uid = self.uid,
+                        container_id = hash(self.item_id),
+                        container_name = hash(db_cfg and db_cfg.name_key or "container_common_chest_name"),
+                        container_items = item_data.items,
+                        columns = db_cfg and db_cfg.columns or 6,
+                        rows = db_cfg and db_cfg.rows or 4,
+                        position = go.get_position(), 
+                        player_pos = go.get_position("game_scene:/player")
+                    })
+                else
+                    print("🚨 БЭКЕНД: Критическая ошибка! Душа бочки [" .. self.uid .. "] не найдена!")
+                end
+            end
         end)
     end
 end
+
 
 function on_reload(self)
 

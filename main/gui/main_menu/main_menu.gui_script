@@ -1,5 +1,5 @@
 local druid = require("druid.druid")
-local SaveManager = require("main.modules.system.SaveManager")
+local save_nanager = require("main.modules.system.save_manager")
 local MainMenu = require("main.gui.main_menu.MainMenu")
 
 ---@class MainMenuGuiScriptContext
@@ -9,7 +9,7 @@ local MainMenu = require("main.gui.main_menu.MainMenu")
 ---@param self MainMenuGuiScriptContext
 function init(self)
     -- Если сохранения физически не существует, визуально затемняем кнопку "Продолжить"
-    if not SaveManager.exists() then
+    if not save_nanager.exists() then
         gui.set_color(gui.get_node("btn_continue_game"), vmath.vector4(0.5, 0.5, 0.5, 1.0))
     end
 

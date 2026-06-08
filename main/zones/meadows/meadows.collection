@@ -1,110 +1,5 @@
 name: "meadows"
 instances {
-  id: "lootable_item1"
-  prototype: "/main/game_objects/container/container.go"
-  position {
-    x: 5289.0
-    y: 2578.0
-    z: 1.0
-  }
-  component_properties {
-    id: "items_container"
-    properties {
-      id: "container_uid"
-      value: "container_003"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
-  id: "123"
-  prototype: "/main/game_objects/container/container.go"
-  position {
-    x: 4847.0
-    y: 2686.0
-    z: 1.0
-  }
-  component_properties {
-    id: "items_container"
-    properties {
-      id: "container_uid"
-      value: "container_001"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "loot_table_id"
-      value: "chest_common"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
-  id: "1234"
-  prototype: "/main/game_objects/container/container.go"
-  position {
-    x: 5022.0
-    y: 2776.0
-    z: 1.0
-  }
-  component_properties {
-    id: "items_container"
-    properties {
-      id: "container_uid"
-      value: "container_002"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "loot_table_id"
-      value: ""
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
-  id: "world_item"
-  prototype: "/main/game_objects/world_item/world_item.go"
-  position {
-    x: 5475.0
-    y: 2873.0
-    z: 1.0
-  }
-  component_properties {
-    id: "world_item"
-    properties {
-      id: "uid"
-      value: "leather_helmet_001"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "item_id"
-      value: "leather_helmet"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
-  id: "lootable_item"
-  prototype: "/main/game_objects/world_item/world_item.go"
-  position {
-    x: 5098.0
-    y: 2398.0
-    z: 1.0
-  }
-  component_properties {
-    id: "world_item"
-    properties {
-      id: "uid"
-      value: "leather_helmet_002"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "item_id"
-      value: "crystal_sword"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
-}
-instances {
   id: "dragon"
   prototype: "/main/game_objects/units/creatures/dragon.go"
   position {
@@ -196,26 +91,104 @@ instances {
     }
   }
 }
+instances {
+  id: "world_item"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 4992.3623
+    y: 2544.239
+    z: 1.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "item_id"
+      value: "crystal_sword"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
+instances {
+  id: "world_item1"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 5170.3623
+    y: 2362.239
+    z: 1.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "uid"
+      value: "12345"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "item_id"
+      value: "leather_helmet"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
+instances {
+  id: "world_item2"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 4507.524
+    y: 2581.6206
+    z: 1.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "item_id"
+      value: "chest_common"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "loot_table_id"
+      value: "chest_common"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
+instances {
+  id: "world_item3"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 4487.131
+    y: 2478.8396
+    z: 1.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "item_id"
+      value: "wooden_barrel"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "loot_table_id"
+      value: "chest_common"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
-  children: "123"
-  children: "1234"
   children: "dragon"
-  children: "lootable_item"
-  children: "lootable_item1"
   children: "player_spawn_point"
   children: "sceleton_warrior"
   children: "sceleton_warrior1"
   children: "sceleton_warrior2"
   children: "world_item"
+  children: "world_item1"
+  children: "world_item2"
+  children: "world_item3"
   data: "components {\n"
   "  id: \"chunk_meadows\"\n"
   "  component: \"/main/tilemaps/meadow.tilemap\"\n"
-  "}\n"
-  "components {\n"
-  "  id: \"zone_root\"\n"
-  "  component: \"/main/scripts/zone_root.script\"\n"
   "}\n"
   ""
 }

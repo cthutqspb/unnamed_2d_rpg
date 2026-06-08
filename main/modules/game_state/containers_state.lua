@@ -1,47 +1,69 @@
+local interaction = require("main.modules.interaction")
 local M = {}
 
-M.registry = {}       -- Динамика: предметы, статус "лутался/нет" (для сейва)
-M.static_configs = {} -- Статика: размеры, имена, типы (НЕ для сейва)
-M.instances = {}      -- Связи: go_id -> uid (для рейкаста)
+M.registry = {}       -- Динамика: прогресс лутания и шмот (Для сейва)
+M.static_configs = {} -- Статика: базовые конфиги из редактора (НЕ для сейва)
+M.instances = {}      -- Связи: go_id(hash) -> uid(string) ДЛЯ РЕЙКАСТА МЫШИ!
 
-local function to_key(id)
-    return type(id) == "userdata" and tostring(id) or id
-end
-
--- Регистрация физического тела в мире
+---Регистрация физического тела в мире (По канону Скелетов)
+---@param id hash Сырой Си-адрес go.get_id() из мира
+---@param uid string|hash Уникальный паспорт сундука
 function M.register(id, uid)
-    M.instances[id] = to_key(uid)
+    -- 🎯 ТИТАНОВЫЙ ААА-ЗАМОК: 
+    -- Ключом оставляем голый Си-хэш id (userdata) для моментального рейкаста мыши!
+    -- Значением пишем чистую Lua-строку uid через clean_id!
+    if id then
+        M.instances[id] = interaction.clean_id(uid) or ""
+    end
 end
 
+---Разорвать связь инстанса при выгрузке
+---@param id hash
 function M.unregister(id)
-    M.instances[id] = nil
+    -- Ищем по сырому Си-хэшу напрямую
+    if id then
+        M.instances[id] = nil
+    end
 end
 
--- Регистрация "Чертежа" (вызываем в init)
+---Регистрация статического чертежа из редактора
+---@param uid string|hash
+---@param config table
 function M.register_static_config(uid, config)
-    M.static_configs[to_key(uid)] = config
+    local key = interaction.clean_id(uid)
+    if key then
+        M.static_configs[key] = config
+    end
 end
 
--- Инициализация динамики (вызываем при лутании или загрузке)
+---Инициализация динамического состояния сундука
+---@param uid string|hash
+---@param data table
 function M.init(uid, data)
-    M.registry[to_key(uid)] = data
+    local key = interaction.clean_id(uid)
+    if key then
+        M.registry[key] = data
+    end
 end
 
--- УМНЫЙ ГЕТТЕР
+---Умный ААА-геттер данных контейнера
+---@param uid string|hash
+---@return table|nil
 function M.get(uid)
-    local key = to_key(uid)
-    -- Если сундук уже лутали, берем из реестра. 
-    -- Если нет — отдаем его статический "чертеж".
+    local key = interaction.clean_id(uid)
+    if not key then return nil end
     return M.registry[key] or M.static_configs[key]
 end
 
 function M.clear()
     -- При новой игре стираем только прогресс лутания
     M.registry = {}
-    -- Статику и инстансы не трогаем, они привязаны к текущей сцене!
+    M.instances = {}
 end
 
-function M.get_all() return M.registry end
+function M.get_all()
+    return M.registry
+end
 
 function M.restore_all(data)
     if not data then return end
