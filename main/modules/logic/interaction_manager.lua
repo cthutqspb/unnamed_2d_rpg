@@ -30,6 +30,12 @@ function M.set_target(go_id, uid)
     })
 end
 
+---Получить движковый ID текущей цели для работы с миром и векторами
+---@return hash|nil
+function M.get_current_target()
+    return M.current_target_go_id
+end
+
 ---Сбросить текущую боевую цель
 function M.clear_target()
     if not M.current_target_go_id then return end

@@ -23,7 +23,6 @@ function M:update_health(percentage)
 
     -- Вычисляем целевую логическую ширину ноды в пикселях
     local target_width = self.max_width * percentage
-    print("HEALTH WIDTH", target_width)
 
     -- 🎯 ПЛАВНАЯ АНИМАЦИЯ: Изменяем размер ноды. 
     -- Используем плоский тип vector3 в аннотации, чтобы линтер не ругался на vmath

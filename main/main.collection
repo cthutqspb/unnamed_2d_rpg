@@ -22,6 +22,7 @@ embedded_instances {
   children: "cursor"
   children: "drag_layer"
   children: "inventory_window"
+  children: "log_window"
   children: "split_window"
   children: "tooltip_layer"
   data: "components {\n"
@@ -106,6 +107,14 @@ embedded_instances {
   data: "components {\n"
   "  id: \"gui\"\n"
   "  component: \"/main/gui/components/cursor/cursor.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "log_window"
+  data: "components {\n"
+  "  id: \"log_window\"\n"
+  "  component: \"/main/gui/components/log_window/log_window.gui\"\n"
   "}\n"
   ""
 }

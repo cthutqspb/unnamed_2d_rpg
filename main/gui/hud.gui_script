@@ -18,6 +18,7 @@ local window_manager = require("main.gui.components.managers.window_manager")
 ---@field on_player_event function Коллбэк для характеристик игрока
 ---@field on_ui_event function Коллбэк для системных отмен фокусов и окон
 ---@field on_target_event function
+---@field on_combat_event function
 ---@field static_grid table|nil Ссылка на сетку слотов, если она встроена в HUD
 
 ---@param self HudScriptContext
@@ -94,11 +95,21 @@ function init(self)
         end
     end
 
+    self.on_combat_event = function (data)
+        print("ON on_combat_event !!!", data.event)
+
+        if data.event == "creature_attacked" then
+            print("creature_damaged !!!")
+            msg.post("main:/gui_manager#hud", "target_update", { update_type = data.type, uid = data.uid })
+        end
+    end
+
     -- Оформляем подписки на наши Redux-каналы
     broadcast.subscribe("inventory_events", self.on_inventory_event)
     broadcast.subscribe("action_bar_events", self.on_action_bar_event)
     broadcast.subscribe("player_events", self.on_player_event)
     broadcast.subscribe("ui_events", self.on_ui_event)
+    broadcast.subscribe("combat_events", self.on_combat_event)
     broadcast.subscribe("target_events", self.on_target_event)
 
     print("HUD initialized successfully")
@@ -131,6 +142,11 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("target_lost_deferred") then
         self.target_frame:on_target_event(hash("target_lost"), nil)
     end
+
+    if message_id == hash("target_update") then
+        self.target_frame:on_target_event(hash("target_update"), message)
+    end
+
 
     if message_id == hash("refresh_inventories") then
         msg.post("main:/character_window#gui", "refresh")
@@ -291,6 +307,7 @@ function final(self)
     broadcast.unsubscribe("player_events", self.on_player_event)
     broadcast.unsubscribe("ui_events", self.on_ui_event)
     broadcast.unsubscribe("target_events", self.on_target_event)
+    broadcast.unsubscribe("combat_events", self.on_combat_event)
     print("HUD final: отписались от всех каналов бродкаста")
 end
 

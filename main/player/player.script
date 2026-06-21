@@ -6,6 +6,7 @@ local interaction = require("main.modules.interaction")
 local window_manager = require("main.gui.components.managers.window_manager")
 local gui_utils = require("main.gui.gui_utils")
 local camera = require("orthographic.camera")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
 ---@class PlayerPressedKeys
 ---@field up number
@@ -282,6 +283,22 @@ function on_message(self, message_id, message, sender)
             if self.move_target then
                 self.move_target = nil
             end
+        end
+    end
+
+    -- Кнопки экшен бара
+    
+    -- Ловим сигнал от нашего ActionBar.lua
+    if message_id == hash("player_action") then
+        if message.event == "action" then
+            
+            -- 🎯 ВОТ ЗДЕСЬ ЭТО СДЕЛАТЬ ПРАВИЛЬНО И КРАСИВО!
+            -- Скрипт-контроллер переводит Си-пакет в вызов Lua-редьюсера
+            actions_dispatcher.REDUCERS["action_bar_use"]({
+                slot_index = message.data.slot_index,
+                drag_type = message.data.action_type, -- "ability" или "item"
+                action_id = message.data.action_id    -- "melee_attack"
+            })
         end
     end
 end

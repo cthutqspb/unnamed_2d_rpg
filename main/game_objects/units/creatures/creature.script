@@ -3,6 +3,7 @@ go.property("creature_id", hash("unknown_creature"))
 go.property("creature_level", 1)
 go.property("creature_rank", hash("common"))
 go.property("is_from_factory", false) -- В редакторе всегда false
+go.property("loot_table_id", hash("empty"))
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interaction = require("main.modules.interaction")
@@ -11,6 +12,7 @@ local broadcast = require("main.modules.system.broadcast")
 local creatures_state = require("main.modules.game_state.creatures_state")
 local creature_ai = require("main.modules.creature.ai.creature_ai")
 local interaction_manager = require("main.modules.logic.interaction_manager")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local map_config = require("main.modules.data.map_config")
 
 ---@class CreatureScriptContext : AICreatureContext  -- Наследуем класс ИИ!
@@ -20,6 +22,7 @@ local map_config = require("main.modules.data.map_config")
 ---@field creature_level number
 ---@field creature_rank string
 ---@field creature_type string
+---@field loot_table_id string
 ---@field is_from_factory boolean
 ---@field speed number                 -- Наша рабочая скорость для ИИ
 ---@field hitbox_size number           
@@ -34,111 +37,214 @@ function init(self)
     self.go_id = go.get_id()
     self.spawn_pos = go.get_position()
 
+    -- 1. Стерильно очищаем идентификаторы из редактора / фабрики
     local string_uid = interaction.clean_id(self.uid) or ""
     local string_id = interaction.clean_id(self.creature_id) or "unknown_creature"
     local string_rank = interaction.clean_id(self.creature_rank) or "common"
     local string_type = interaction.clean_id(self.creature_type) or ""
+    local string_loot_table_id = interaction.clean_id(self.loot_table_id) or "empty"
 
-    -- =========================================================================
-    -- 1. РЕЖИМ ЗАПЕКАНИЯ СУЩНОСТИ (Bake Mode)
-    -- Если Скелет родился напрямую из редактора, он работает как энтити-маркер
-    -- =========================================================================
-    if not self.is_from_factory then
-        -- Если UID пустой, генерируем по начальной точке спавна
-        if self.uid == hash("") or string_uid == "" then
-            local creature_position = go.get_position()
-            string_uid = string.format("c_%d_%d", math.floor(creature_position.x), math.floor(creature_position.y))
-        end
-
-        
-
-        -- ПОЛИМОРФНОЕ ЗАПЕКАНИЕ СУЩНОСТИ:
-        -- Упаковываем параметры в плоскую таблицу и шлем в центральный конфиг
-        local entity_data = {
-            id = string_id,
-            level = self.creature_level or 1,
-            rank = string_rank
-        }
-        map_config.bake_entity("meadows", string_uid, "creature", entity_data, self.spawn_pos)
-
-        -- РЕГИСТРИРУЕМ ДУШУ В ПАМЯТИ БЭКЕНДА (Если это первый старт новой игры)
-        if not creatures_state.exists_by_uid or not creatures_state.exists_by_uid(string_uid) then
-            if creatures_state.register_by_uid then
-                creatures_state.register_by_uid(string_uid, {
-                    creature_id = string_id,
-                    level = self.creature_level or 1,
-                    rank = string_rank,
-                    type = string_type,
-                    saved_position = self.spawn_pos,
-                    zone_id = "meadows"
-                })
-            end
-        end
-
-        -- ХАК ДЛЯ ПЕРЕЗАГРУЗКИ ЧАНКА (BG3-style):
-        -- Если существо с таким UID УЖЕ существует в вашей базе данных,
-        -- это значит, что фабрика чанка пытается создать дубликат.
-        if creatures_state.get(string_uid) then
-            go.delete()
-            return
-        end
-
-        -- Проверка старого сейва (если загрузили игру из файла, а моб был убит)
-        if creatures_state.is_loaded_from_save and not creatures_state.exists(string_uid) then
-            go.delete()
-            return
-        end
+    -- Если UID пустой (моб стоит изначально в редакторе), генерируем его по координатам
+    if self.uid == hash("") or string_uid == "" then
+        string_uid = string.format("c_%d_%d", math.floor(self.spawn_pos.x), math.floor(self.spawn_pos.y))
     end
 
-    -- =========================================================================
-    -- 2. БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для живых тел из Фабрики!)
-    -- =========================================================================
     self.uid = string_uid
 
-    -- Регистрируем связь для рейкаста и курсора в памяти бэкенда
-    creatures_state.register(self.go_id, {
-        creature_id = self.creature_id,
+    -- =========================================================================
+    -- 🎯 ЕДИНАЯ РЕГИСТРАЦИЯ БЭКЕНДА (WoW-канон для любого типа спавна!)
+    -- =========================================================================
+    -- Мы вызываем твой рабочий M.register, передавая ВСЕ параметры, включая loot_table_id!
+    -- Твой метод сам запишет данные в M.registry[uid] и свяжет Си-адрес в M.instances
+    local creature_instance_data = creatures_state.register(self.go_id, {
+        creature_id = string_id,
         creature_uid = string_uid,
         level = self.creature_level or 1,
         type = string_type,
-        rank = string_rank
+        rank = string_rank,
+        loot_table_id = string_loot_table_id -- 🎯 ТЕПЕРЬ ТАБЛИЦА ДРОПА НИКОГДА НЕ ПОТЕРЯЕТСЯ!
     })
 
-    -- ВЫТАСКИВАЕМ ДАННЫЕ ИЗ БЭКЕНД-СТЕЙТА ДЛЯ ИИ:
-    local creature_instance_data = creatures_state.get(string_uid)
+    -- =========================================================================
+    -- 🤖 СИНХРОНИЗАЦИЯ СТЕЙТА И ХАРАКТЕРИСТИК ДЛЯ ИИ
+    -- =========================================================================
+    -- Стучимся в статичную базу creatures_db, чтобы вытащить имя анимации и базовые скейлы
+    local db_cfg = creatures_db.get_creature(string_id)
+
     if creature_instance_data then
+        -- Читаем сочные, уже посчитанные от уровня и ранга статы из возвращенной структуры!
         self.speed = creature_instance_data.speed or 90
         self.hitbox_size = creature_instance_data.hitbox_size or 64
         self.attack_range_melee = creature_instance_data.attack_range_melee or 8
-        self.ai_profile = creature_instance_data.ai_profile
+        self.ai_profile = creature_instance_data.ai_profile or "aggressive_patrol"
 
-        -- 🎯 ЗРЯЧАЯ СМЕНА СПРАЙТА:
-        -- Мы стучимся в твою оригинальную базу данных criaturas_db за базовым конфигом!
-        local db_cfg = creatures_db.get_creature(self.creature_id)
+        -- 🌟 СОХРАНЯЕМ СТРОКУ ТАБЛИЦЫ ДРОПА В КОНТЕКСТ СКРИПТА!
+        -- Теперь, когда моб умрет, self.loot_table_id гарантированно будет содержать "chest_common"
+        self.loot_table_id = creature_instance_data.loot_table_id
 
-        -- Посмотри, как у тебя в creatures_db называется поле с именем анимации!
-        -- Если поле называется animation, оставь db_cfg.animation. 
-        -- Если поля нет, можно использовать очищенный id типа string_id.
+        -- Зрячая смена спрайта (Твой рабочий код)
         local anim_name = db_cfg and db_cfg.animation or string_id
-
         if sprite then
             sprite.play_flipbook("#sprite", hash(anim_name))
         end
 
-        -- ВОЗВРАЩАЕМ НА МЕСТО: Если в базе есть сохраненная позиция, сдвигаем моба туда
+        -- Принудительный масштаб хитбокса для фабрики коллекций (Твой рабочий фикс)
+        if self.is_from_factory and db_cfg and db_cfg.hitbox_size then
+            local base_prefab_size = 64
+            local scale_factor = db_cfg.hitbox_size / base_prefab_size
+            go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
+        end
+
+        -- Возвращаем на место координаты, если это загрузка сейва (Твой рабочий код)
+        -- (Для новой игры saved_position будет nil, и моб останется на точке спавна)
         if creature_instance_data.saved_position then
             go.set_position(creature_instance_data.saved_position)
         end
     else
-        self.speed = 90
-        self.hitbox_size = 64
-        self.attack_range_melee = 8
-        self.ai_profile = "aggressive_patrol"
+        -- Экстренный фоллбек, если бэкенд почему-то выдал nil
+        self.speed = db_cfg and db_cfg.base_speed or 90
+        self.hitbox_size = db_cfg and db_cfg.hitbox_size or 64
+        self.attack_range_melee = db_cfg and db_cfg.attack_range_melee or 8
+        self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
+        self.loot_table_id = string_loot_table_id
     end
 
-    -- ИНИЦИАЛИЗАЦИЯ ИИ: Менеджер сам навесит нужные таймеры и стейты внутрь self
+    -- Запускаем ИИ моба
     creature_ai.init(self.ai_profile, self)
 end
+
+
+-- ---@param self CreatureScriptContext
+-- function init(self)
+--     self.go_id = go.get_id()
+--     self.spawn_pos = go.get_position()
+--
+--     local string_uid = interaction.clean_id(self.uid) or ""
+--     local string_id = interaction.clean_id(self.creature_id) or "unknown_creature"
+--     local string_rank = interaction.clean_id(self.creature_rank) or "common"
+--     local string_type = interaction.clean_id(self.creature_type) or ""
+--     local string_loot_table_id = interaction.clean_id(self.loot_table_id) or "empty"
+--
+--     -- =========================================================================
+--     -- 1. РЕЖИМ ЗАПЕКАНИЯ СУЩНОСТИ (Bake Mode)
+--     -- Если Скелет родился напрямую из редактора, он работает как энтити-маркер
+--     -- =========================================================================
+--     if not self.is_from_factory then
+--         -- Если UID пустой, генерируем по начальной точке спавна
+--         if self.uid == hash("") or string_uid == "" then
+--             local creature_position = go.get_position()
+--             string_uid = string.format("c_%d_%d", math.floor(creature_position.x), math.floor(creature_position.y))
+--         end
+--
+--         -- ПОЛИМОРФНОЕ ЗАПЕКАНИЕ СУЩНОСТИ:
+--         -- Упаковываем параметры в плоскую таблицу и шлем в центральный конфиг
+--         local entity_data = {
+--             id = string_id,
+--             level = self.creature_level or 1,
+--             rank = string_rank
+--         }
+--         map_config.bake_entity("meadows", string_uid, "creature", entity_data, self.spawn_pos)
+--
+--         -- РЕГИСТРИРУЕМ ДУШУ В ПАМЯТИ БЭКЕНДА (Если это первый старт новой игры)
+--         if not creatures_state.exists_by_uid or not creatures_state.exists_by_uid(string_uid) then
+--             if creatures_state.register_by_uid then
+--                 creatures_state.register_by_uid(string_uid, {
+--                     creature_id = string_id,
+--                     level = self.creature_level or 1,
+--                     rank = string_rank,
+--                     type = string_type,
+--                     loot_table_id = string_loot_table_id,
+--                     saved_position = self.spawn_pos,
+--                     zone_id = "meadows"
+--                 })
+--             end
+--         end
+--
+--         -- ХАК ДЛЯ ПЕРЕЗАГРУЗКИ ЧАНКА (BG3-style):
+--         -- Если существо с таким UID УЖЕ существует в вашей базе данных,
+--         -- это значит, что фабрика чанка пытается создать дубликат.
+--         if creatures_state.get(string_uid) then
+--             go.delete()
+--             return
+--         end
+--
+--         -- Проверка старого сейва (если загрузили игру из файла, а моб был убит)
+--         if creatures_state.is_loaded_from_save and not creatures_state.exists(string_uid) then
+--             go.delete()
+--             return
+--         end
+--     end
+--
+--     -- =========================================================================
+--     -- 2. БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для живых тел из Фабрики!)
+--     -- =========================================================================
+--     self.uid = string_uid
+--     print("LOOT TABLE", string_loot_table_id)
+--
+--     -- Регистрируем связь для рейкаста и курсора в памяти бэкенда
+--     creatures_state.register(self.go_id, {
+--         creature_id = self.creature_id,
+--         creature_uid = string_uid,
+--         level = self.creature_level or 1,
+--         type = string_type,
+--         rank = string_rank,
+--         loot_table_id = string_loot_table_id
+--     })
+--
+--     -- =========================================================================
+--     -- 3. СИНХРОНИЗАЦИЯ ХАРАКТЕРИСТИК (Чистый MVC: База Данных -> Скрипт)
+--     -- =========================================================================
+--     -- 🎯 ШАГ А: Сначала стучимся в твою оригинальную базу данных criaturas_db за базовым конфигом!
+--     local db_cfg = creatures_db.get_creature(self.creature_id)
+--
+--     -- ВЫТАСКИВАЕМ ЖИВЫЕ ДАННЫЕ ИЗ БЭКЕНД-СТЕЙТА СЕЙВА:
+--     local creature_instance_data = creatures_state.get(string_uid)
+--
+--     if creature_instance_data then
+--         -- 🎯 ШАГ Б: Если в живом сейве Meadows параметра нет, мы берем его из статической БД монстра!
+--         -- И только если и в БД пусто (мало ли), страхуемся жестким фоллбеком.
+--         self.speed = creature_instance_data.speed or (db_cfg and db_cfg.base_speed) or 90
+--
+--         -- Вот он, фикс хитбокса! Для дракона db_cfg.hitbox_size вернет честные 128!
+--         self.hitbox_size = creature_instance_data.hitbox_size or (db_cfg and db_cfg.hitbox_size) or 64
+--
+--         self.attack_range_melee = creature_instance_data.attack_range_melee or (db_cfg and db_cfg.attack_range_melee) or 8
+--         self.ai_profile = creature_instance_data.ai_profile or (db_cfg and db_cfg.ai_profile) or "aggressive_patrol"
+--
+--         -- 🎯 ЗРЯЧАЯ СМЕНА СПРАЙТА И МАСШТАБА (Физическое Си-тело в Defold):
+--         local anim_name = db_cfg and db_cfg.animation or string_id
+--         if sprite then
+--             sprite.play_flipbook("#sprite", hash(anim_name))
+--         end
+--
+--         -- 🎯 ПРИНУДИТЕЛЬНЫЙ МАСШТАБ ХИТБОКСА ДЛЯ ФАБРИКИ:
+--         -- Если моб из фабрики, нам нужно физически сказать движку Defold изменить его скейл!
+--         -- Если hitbox_size = 128, а базовый спрайт в атласе 64x64, нам нужно увеличить его в 2 раза.
+--         if self.is_from_factory and db_cfg and db_cfg.hitbox_size then
+--             -- Вычисляем коэффициент скейла (например, 128 / 64 = 2.0)
+--             -- Подставь сюда базовый размер спрайта твоего префаба (допустим 64)
+--             local base_prefab_size = 64
+--             local scale_factor = db_cfg.hitbox_size / base_prefab_size
+--
+--             -- Физически масштабируем Си-тело монстра на карте Meadows!
+--             go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
+--         end
+--
+--         -- ВОЗВРАЩАЕМ НА МЕСТО КООРДИНАТЫ (Твой рабочий код)
+--         if creature_instance_data.saved_position then
+--             go.set_position(creature_instance_data.saved_position)
+--         end
+--     else
+--         -- Фоллбеки для непредвиденных ситуаций, тоже читаем из БД
+--         self.speed = db_cfg and db_cfg.base_speed or 90
+--         self.hitbox_size = db_cfg and db_cfg.hitbox_size or 64
+--         self.attack_range_melee = db_cfg and db_cfg.attack_range_melee or 8
+--         self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
+--     end
+--
+--     -- ИНИЦИАЛИЗАЦИЯ ИИ
+--     creature_ai.init(self.ai_profile, self)
+-- end
 
 
 ---@param self CreatureScriptContext
@@ -180,11 +286,65 @@ end
 
 function on_message(self, message_id, message, sender)
     if message_id == hash("click") then
-        print(string.format("🖱️ КЛИК: Игрок выбрал тушку %s [%s]", self.creature_id, self.uid))
-
-        -- 🎯 ЧИСТОКРОВНЫЙ WoW-КАНОН:
-        -- Зашиваем СИ-адрес и строковый GUID монстра в центральную ячейку таргета!
         interaction_manager.set_target(self.go_id, self.uid)
+
+        local creature_data = creatures_state.get(self.uid)
+        local is_unit_dead = creature_data and creature_data.is_dead or false
+
+        if is_unit_dead then
+            local db_cfg = creatures_db.get_creature(self.creature_id)
+
+            -- 🎯 ВЫЗЫВАЕМ ОБЩИЙ ЭКШЕН:
+            actions_dispatcher.REDUCERS["container_open_world"]({
+                uid = self.uid,
+                id = self.creature_id,
+                db_cfg = db_cfg,
+                instance_data = creature_data, -- Передали живой стейт аргументом!
+                position = go.get_position()
+            })
+        else
+            print("⚔️ БОЙ: Юнит жив, готовы к автоатаке...")
+        end
+    end
+
+    if message_id == hash("on_creature_died") then
+        -- 1. Стучимся в Модель и официально выставляем флаг смерти в RAM!
+        -- Мы передаем текущие нулевые параметры здоровья и флаг, что юнит мертв
+        creatures_state.update_data(self.uid, {
+            health = 0,
+            is_dead = true,
+            saved_position = go.get_position()
+        })
+
+        -- 2. Отключаем боевой коллайдер, чтобы сквозь труп можно было ходить,
+        -- и чтобы боевой рейкаст автоатак по нему больше не попадал
+        --msg.post("#collision_combat", "disable") -- Подставь точное имя твоего коллайдера!
+
+        -- 3. Выключаем ИИ
+        -- creature_ai.disable(self) -- (Внедряем тот метод смены стейта в "dead", о котором говорили)
+
+        -- 4. 🎯 ОФИЦИАЛЬНОЕ ОКРАШИВАНИЕ ТРУПА В Defold (WoW-канон без рисования):
+        -- Мы меняем свойство tint у компонента #sprite.
+        -- Передаем вектор vector4(R, G, B, A):
+        -- R=0.4, G=0.4, B=0.4 — приглушают цвета, делая спрайт мертвенно-серым.
+        -- A=0.6 — делает тело слегка полупрозрачным, уводя его на задний план мира Meadows.
+        if sprite then
+            go.set("#sprite", "tint", vmath.vector4(0.4, 0.4, 0.4, 1))
+        end
+
+        -- =========================================================================
+        -- 🤸‍♂️ ВEЛИКИЙ ААА-ФЛИП НАБОК (Инди-канон Meadows):
+        -- =========================================================================
+        -- Математика Defold: поворачиваем игровой объект вокруг оси Z.
+        -- math.rad(-90) переводит -90 градусов в радианы, которые ждет кватернион.
+        -- Объект мгновенно шмякнется горизонтально на левый бок!
+        local rotation_quat = vmath.quat_rotation_z(math.rad(-90))
+        go.set_rotation(rotation_quat)
+
+        creature_ai.disable(self)
+        interaction_manager.clear_target()
+
+        print(string.format("💀 СУЩЕСТВО [%s]: Физическое тело перешло в режим ТРУПА. Ждем обыска карманов.", self.uid))
     end
 end
 

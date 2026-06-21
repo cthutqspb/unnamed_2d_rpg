@@ -89,7 +89,7 @@ end
 ---Применить исцеление персонажа (С поддержкой отладочного воскрешения)
 ---@param amount number Количество восстанавливаемого здоровья
 function M.heal(amount)
-    data.player.health = math.min(character_data.player.max_health, character_data.player.health + amount)
+    character_data.player.health = math.min(character_data.player.max_health, character_data.player.health + amount)
 
     -- 🎯 МИРОВОЙ ПОРОГ ВОСКРЕШЕНИЯ (Канон Pathfinder):
     -- Вытаскиваем текущий лимит тотальной смерти (минус стамина)
@@ -170,8 +170,6 @@ function M.add_stat(stat_name, value)
         end
     end
 end
-
--- Внутри character_logic.lua
 
 ---Изменить содержимое конкретной ячейки панели способностей игрока (Бэкенд-мутатор)
 ---@param bar_index number Номер панели (1, 2 или 3)

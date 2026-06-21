@@ -25,60 +25,51 @@ function M.init(self, template_id, callbacks)
         prefix = template_id .. "/"
     end
 
+    -- =========================================================================
+    -- 🧱 КРИТИЧЕСКИЙ БAЗОВЫЙ СТЕК (Обязательные ноды — если их нет, игра ДОЛЖНА упасть)
+    -- =========================================================================
     self.root = gui.get_node(prefix .. "root")
     self.body = gui.get_node(prefix .. "body")
     self.header = gui.get_node(prefix .. "header")
     self.footer = gui.get_node(prefix .. "footer")
-    self.btn_close = gui.get_node(prefix .. "btn_close")
-    self.window_title = gui.get_node(prefix .. "window_title")
     self._dirty = false
 
-    -- Только через pcall, чтобы не упасть без кнопок
+    -- =========================================================================
+    -- 🛡️ ОПЦИОНАЛЬНЫЙ ДЕКОР (Только через pcall, спасает от краша окна без кнопок)
+    -- =========================================================================
     local ok_bc, node_bc = pcall(gui.get_node, prefix .. "btn_close")
     self.btn_close = ok_bc and node_bc or nil
 
     local ok_wt, node_wt = pcall(gui.get_node, prefix .. "window_title")
     self.window_title = ok_wt and node_wt or nil
+    -- =========================================================================
 
+    -- Драг-система хедера (Оставляем твой оригинальный математический расчет clamp_to_screen)
     self.drag = self.druid:new_drag(self.header, function(_, dx, dy)
-        -- window_manager.handle_window_click(self, msg.url())
-
-        -- 1. Сначала считаем «сырой» target_pos без учета ограничений
         local pos = gui.get_position(self.root)
-
-        -- Прогоняем функцию первый раз «вхолостую», чтобы вытащить актуальные скейлы для dx/dy
         local _, sf_x, sf_y = gui_utils.clamp_to_screen(self.root, self.body, pos)
-
-        -- Считаем позицию с корректными дельтами, чтобы мышь не обгоняла окно
         local target_pos = vmath.vector3(pos.x + (dx * sf_x), pos.y + (dy * sf_y), 0)
-
-        -- 2. Зажимаем позицию в рамки экрана с твоими отступами в 30 пикселей
         local final_pos = gui_utils.clamp_to_screen(self.root, self.body, target_pos, 30, 30)
-
-        -- 3. Применяем
         gui.set_position(self.root, final_pos)
     end)
 
-    -- Чтобы драг не мешал кнопкам на хедере (если они там будут)
+    -- Чтобы драг не мешал кнопкам на хедере
     self.drag.is_touch_threshold = true
 
-    -- Авто-кнопка закрытия
+    -- Авто-кнопка закрытия (Сработает ТОЛЬКО если нода физически существует в шаблоне)
     if self.btn_close then
         self.druid:new_button(self.btn_close, function()
             M.close(self)
         end)
     end
 
-    -- 1. Устанавливаем визуальный Z-слой
-    -- self.render_order должен быть задан в gui_script до вызова M.init
+    -- Настройка рендер-слоев (Твоя оригинальная логика)
     if not self.render_order then
         self.render_order = 5
-        print("WARNING: render_order not set, using default 10 for", msg.url())
+        print("WARNING: render_order not set, using default 5 for", msg.url())
     end
     gui.set_render_order(self.render_order)
-    --
-    -- -- 2. Если это статика (HUD, Портрет, Экшен-бар), сразу пушим в менеджер.
-    -- -- Они будут в стеке всегда, но на нижних Z-слоях.
+
     if self.is_static then
         window_manager.push(self, msg.url(), self.render_order)
     end

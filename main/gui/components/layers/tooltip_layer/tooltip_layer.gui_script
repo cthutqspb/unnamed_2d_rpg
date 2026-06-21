@@ -244,17 +244,18 @@ end
 -- Выносим отрисовку объектов мира
 local function render_world_object(self, info, context)
     if not info then return end
-
+      
     local display_name = "Unknown"
 
     -- 1. Если это ПРЕДМЕТ (item_loot)
     if context.kind == "world_item" then
-        local item_cfg = items_db.get_item(info.item_id)
+        local cfg = items_db.get_item(info.item_id)
+        if not cfg then return end
 
-        if item_cfg then
-            display_name = locales.get(item_cfg.name_key)
+        if cfg then
+            display_name = locales.get(cfg.name_key)
         end
-        local name_color = QUALITY_COLORS[item_cfg.quality] or QUALITY_COLORS.common
+        local name_color = QUALITY_COLORS[cfg.quality] or QUALITY_COLORS.common
         -- Рисуем название предмета (например, Белым)
         add_line(self, display_name, nil, name_color)
         --self:add_text(display_name, self.colors.WHITE)

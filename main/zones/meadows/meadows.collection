@@ -55,6 +55,11 @@ instances {
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
     }
+    properties {
+      id: "loot_table_id"
+      value: "creature_common"
+      type: PROPERTY_TYPE_HASH
+    }
   }
 }
 instances {
@@ -72,6 +77,11 @@ instances {
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
     }
+    properties {
+      id: "loot_table_id"
+      value: "creature_common"
+      type: PROPERTY_TYPE_HASH
+    }
   }
 }
 instances {
@@ -87,6 +97,11 @@ instances {
     properties {
       id: "creature_id"
       value: "skeleton_warrior"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "loot_table_id"
+      value: "creature_common"
       type: PROPERTY_TYPE_HASH
     }
   }

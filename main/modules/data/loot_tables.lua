@@ -4,6 +4,10 @@ local RAW_DATA = {
     ["chest_common"] = {
         {item_id = "lesser_mana_potion", amount = {1, 3}, chance = 1},
         {item_id = "crystal_sword", amount = 1, chance = 0.5}
+    },
+    ["creature_common"] = {
+        {item_id = "lesser_mana_potion", amount = {1, 1}, chance = 1},
+        {item_id = "iron_sword", amount = 1, chance = 0.5}
     }
     -- -- Кухонный ящик
     -- kitchen_crate = {

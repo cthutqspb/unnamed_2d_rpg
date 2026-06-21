@@ -28,7 +28,7 @@ local function send_player_action(index, slot_data)
     -- Шлем Си-команду напрямую в физическое тело игрока! [C]
     -- "." означает текущий игровой объект, где висит HUD, 
     -- оттуда сообщение легально долетит до player.script через менеджеры [C]
-    msg.post(".", "player_action", {
+    msg.post("game_scene:/player", "player_action", {
         event = "action",
         data = {
             slot_index = index,

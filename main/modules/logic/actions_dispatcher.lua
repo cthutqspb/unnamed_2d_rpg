@@ -1,6 +1,8 @@
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local item_transfer_manager = require("main.modules.item_transfer_manager")
+local combat_manager = require("main.modules.system.combat_manager")
 local items_db = require("main.modules.data.items_db")
+local loot_tables = require("main.modules.data.loot_tables")
 local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
 
@@ -103,13 +105,15 @@ M.REDUCERS = {
 
     ["item_drop"] = function(data)
         local player_pos = character_data.player.last_pos
-        local source = interaction_manager.get_player_inventory()
+        local source = data.source_model or interaction_manager.get_player_inventory()
+
+        local calculated_drop_pos = vmath.vector3(player_pos.x, player_pos.y + 40, 0)
+        print("calculated_drop_pos", calculated_drop_pos)
         item_transfer_manager.drop_to_world(
             source,
             data.slot_index,
             source:get_item(data.slot_index),
-            player_pos.x,
-            player_pos.y + 50
+            calculated_drop_pos
         )
     end,
 
@@ -118,7 +122,7 @@ M.REDUCERS = {
         -- ВЕТКА А: Бочка стоит на земле Meadows (Есть физический ID тела)
         if data.target_go_id then
             msg.post(data.target_go_id, "click")
-        
+
         -- 🎯 ВЕТКА Б: БОЧКА В КАРМАНЕ (Твой нативный чистый msg.post):
         -- Если физического ID нет, но прилетел slot_index — значит, открываем Матрёшку из рюкзака!
         -- Шлём Си-сигнал напрямую в GUI окна контейнеров, передавая паспорт ячейки.
@@ -130,6 +134,44 @@ M.REDUCERS = {
             })
             print("КОНТРОЛЛЕР [Dispatcher]: Запрос Бэкенду на генерацию лута в карманной бочке. Слот: " .. data.slot_index)
         end
+    end,
+
+    ["container_open_world"] = function(data)
+        -- Передаем из скриптов: 
+        -- data.uid (self.uid)
+        -- data.id (self.creature_id или self.item_id)
+        -- data.db_cfg (базовый конфиг из базы существ или предметов)
+        -- data.instance_data (живая Lua-таблица из creatures_state или world_items_state)
+        -- data.position (go.get_position())
+
+        local instance = data.instance_data
+        local cfg = data.db_cfg
+        if not instance then return end
+
+        -- 1. 🎯 ТВОЯ РОДНАЯ ЛЕНИВАЯ ГЕНЕРАЦИЯ (Крутится прямо внутри переданной таблицы по ссылке!)
+        if not instance.items then
+            local final_loot_id = instance.loot_table_id or "empty"
+            if final_loot_id == "" or final_loot_id == "unknown" then
+                final_loot_id = "empty"
+            end
+
+            print("🎲 ДИСПЕТЧЕР: Первая ленивая генерация лута по таблице:", final_loot_id)
+            -- Импорт базы дропа loot_tables в диспетчере ПОЛНОСТЬЮ разрешен!
+            local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
+            instance.items = generated_loot
+        end
+
+        -- 2. 💥 МОНОЛИТНАЯ ОТПРАВКА В GUI
+        msg.post("main:/container_window#gui", "open_container_window", {
+            container_uid = data.uid,
+            container_id = hash(data.id),
+            container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
+            container_items = instance.items,
+            columns = cfg and cfg.columns or 6,
+            rows = cfg and cfg.rows or 4,
+            position = data.position, 
+            player_pos = go.get_position("game_scene:/player")
+        })
     end,
 
     ["item_pickup"] = function(data)
@@ -149,6 +191,52 @@ M.REDUCERS = {
             data.action_id  -- "melee_attack" / "frostbolt" / nil
         )
     end,
+
+    ["action_bar_use"] = function(data)
+        -- 1. Если прожали шмотку (банку маны) — отправляем в обработку предметов
+        if data.drag_type == "item" then
+            -- Сюда потом вставишь логику использования расходников из рюкзака
+            print("БЭКЕНД: Игрок прожал банку из панели слотов")
+            return
+        end
+
+        -- 2. Если прожали способность — отдаем управление в CombatManager!
+        if data.drag_type == "ability" then
+            -- Забираем чистый Си-хэш текущего таргета из твоего геттера
+            local target_go_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
+            
+            -- Пинаем комбат менеджер выполнить автоатаку или спелл
+            combat_manager.execute_ability(data.action_id, target_go_id)
+        end
+    end,
+
+    -- ["action_bar_use"] = function(data)
+    --     -- 1. Вытаскиваем, какую способность или предмет активировали
+    --     local action_id = data.action_id      -- Например, "melee_attack"
+    --     local drag_type = data.drag_type      -- "ability" или "item"
+    --
+    --     -- 2. Достаем текущую цель (выделенный таргет)
+    --     -- Подставь свой метод, которым ты забираешь ID выделенного монстра
+    --     local target_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
+    --
+    --     print("--- ОТЛАДКА БОЯ ---")
+    --     print("Активирован слот панели! Тип:", tostring(drag_type), "| ID:", tostring(action_id))
+    --     print("Текущая цель в таргете (ID):", tostring(target_id))
+    --
+    --     -- 3. Если цель выделена — считаем расстояние между векторами
+    --     if target_id then
+    --         local player_pos = go.get_position("game_scene:/player") -- Путь к твоему плееру
+    --         local target_pos = go.get_position(target_id)
+    --
+    --         -- Вычисляем длину вектора разницы между игроком и целью
+    --         local distance = vmath.length(player_pos - target_pos)
+    --         
+    --         print(string.format("Дистанция до цели: %.2f пикселей", distance))
+    --     else
+    --         print("Расстояние посчитать нельзя: цель отсутствует.")
+    --     end
+    --     print("-------------------")
+    -- end,
 
     ["creature_attack"] = function(data)
         -- ⚔️ ЗАДЕЛ НА БУДУЩЕЕ: Сюда прилетит клик "Атаковать кабана" из меню!

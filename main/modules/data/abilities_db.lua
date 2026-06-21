@@ -38,8 +38,8 @@ M.abilites_raw = {
           class = "all"
         },
         damage = {
-            min = 0,
-            max = 1
+            min = 2,
+            max = 4
         },
         effect = "none",
         is_off_gcd = true               -- ВАЖНО: автоатака не запускает ГКД магии!

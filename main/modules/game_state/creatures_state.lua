@@ -7,6 +7,7 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field level number Текущий уровень существа
 ---@field type string Тип существа ("undead", "beast", "humanoid")
 ---@field rank string Ранг сложности ("common", "rare", "elite")
+---@field loot_table_id string
 ---@field health number Текущее живое ХП в данный момент времени
 ---@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
 ---@field damage number Рассчитанный урон с учетом уровня
@@ -16,6 +17,7 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field ai_profile string
 ---@field saved_position vector3|nil
 ---@field is_in_combat boolean|nil
+---@field is_dead boolean|nil
 ---@field ai_target vector3|nil
 
 ---@class RankModifiers
@@ -84,6 +86,7 @@ end
 ---   level: number,
 ---   type: string,
 ---   rank: string,
+---   loot_table_id: string,
 --- }
 ---@return CreatureInstanceData|nil
 function M.register(go_id, props)
@@ -92,6 +95,7 @@ function M.register(go_id, props)
     local uid = props.creature_uid
     local creature_type = props.type
     local creature_rank = props.rank
+    local loot_table_id = props.loot_table_id
 
     -- Ищем базовый генетический код в базе данных
     local cfg = creatures_db.get_creature(creature_id)
@@ -124,6 +128,7 @@ function M.register(go_id, props)
         level = props.level,
         type = creature_type,
         rank = creature_rank,
+        loot_table_id = loot_table_id,
         max_health = max_hp,
         health = max_hp, -- на старте монстр полностью здоров
         damage = final_dmg,
@@ -198,6 +203,12 @@ function M.update_data(uid, current_data)
             M.registry[uid].health = current_data.health
         end
 
+        -- 🎯 ФИКС: АКТУАЛИЗИРУЕМ ФЛАГ СМЕРТИ В БЭКЕНДЕ
+        -- Если существо умерло, мы пишем true прямо в паспорт его Души в оперативной памяти!
+        if current_data.is_dead ~= nil then
+            M.registry[uid].is_dead = current_data.is_dead
+        end
+
         print(string.format("💾 БЭКЕНД [update_data]: Записаны живые координаты для [%s] -> X: %d, Y: %d",
             uid, math.floor(current_data.saved_position.x), math.floor(current_data.saved_position.y)))
     else
@@ -235,6 +246,38 @@ function M.is_creature_in_combat(uid)
     -- Вся логика флагов ИИ и агро спрятана внутри синглтона стейта!
     -- Прямое, моментальное чтение полей без создания ООП-геттеров и метатаблиц!
     return creature_state.is_in_combat == true or creature_state.ai_target ~= nil
+end
+
+-- =========================================================================
+-- 🦾 ЛЕГКИЕ БОЕВЫЕ МУТАТОРЫ (WoW-канон: Только RAM и Бродкаст)
+-- =========================================================================
+
+---Установить точное значение здоровья монстра в оперативной памяти
+---@param uid string Уникальный строковый UID существа
+---@param new_health number Финальное высчитанное значение ХП
+function M.set_health(uid, new_health)
+    if M.registry and M.registry[uid] then
+        -- Жесткое атомарное присвоение
+        M.registry[uid].health = math.max(0, new_health)
+    end
+end
+
+---Установить точное значение маны/энергии монстра
+---@param uid string Уникальный строковый UID существа
+---@param new_mana number Финальное значение маны
+function M.set_mana(uid, new_mana)
+    if M.registry and M.registry[uid] then
+        M.registry[uid].mana = math.max(0, new_mana)
+    end
+end
+
+---Обновить состояние аур (баффов/дебаффов) монстра
+---@param uid string Уникальный строковый UID существа
+---@param auras_table table Актуальный массив аур существа
+function M.set_auras(uid, auras_table)
+    if M.registry and M.registry[uid] then
+        M.registry[uid].auras = auras_table or {}
+    end
 end
 
 return M

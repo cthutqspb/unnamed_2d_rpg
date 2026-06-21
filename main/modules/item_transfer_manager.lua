@@ -7,15 +7,14 @@ local M = {}
 ---@param source table @Чистая Lua-модель источника предметов (например, player_inventory)
 ---@param source_slot number|string @Индекс исходного слота или тип слота куклы
 ---@param item table @Данные выбрасываемого предмета
----@param mouse_x number @Координата спавна X
----@param mouse_y number @Координата спавна Y
-function M.drop_to_world(source, source_slot, item, mouse_x, mouse_y)
-    msg.post("game_scene:/world", "spawn_dropped_item", {
+---@param position vector3 @Координата спавна X
+function M.drop_to_world(source, source_slot, item, position)
+    msg.post("game_scene:/world", "spawn_world_item", {
+        source = "player",
         item_uid = item.uid,
         item_id = item.item_id,
         amount = item.amount,
-        mouse_x = mouse_x,
-        mouse_y = mouse_y,
+        position = position,
         items = item.items or nil,         -- 🎯 Передаем шмотки из бочки обратно в мир!
         is_looted = item.is_looted or nil  -- 🎯 Передаем статус обыска!
     })

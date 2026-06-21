@@ -74,6 +74,7 @@ function M.new_game()
     msg.post("main:/loader#script", "reload_game", { last_pos = nil })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
     broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
+    broadcast.send("log_events", { message_id = hash("log_clear") })
 end
 
 ---Засейвить игру на жесткий диск ПК (JSON-монолит)

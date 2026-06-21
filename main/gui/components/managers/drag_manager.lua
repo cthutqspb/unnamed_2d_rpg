@@ -240,7 +240,13 @@ function M.finish(target_component, target_slot)
 
     -- === СЦЕНАРИЙ В: ВЫБРОС В МИР (Отпустили мышь за пределами интерфейсов) ===
     else
-        item_transfer_manager.drop_to_world(source_model, source_slot, item, d.x, d.y)
+        actions_dispatcher.REDUCERS["item_drop"]({
+            slot_index = source_slot,
+            -- Пробрасываем модель источника (инвентарь/кукла), чтобы редьюсер 
+            -- знал, откуда стирать стак предметов после успешного броска на землю
+            source_model = source_model,
+            item = item
+        })
     end
 
     is_over_any_gui = false

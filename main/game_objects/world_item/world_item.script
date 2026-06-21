@@ -6,6 +6,7 @@ go.property("loot_table_id", hash("empty"))
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interaction = require("main.modules.interaction")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
 local broadcast = require("main.modules.system.broadcast")
 local world_items_state = require("main.modules.game_state.world_items_state")
@@ -115,9 +116,9 @@ function init(self)
     world_items_state.register(self.go_id, string_uid)
 
     self.is_interactable = true
-    if self.item_id ~= "unknown" and self.item_id ~= hash("unknown") then
-        apply_item_visual(self)
-    end
+    -- if self.item_id ~= "unknown" and self.item_id ~= hash("unknown") then
+    --     apply_item_visual(self)
+    -- end
 
     msg.post("#item_name", "disable")
 
@@ -199,7 +200,7 @@ function on_message(self, message_id, message, sender)
         -- по нашему бессмертному self.uid! И забираем оттуда ту самую строковую таблицу лута,
         -- которую маркер бережно запек туда при старте Новой Игры!
         local item_data = world_items_state.get_item_by_uid(self.uid)
-        
+
         -- Если Душа помнит таблицу из инспектора Tiled — берем её! 
         -- А если Души нет (вещь дропнули из сумки), подстрахуемся дефолтом из items_db
         local string_loot_table_id = "empty"
@@ -219,7 +220,7 @@ function on_message(self, message_id, message, sender)
             uid = self.uid,
             loot_table_id = string_loot_table_id -- Улетела зрячая строка контента! [🔍]
         })
-        return 
+        return
     end
 
     -- =========================================================================
@@ -250,28 +251,12 @@ function on_message(self, message_id, message, sender)
                 local item_data = world_items_state.get_item_by_uid(self.uid)
 
                 if item_data then
-                    -- Если внутри Души бочки еще нет сгенерированного массива предметов — рождаем его!
-                    if not item_data.items then
-                        local final_loot_id = item_data.loot_table_id or "empty"
-                        if final_loot_id == "" or final_loot_id == "unknown" then
-                            final_loot_id = "empty"
-                        end
-
-                        print("БЭКЕНД: Первая генерация лута Матрёшки по сохраненной таблице:", final_loot_id)
-                        local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
-                        item_data.items = generated_loot
-                    end
-
-                    -- Шлём монолитное сообщение в GUI-окно сундуков
-                    msg.post("main:/container_window#gui", "open_container_window", {
-                        container_uid = self.uid,
-                        container_id = hash(self.item_id),
-                        container_name = hash(db_cfg and db_cfg.name_key or "container_common_chest_name"),
-                        container_items = item_data.items,
-                        columns = db_cfg and db_cfg.columns or 6,
-                        rows = db_cfg and db_cfg.rows or 4,
-                        position = go.get_position(), 
-                        player_pos = go.get_position("game_scene:/player")
+                    actions_dispatcher.REDUCERS["container_open_world"]({
+                        uid = self.uid,
+                        id = self.item_id,
+                        db_cfg = db_cfg,
+                        instance_data = item_data, -- Передали живой стейт аргументом!
+                        position = go.get_position()
                     })
                 else
                     print("🚨 БЭКЕНД: Критическая ошибка! Душа бочки [" .. self.uid .. "] не найдена!")

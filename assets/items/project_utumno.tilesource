@@ -13,6 +13,11 @@ animations {
   end_tile: 2347
 }
 animations {
+  id: "creature_loot_bag"
+  start_tile: 3408
+  end_tile: 3408
+}
+animations {
   id: "crystal_sword"
   start_tile: 3013
   end_tile: 3013

@@ -36,6 +36,7 @@ end
 function M:on_target_event(message_id, message)
     -- А) ЗАХВАТ ЦЕЛИ (PLAYER_TARGET_CHANGED канон)
     if message_id == hash("target_changed") then
+        self.uid = message.uid 
         -- 🧠 ЧИТАЕМ СТEЙТ ИЗ ПAМЯТИ ПО УИКAЛЬНОМУ UID СУЩEСТВA:
         local creature_instance_data = creatures_state.get(message.uid)
         
@@ -63,7 +64,35 @@ function M:on_target_event(message_id, message)
     elseif message_id == hash("target_lost") then
         -- Мгновенно тушим плашку таргета с экрана, освобождая Meadows-обзор
         gui.set_enabled(self.root, false)
-    end
+    
+    -- Б) ЛЕГКИЙ БОЕВОЙ АПДЕЙТ ФРЕЙМА (Канон WoW)
+    elseif message_id == hash("target_update") then
+        
+        -- 🛡️ ГВАРД АОЕ/КЛИВОВ: Сверяем UID побитого моба с UID этой плашки
+        if not self.uid or message.uid ~= self.uid then
+            return -- Отрезаем AoE по чужим мобам
+        end
+
+        -- Идем в стерильную базу данных за свежими цифрами существа
+        local creature_instance_data = creatures_state.get(self.uid)
+        if not creature_instance_data then return end
+
+        -- 🎯 МОНОЛИТНАЯ СИНХРОНИЗАЦИЯ СТЕЙТА: 
+        -- Нам плевать, что именно изменилось (ХП или мана). Мы просто обновляем ВСЁ разом!
+        
+        -- 1. Красим полоску здоровья Друида
+        local hp_percent = creature_instance_data.health / creature_instance_data.max_health
+        self.target_health_bar:update_health(hp_percent)
+        
+        -- 2. Красим полоску маны Друида (Если у моба есть мана в конфиге базы данных)
+        if creature_instance_data.max_mana and creature_instance_data.max_mana > 0 then
+            local mana_percent = creature_instance_data.mana / creature_instance_data.max_mana
+            self.target_mana_bar:update_mana(mana_percent)
+        end
+
+        -- 3. Задел под ауры/дебаффы (когда сделаешь их, они будут рендериться здесь же)
+        -- self:refresh_auras(creature_instance_data.auras)
+    end    
 end
 
 return M

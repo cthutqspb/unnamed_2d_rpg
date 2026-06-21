@@ -2,7 +2,7 @@ local character_data = require("main.modules.character.character_data")
 local creatures_state = require("main.modules.game_state.creatures_state")
 local combat_manager = require("main.modules.system.combat_manager")
 
----@alias AICreatureState "IDLE" | "PATROL" | "CHASE" | "ATTACK"
+---@alias AICreatureState "IDLE" | "PATROL" | "CHASE" | "ATTACK" | "DEAD"
 ---@alias AICreatureProfile "aggressive_patrol" | "passive_coward"
 
 ---@class AICreatureContext : table Динамический контекст self из creature.script
@@ -96,6 +96,10 @@ PROFILES["aggressive_patrol"] = {
     end,
 
     update = function(ctx, dt)
+        if ctx.ai_state == "DEAD" then
+            return nil
+        end
+
         local player_pos_data = character_data.player.last_pos
         if not player_pos_data then return nil end
 
@@ -285,6 +289,28 @@ function M.update(profile_name, ctx, dt)
         return prof.update(ctx, dt)
     end
     return nil
+end
+
+---Наглухо перевести ИИ существа в состояние смерти (WoW-канон)
+---@param ctx AICreatureContext Контекст (self) управляющего скрипта creature.script
+function M.disable(ctx)
+    -- 1. 🎯 ПЕРЕКЛЮЧАЕМ КОНЕЧНЫЙ АВТОМАТ В СТEЙТ СMEРТИ:
+    ctx.ai_state = "DEAD"
+    
+    -- 2. Полностью вычищаем все активные таймеры раздумий и откатов автоатак
+    ctx.ai_timer = 0
+    ctx.ai_target = nil
+    ctx.ai_is_patrolling = false
+
+    -- 3. 🚧 СИ-ОПТИМИЗАЦИЯ SEPARATION (Разгружаем процессор живых мобов):
+    -- Мы убираем Си-связь go_id из инстансов ИИ, чтобы ЖИВЫЕ кабаны в своем цикле 
+    -- Separation перестали видеть этот труп и не тратили время на его обход по касательной!
+    -- При этом бэкенд-паспорт в M.registry[uid] остается полностью живым для лутания!
+    if creatures_state.instances then
+        creatures_state.instances[ctx.go_id] = nil
+    end
+
+    print(string.format("🤖 ИИ [disable]: Стейт ИИ для [%s] переведен в DEAD. Коллизии ИИ очищены.", tostring(ctx.uid)))
 end
 
 return M
