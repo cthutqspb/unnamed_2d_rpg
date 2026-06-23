@@ -9,7 +9,7 @@ local combat_manager = require("main.modules.system.combat_manager")
 ---@field go_id hash Си-идентификатор игрового объекта существа
 ---@field uid string Уникальный строковый UID инстанса на карте для сейвов
 ---@field creature_id string Статический ID вида монстра из базы данных ("skeleton_warrior")
----@field spawn_pos vector3 Изначальная точка дома, вокруг которой идет патруль
+---@field spawn_position vector3 Изначальная точка дома, вокруг которой идет патруль
 ---@field ai_state AICreatureState Текущая фаза конечного автомата ИИ
 ---@field ai_timer number Универсальный таймер (время раздумий / откат атаки)
 ---@field ai_target vector3|nil Координаты целевой точки патрулирования в мире
@@ -37,7 +37,7 @@ local PROFILES = {}
 local function return_to_spawn(ctx, pos)
     -- Если у моба еще нет цели возвращения — жестко взводим домашние координаты
     if not ctx.ai_target then
-        local home = ctx.spawn_pos or go.get_position(ctx.go_id)
+        local home = ctx.spawn_position or go.get_position(ctx.go_id)
         ctx.ai_target = vmath.vector3(home.x, home.y, 0)
         ctx.ai_timer = 2.0 -- постоит подумает 2 секунды, когда дотопает до точки
     end
@@ -100,10 +100,10 @@ PROFILES["aggressive_patrol"] = {
             return nil
         end
 
-        local player_pos_data = character_data.player.last_pos
-        if not player_pos_data then return nil end
+        local player_position_data = character_data.player.last_position
+        if not player_position_data then return nil end
 
-        local pos = go.get_position(ctx.go_id)
+        local position = go.get_position(ctx.go_id)
 
         if character_data.player.is_dead then
             if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
@@ -114,23 +114,23 @@ PROFILES["aggressive_patrol"] = {
                 creatures_state.set_combat(ctx.uid, false)
             end
             -- Просто просим хелпер вести нас к спавну
-            return return_to_spawn(ctx, pos)
+            return return_to_spawn(ctx, position)
         end
 
-        local player_pos = vmath.vector3(player_pos_data.x, player_pos_data.y, 0)
-        local dist_to_player = vmath.length(player_pos - pos)
+        local player_position = vmath.vector3(player_position_data.x, player_position_data.y, 1)
+        local distance_to_player = vmath.length(player_position - position)
 
         -- 🎯 СИ-ЛОКАЛЬНЫЙ ВЕКТОР НАПРАВЛЕНИЯ (Сюда мозг запишет желаемый шаг)
-        local move_dir = nil
+        local move_direction = nil
 
         -- =========================================================================
         -- СТEЙТ 1: ATTACK (ФАЗА БЛИЖНEГО БОЯ)
         -- =========================================================================
         if ctx.ai_state == "ATTACK" then
-            if dist_to_player > ctx.attack_range + 12 then
+            if distance_to_player > ctx.attack_range + 12 then
                 print(string.format("💥 ИИ: [%s] потерял дистанцию боя, возобновляю погоню!", ctx.creature_id))
                 ctx.ai_state = "CHASE"
-                move_dir = vmath.normalize(player_pos - pos)
+                move_direction = vmath.normalize(player_position - position)
             else
                 -- 🎯 ТАЙМЕР АВТОАТАК: Уменьшаем внутреннее ГКД отката удара
                 ctx.ai_timer = ctx.ai_timer - dt
@@ -142,14 +142,14 @@ PROFILES["aggressive_patrol"] = {
                     -- Задаем индивидуальную скорость атаки: Дракон-Босс кусает раз в 2.0 сек, Скелет — в 1.5 сек
                     ctx.ai_timer = (ctx.creature_id == "elder_green_dragon") and 2.0 or 1.5
                 end
-                move_dir = nil -- Тело стоит как влитое, не толкаясь коллизиями!
+                move_direction = nil -- Тело стоит как влитое, не толкаясь коллизиями!
             end
 
         -- =========================================================================
         -- СТEЙТ 2: CHASE (АГРЕССИВНАЯ ПОГОНЯ)
         -- =========================================================================
         elseif ctx.ai_state == "CHASE" then
-            if dist_to_player > ctx.loose_range then
+            if distance_to_player > ctx.loose_range then
                 -- 🎯 ВТОРОЙ ВЫЗОВ ХEЛПEРA: Игрок просто убежал из зоны преследования!
                 print(string.format("🏃‍♂️ ИИ: [%s] потерял цель, возвращаюсь домой...", ctx.creature_id))
                 ctx.ai_state = "IDLE"
@@ -157,108 +157,119 @@ PROFILES["aggressive_patrol"] = {
 
                 creatures_state.set_combat(ctx.uid, false)
 
-                return return_to_spawn(ctx, pos) -- Ювелирно топаем домой по этой же формуле!
+                return return_to_spawn(ctx, position) -- Ювелирно топаем домой по этой же формуле!
 
-            elseif dist_to_player <= ctx.attack_range then
+            elseif distance_to_player <= ctx.attack_range then
                 print(string.format("⚔️ ИИ: [%s] догнал мага! Остановка для автоатаки!", ctx.creature_id))
                 ctx.ai_state = "ATTACK"
                 ctx.ai_timer = 0.3
-                move_dir = nil
+                move_direction = nil
             else
-                move_dir = vmath.normalize(player_pos - pos)
+                move_direction = vmath.normalize(player_position - position)
             end
 
         -- =========================================================================
         -- СТEЙТЫ ПОКОЯ: IDLE И PATROL
         -- =========================================================================
         else
-            if dist_to_player < ctx.agro_range then
+            if distance_to_player < ctx.agro_range then
                 print(string.format("💀 ИИ: [%s] обнаружил нарушителя в Meadows! АГРO!", ctx.creature_id))
                 ctx.ai_state = "CHASE"
                 msg.post("main:/context_menu_layer#gui", "hide_menu")
 
                 creatures_state.set_combat(ctx.uid, true)
-                move_dir = vmath.normalize(player_pos - pos)
+                move_direction = vmath.normalize(player_position - position)
             elseif ctx.ai_state == "IDLE" then
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
-                    local rx = ctx.spawn_pos.x + math.random(-70, 70)
-                    local ry = ctx.spawn_pos.y + math.random(-70, 70)
+                    local rx = ctx.spawn_position.x + math.random(-70, 70)
+                    local ry = ctx.spawn_position.y + math.random(-70, 70)
                     ctx.ai_target = vmath.vector3(rx, ry, 0)
                     ctx.ai_state = "PATROL"
                 end
-                move_dir = nil
+                move_direction = nil
             elseif ctx.ai_state == "PATROL" and ctx.ai_target then
-                local d = ctx.ai_target - pos
+                local d = ctx.ai_target - position
                 if vmath.length(d) > 4 then
                     ctx.ai_is_patrolling = true
-                    move_dir = vmath.normalize(d)
+                    move_direction = vmath.normalize(d)
                 else
                     ctx.ai_state = "IDLE"
                     ctx.ai_timer = math.random(10, 30) / 10
                     ctx.ai_target = nil
                     ctx.ai_is_patrolling = false
-                    move_dir = nil
+                    move_direction = nil
                 end
             end
         end
 
-        -- =========================================================================
+                -- =========================================================================
         -- 🐺 АЛГОРИТМ SEPARATION: УЛЬТИМАТИВНЫЙ ОБХОД СОЮЗНИКОВ ПО КАСАТЕЛЬНОЙ
         -- =========================================================================
-        if move_dir and vmath.length(move_dir) > 0 then
+        if move_direction and vmath.length(move_direction) > 0 then
             local neighbor_count = 0
 
             -- Флаг и вектор для жесткого маневра обхода по касательной
             local needs_hard_avoidance = false
-            local avoidance_dir = vmath.vector3(0, 0, 0)
+            local avoidance_direction = vmath.vector3(0, 0, 0)
 
             for other_go_id, _ in pairs(creatures_state.instances) do
                 if other_go_id ~= ctx.go_id then
-                    local other_pos = go.get_position(other_go_id)
-                    local dist_to_neighbor = vmath.length(other_pos - pos)
 
-                    -- Пузырь личного пространства (берем честную сумму радиусов хитбоксов)
-                    local other_state = creatures_state.get(creatures_state.instances[other_go_id])
-                    local other_hitbox = other_state and other_state.hitbox_size or 64
-                    local min_distance = (ctx.hitbox_size / 2) + (other_hitbox / 2)
+                    -- 🎯 1. ВЫТАCКИВАЕМ СТЕЙТ СОСЕДА ИЗ БЭКЕНДА (Твой оригинальный зрячий MVC)
+                    local other_uid = creatures_state.instances[other_go_id]
+                    local other_state = creatures_state.get(other_uid)
 
-                    -- 🎯 КРИТИЧЕСКАЯ ЗОНА СЛИПАНИЯ:
-                    if dist_to_neighbor <= min_distance + 8 and dist_to_neighbor > 0 then
-                        needs_hard_avoidance = true
+                    -- 🎯 2. WoW-ГВАРД ОПТИМИЗАЦИИ (Короткое замыкание для мертвецов):
+                    -- Если сосед мёртв — мы его наглухо игнорируем! 
+                    -- Живые скелеты будут нативно проходить сквозь лежащий труп, 
+                    -- не ломая строй и не тратя ресурсы процессора на расчёт расстояний!
+                    if other_state and other_state.is_dead then
+                        -- С Си-уровня Lua это просто означает "пропусти шаг и иди к следующему other_go_id"
+                        -- (Заменяем пустую заглушку на легальный пропуск)
 
-                        -- Находим вектор от соседа к нам
-                        local to_us = pos - other_pos
+                    else
+                        -- 🧱 ВЕТКА ЖИВЫХ СОЮЗНИКОВ (Твой оригинальный безупречный код обхода):
+                        local other_position = go.get_position(other_go_id)
+                        local distance_to_neighbor = vmath.length(other_position - position)
 
-                        -- 📐 МАТЕМАТИКА КАСАТЕЛЬНОЙ (Тангенс обхода):
-                        local tangent = vmath.vector3(-to_us.y, to_us.x, 0)
-                        if vmath.dot(tangent, move_dir) < 0 then
-                            tangent = vmath.vector3(to_us.y, -to_us.x, 0)
+                        -- Пузырь личного пространства (берем честную сумму радиусов хитбоксов)
+                        local other_hitbox = other_state and other_state.hitbox_size or 64
+                        local min_distance = (ctx.hitbox_size / 2) + (other_hitbox / 2)
+
+                        -- КРИТИЧЕСКАЯ ЗОНА СЛИПАНИЯ:
+                        if distance_to_neighbor <= min_distance + 8 and distance_to_neighbor > 0 then
+                            needs_hard_avoidance = true
+
+                            -- Находим вектор от соседа к нам
+                            local to_us = position - other_position
+
+                            -- МАТЕМАТИКА КАСАТЕЛЬНОЙ (Тангенс обхода):
+                            local tangent = vmath.vector3(-to_us.y, to_us.x, 0)
+                            if vmath.dot(tangent, move_direction) < 0 then
+                                tangent = vmath.vector3(to_us.y, -to_us.x, 0)
+                            end
+
+                            -- Копим силу обхода
+                            avoidance_direction = avoidance_direction + vmath.normalize(tangent)
+                            neighbor_count = neighbor_count + 1
                         end
-
-                        -- Копим силу обхода
-                        avoidance_dir = avoidance_dir + vmath.normalize(tangent)
-                        neighbor_count = neighbor_count + 1
-                    end
+                    end -- Конец гварда жизни/смерти соседа
                 end
             end
 
-            -- 🧱 ПРИМЕНЕНИЕ ВЕКТОРА ОБХОДА:
+            -- ПРИМЕНЕНИЕ ВЕКТОРА ОБХОДА (Твой оригинальный код с тайпкастом для Neovim):
             if needs_hard_avoidance and neighbor_count > 0 then
-                avoidance_dir = vmath.normalize(avoidance_dir)
+                avoidance_direction = vmath.normalize(avoidance_direction)
 
-                -- 🎯 ТИТАНОВЫЙ ТАЙПКАСТ ДЛЯ ЛИНТЕРА:
-                -- Жестко заставляем Neovim понять, что результат сложения векторов — это vector3.
-                -- Это полностью уничтожает ошибку (number|vector3)? и гасит варнинг на return!
                 ---@type vector3
-                local blended_dir = move_dir * 0.3 + avoidance_dir * 0.7
-
-                move_dir = vmath.normalize(blended_dir)
+                local blended_direction = move_direction * 0.3 + avoidance_direction * 0.7
+                move_direction = vmath.normalize(blended_direction)
             end
         end
 
         -- 🧱 Линтер теперь видит чистокровный vector3|nil и горит идеальным зеленым светом!
-        return move_dir
+        return move_direction
     end
 }
 
@@ -271,9 +282,9 @@ PROFILES["aggressive_patrol"] = {
 ---@param ctx AICreatureContext Контекст (self) управляющего скрипта creature.script
 function M.init(profile_name, ctx)
     ---@type AIProfileStrategy|nil
-    local prof = PROFILES[profile_name]
-    if prof then
-        prof.init(ctx)
+    local profile = PROFILES[profile_name]
+    if profile then
+        profile.init(ctx)
     end
 end
 
@@ -284,9 +295,9 @@ end
 ---@return vector3|nil Вектор направления движения (vmath.vector3) или nil
 function M.update(profile_name, ctx, dt)
     ---@type AIProfileStrategy|nil
-    local prof = PROFILES[profile_name]
-    if prof then
-        return prof.update(ctx, dt)
+    local profile = PROFILES[profile_name]
+    if profile then
+        return profile.update(ctx, dt)
     end
     return nil
 end
@@ -301,14 +312,6 @@ function M.disable(ctx)
     ctx.ai_timer = 0
     ctx.ai_target = nil
     ctx.ai_is_patrolling = false
-
-    -- 3. 🚧 СИ-ОПТИМИЗАЦИЯ SEPARATION (Разгружаем процессор живых мобов):
-    -- Мы убираем Си-связь go_id из инстансов ИИ, чтобы ЖИВЫЕ кабаны в своем цикле 
-    -- Separation перестали видеть этот труп и не тратили время на его обход по касательной!
-    -- При этом бэкенд-паспорт в M.registry[uid] остается полностью живым для лутания!
-    if creatures_state.instances then
-        creatures_state.instances[ctx.go_id] = nil
-    end
 
     print(string.format("🤖 ИИ [disable]: Стейт ИИ для [%s] переведен в DEAD. Коллизии ИИ очищены.", tostring(ctx.uid)))
 end

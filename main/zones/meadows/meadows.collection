@@ -51,6 +51,11 @@ instances {
   component_properties {
     id: "creature"
     properties {
+      id: "uid"
+      value: "skel01"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "creature_id"
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
@@ -73,6 +78,11 @@ instances {
   component_properties {
     id: "creature"
     properties {
+      id: "uid"
+      value: "skel02"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "creature_id"
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
@@ -94,6 +104,11 @@ instances {
   }
   component_properties {
     id: "creature"
+    properties {
+      id: "uid"
+      value: "skel03"
+      type: PROPERTY_TYPE_HASH
+    }
     properties {
       id: "creature_id"
       value: "skeleton_warrior"

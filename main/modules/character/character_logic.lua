@@ -141,7 +141,7 @@ function M.consume_absorb_shield(incoming_damage)
     if character_data.player.absorb_shield >= incoming_damage then
         -- Щит полностью впитал урон
         character_data.player.absorb_shield = character_data.player.absorb_shield - incoming_damage
-        print("🛡️ ЛОГИКА: Магический щит полностью поглотил урон! Остаток щита:", data.player.absorb_shield)
+        print("🛡️ ЛОГИКА: Магический щит полностью поглотил урон! Остаток щита:", character_data.player.absorb_shield)
 
         -- Шлем бродкаст на HUD, чтобы перерисовать полоску щита (если она есть)
         broadcast.send("player_events", { message_id = hash("update_shield"), value = character_data.player.absorb_shield })

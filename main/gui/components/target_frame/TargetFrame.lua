@@ -56,7 +56,7 @@ function M:on_target_event(message_id, message)
             local hp_percent = creature_instance_data.health / creature_instance_data.max_health
             self.target_health_bar:update_health(hp_percent)
             
-            -- Задел под ману/энергию драконов кастеров
+           -- Задел под ману/энергию драконов кастеров
            --  self.target_mana_bar:update_health(1.0) 
         end
 

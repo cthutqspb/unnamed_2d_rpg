@@ -8,8 +8,11 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field type string Тип существа ("undead", "beast", "humanoid")
 ---@field rank string Ранг сложности ("common", "rare", "elite")
 ---@field loot_table_id string
+---@field is_collected boolean
 ---@field health number Текущее живое ХП в данный момент времени
 ---@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
+---@field mana number|nil
+---@field max_mana number|nil
 ---@field damage number Рассчитанный урон с учетом уровня
 ---@field speed number Скорость перемещения
 ---@field hitbox_size number
@@ -18,6 +21,7 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field saved_position vector3|nil
 ---@field is_in_combat boolean|nil
 ---@field is_dead boolean|nil
+---@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
 ---@field ai_target vector3|nil
 
 ---@class RankModifiers
@@ -26,6 +30,10 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field resists table<string, number> Задел под резисты к стихиям (fire, frost и т.д.)
 ---@field bonus_abilities string[] Список дополнительных способностей, открываемых рангом
 
+---@class CreaturesState
+---@field registry table<string, CreatureInstanceData>
+---@field instances table<hash, string>
+---@field is_loaded_from_save boolean
 local M = {}
 
 -- Главный реестр живых монстров в оперативной памяти [uid] = CreatureInstanceData
@@ -35,6 +43,8 @@ M.registry = {}
 -- Быстрая телефонная книга связи физического go_id с бэкенд-уидом [go_id] = uid
 ---@type table<hash, string>
 M.instances = {}
+
+M.is_loaded_from_save = false
 
 ---Вычислить все геймплейные модификаторы и бонусы на основе ранга существа
 ---@param rank string Ранг сложности ("common", "rare", "elite", "boss")
@@ -78,90 +88,103 @@ local function compute_rank_modifiers(rank)
     return modifiers
 end
 
----Зарегистрировать заспавненного монстра в системе и рассчитать его характеристики
----@param go_id hash Движковый ID игрового объекта (/instance_skeleton_1)
----@param props { 
----   creature_id: string,
----   creature_uid: string,
----   level: number,
----   type: string,
----   rank: string,
----   loot_table_id: string,
---- }
----@return CreatureInstanceData|nil
-function M.register(go_id, props)
-    -- Распаковываем хэши из go.property обратно в строки для бэкенда (или подстраховываемся)
-    local creature_id = props.creature_id
-    local uid = props.creature_uid
-    local creature_type = props.type
-    local creature_rank = props.rank
-    local loot_table_id = props.loot_table_id
+-- =========================================================================
+-- СИСТЕМНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ РЕЕСТРОМ (Зеркало world_items_state)
+-- =========================================================================
 
-    -- Ищем базовый генетический код в базе данных
-    local cfg = creatures_db.get_creature(creature_id)
+---Добавить нового монстра в глобальный реестр (Вызывается СТРОГО в Bake Mode)
+---@param uid string Уникальный строковый UID моба
+---@param props table Таблица изначальных параметров из чертежа редактора
+---@return table|nil
+function M.add(uid, props)
+    if M.registry and M.registry[uid] then
+        print("🛡️ БЭКЕНД: Паспорт моба уже существует в RAM. Защита спасла сейв от затирания для:", uid)
+        return M.registry[uid]
+    end
+
+    local cfg = creatures_db.get_creature(props.creature_id)
     if not cfg then
-        print("ERROR: Попытка зарегистрировать неизвестного монстра:", creature_id)
+        print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.creature_id)
         return nil
     end
 
-    -- 🎯 МАТЕМАТИКА СКАЛИРОВАНИЯ: Рассчитываем параметры от уровня монстра
+    -- Математика скалирования характеристик от уровня
     local level_modifier_hp = math.pow(cfg.hp_growth, props.level - 1)
     local level_modifier_dmg = math.pow(cfg.damage_growth, props.level - 1)
 
     local max_hp = math.floor(cfg.base_hp * level_modifier_hp)
     local final_dmg = math.floor(cfg.base_damage * level_modifier_dmg)
 
-     -- 2. 🎯 ВЫЗОВ НАШЕЙ НОВОЙ ФУНКЦИИ РАНГА:
-    -- Получаем готовую, заармированную таблицу со всеми множителями и бонусами
-    local rank_mods = compute_rank_modifiers(creature_rank)
-
-    -- Применяем множители
+    -- Расчет множителей ранга существа
+    local rank_mods = compute_rank_modifiers(props.rank)
     max_hp = math.floor(max_hp * rank_mods.hp_mult)
     final_dmg = math.floor(final_dmg * rank_mods.dmg_mult)
 
-    -- Собираем живую структуру данных монстра
     ---@type CreatureInstanceData
     local instance_data = {
         name_key = cfg.name_key,
-        creature_id = creature_id,
+        creature_id = props.creature_id,
         uid = uid,
         level = props.level,
-        type = creature_type,
-        rank = creature_rank,
-        loot_table_id = loot_table_id,
+        type = props.type or "undead",
+        rank = props.rank,
+        loot_table_id = props.loot_table_id,
+        is_collected = false,
         max_health = max_hp,
-        health = max_hp, -- на старте монстр полностью здоров
+        health = max_hp,
         damage = final_dmg,
         speed = cfg.base_speed,
         hitbox_size = cfg.hitbox_size,
         attack_range_melee = cfg.attack_range_melee,
-        ai_profile = cfg.ai_profile or "aggressive_patrol"
+        ai_profile = cfg.ai_profile or "aggressive_patrol",
+        -- СЕРИАЛИЗАЦИОННЫЙ ФИКС: Храним как плоскую JSON-таблицу чисел {x, y}
+        saved_position = props.saved_position
     }
 
-    -- Записываем в оперативную память реестров
     M.registry[uid] = instance_data
-    M.instances[go_id] = uid
-
-    -- print(string.format("БЭКЕНД МОНСТРОВ: Успешно зарегистрирован %s [%s] | Уровень: %d | ХП: %d/%d | Урон: %d",
-    --     creature_id,
-    --     uid,
-    --     props.level,
-    --     max_hp, max_hp,
-    --     final_dmg
-    --   ))
-
     return instance_data
 end
 
----Удалить монстра из реестров (при смерти)
+---Связать физический Си-хэш go_id с бэкенд-уидом (MVC-Инкапсуляция!)
+---@param go_id hash Движковый хэш объекта
+---@param uid string Чистая строковая переменная UID
+function M.register(go_id, uid)
+    M.instances[go_id] = uid
+end
+
+---Разорвать связь между физическим объектом и реестром инстансов
 ---@param go_id hash
 function M.unregister(go_id)
-    ---@type string|nil
-    local uid = M.instances[go_id]
-    if uid then
-        M.registry[uid] = nil
-        M.instances[go_id] = nil
+    M.instances[go_id] = nil
+end
+
+---Лутаем САМО ТЕЛО (WoW/BG3 канон)
+---@param uid string Чистая строка UID
+function M.remove(uid)
+    if M.registry and M.registry[uid] then
+        -- 🎯 ФИКС: Душа вечно живет в памяти, но получает метку сбора!
+        M.registry[uid].is_collected = true
+        print("💾 БЭКЕНД: Душа существа [" .. uid .. "] запечатана флагом is_collected!")
+    else
+        print("🚨 БЭКЕНД: Ошибка удаления! Ключ [" .. tostring(uid) .. "] не найден в registry!")
     end
+end
+
+---Проверить, существует ли Душа монстра в глобальной памяти бэкенда
+---@param uid string
+---@return boolean
+function M.exists(uid)
+    return M.registry[uid] ~= nil
+end
+
+---Дополнительный быстрый метод-вопрос для скриптов
+---@param uid string
+---@return boolean
+function M.is_creature_collected(uid)
+    if M.registry and M.registry[uid] then
+        return M.registry[uid].is_collected == true
+    end
+    return false
 end
 
 ---Получить динамические данные монстра по его UID
@@ -177,46 +200,79 @@ function M.get_all()
     return M.registry
 end
 
+---Раздача прилетевших из JSON данных обратно в оперативную память Lua монстров
+---@param data table Таблица реестра монстров из файла сохранения
 function M.restore_all(data)
     M.registry = data or {}
+    M.is_loaded_from_save = true
+     print("🔬 [creatures_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
+    -- 🎯 ЧИСТОКРОВНАЯ РЕГЕНЕРАЦИЯ ВЕКТОРОВ ПРИ ЗАГРУЗКЕ СЕЙВА:
+    -- Пробегаем по всем восстановленным паспортам монстров в RAM.
+    -- Кто превратил вектор в плоскую таблицу для сейва — тот сам возвращает его назад!
+    for uid, creature_data in pairs(M.registry) do
+        local saved_pos = creature_data.saved_position
+         print(string.format("🔬   UID: %s | Жив: %s | Позиция в сейве: X=%s, Y=%s",
+            uid, tostring(not creature_data.is_dead),
+            tostring(saved_pos and saved_pos.x), tostring(saved_pos and saved_pos.y)))
+        -- Если позиция прилетела из JSON-файла как плоская таблица {x, y, z}
+        if saved_pos and type(saved_pos) == "table" then
+            -- 💥 МЫ НА ЛЕТУ ВОЗВРАЩАЕМ ЕЙ СТАТУС ВЕКТОРА DEFOLD!
+            -- Мы берём сохранённый .z без всякого хардкода! У трупа там нативно 
+            -- восстановится честный слой 0.9, а у живого моба — слой 1.0!
+            creature_data.saved_position = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 1.0)
+        end
+    end
+
+    print("💾 БЭКЕНД [creatures_state]: Все JSON-координаты монстров успешно переведены в Си-векторы vmath.vector3!")
 end
 
 function M.clear()
     M.registry = {}
     M.instances = {}
+    M.is_loaded_from_save = false
 end
 
 ---Легкий бэкенд-мутатор для динамического обновления геймплейных данных монстра (WoW-канон)
 ---@param uid string Уникальный строковый UID существа ("c_1200_700")
 ---@param current_data table Новая таблица с измененными полями (saved_position, health и т.д.)
 function M.update_data(uid, current_data)
-    -- Проверяем, существует ли вообще паспорт этого моба в нашей оперативной памяти?
-    -- (Посмотри, как у тебя называется главная таблица реестра: M.registry или M.db)
+    -- Мы работаем строго и только если паспорт моба реально существует в памяти RAM!
     if M.registry and M.registry[uid] then
         -- 🧱 СИММЕТРИЧНАЯ КЛАДКА ДАННЫХ (Data Merge):
-        -- Мы не заменяем всю таблицу целиком, чтобы не сбить типы, а аккуратно 
-        -- перезаписываем только то, что изменилось в creature.script перед выгрузкой!
-        M.registry[uid].saved_position = current_data.saved_position
+        -- Мы аккуратно перезаписываем только то, что реально прилетело, защищая типы!
+        if current_data.saved_position then
+            local live_pos = current_data.saved_position
 
-        -- Задел на будущее: если моб ранен — сохраняем текущее ХП, чтобы он не лечился за экраном!
+            -- 🛡️ ПУЛЕНЕПРОБИВАЕМЫЙ ГВАРД ОКРУГЛЕНИЯ ПИКСЕЛЕЙ (X и Y):
+            -- Мы принудительно округляем покадровые X и Y до ближайшего целого числа.
+            -- Это полностью уничтожает дробные хвосты (вроде .4239), которые ломают 
+            -- математику генерации UID и чертежей в спавнере!
+            -- При этом ось Z мы ВООБЩЕ НЕ ТРОГАЕМ (работает как работала)!
+            M.registry[uid].saved_position = vmath.vector3(
+                math.floor(live_pos.x + 0.5),
+                math.floor(live_pos.y + 0.5),
+                live_pos.z -- Z оставляем в покое, создатели движка не идиоты!
+            )
+        end
+
         if current_data.health then
             M.registry[uid].health = current_data.health
         end
 
-        -- 🎯 ФИКС: АКТУАЛИЗИРУЕМ ФЛАГ СМЕРТИ В БЭКЕНДЕ
-        -- Если существо умерло, мы пишем true прямо в паспорт его Души в оперативной памяти!
         if current_data.is_dead ~= nil then
             M.registry[uid].is_dead = current_data.is_dead
         end
 
-        print(string.format("💾 БЭКЕНД [update_data]: Записаны живые координаты для [%s] -> X: %d, Y: %d",
-            uid, math.floor(current_data.saved_position.x), math.floor(current_data.saved_position.y)))
-    else
-        -- Если по какой-то причине паспорта нет (например, моба стерли), страхуем рантайм
-        -- и создаем чистую запись, чтобы игра не вылетела в nil
-        if M.registry then
-            M.registry[uid] = current_data
+        -- 🎯 ДОПОЛНИТЕЛЬНЫЙ ГВАРД ПАСПОРТА:
+        -- Если моб умер, принудительно страхуем здоровье на жесткий ноль,
+        -- чтобы оно никогда фантомно не сбросилось в nil!
+        if current_data.is_dead == true then
+            M.registry[uid].health = 0
         end
+    else
+        -- ❌ СТИРАЕМ ОТСЮДА НАФИГ СЛEПОE ЗА ТИРAНИE M.registry[uid] = current_data!
+        -- Интерфейс и ИИ больше никогда не потеряют паспортные данные моба!
+        print("🚨 БЭКЕНД ГВАРД: Предотвращена попытка затереть паспорт моба пустышкой координат:", uid)
     end
 end
 

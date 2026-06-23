@@ -1,3 +1,8 @@
+---@class LoaderScriptInstance : table
+---@field pending_position PlayerPosition|nil Отложенные координаты игрока для телепортации
+---@field pending_action_bars any[]|nil       Отложенный кэш панелей способностей
+
+---@param self LoaderScriptInstance
 function init(self)
     msg.post(".", "acquire_input_focus")
     print("LOADER STARTED. PROXY ID: game_proxy")
@@ -5,9 +10,13 @@ function init(self)
     msg.post("#game_proxy", "load")
 end
 
+---@param self LoaderScriptInstance
+---@param message_id hash
+---@param message table
+---@param sender url
 function on_message(self, message_id, message, sender)
     if message_id == hash("reload_game") then
-        self.pending_pos = message.last_pos
+        self.pending_position = message.last_position
         msg.post("#game_proxy", "unload")
 
     elseif message_id == hash("proxy_unloaded") then
@@ -20,12 +29,12 @@ function on_message(self, message_id, message, sender)
         -- Сбрасываем кэш панелей
         self.pending_action_bars = nil
         -- 1. СЦЕНА ГОТОВА: Проверяем, откуда мы стартуем
-        if self.pending_pos then
+        if self.pending_position then
             -- 💾 А) ВЕТКА ЗАГРУЗКИ СЕЙВА:
             -- Втыкаем игрока ровно туда, где он сохранился в JSON!
-            msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_pos.x, self.pending_pos.y, 1) })
+            msg.post("game_scene:/player", "teleport_to", { position = vmath.vector3(self.pending_position.x,  self.pending_position.y, self.pending_position.z) })
            -- msg.post("game_scene:/world#world", "spawn_all_saved_items")
-            self.pending_pos = nil
+            self.pending_position = nil
         else
             -- 🌟 Б) ВЕТКА НОВОЙ ИГРЫ (Твой новый Data-Driven канон):
             -- Мы даем один фрейм задержки, чтобы world_controller успел в своем первом update

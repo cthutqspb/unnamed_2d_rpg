@@ -86,5 +86,8 @@ return {
 
     -- World container
     ["menu_open"] = "Открыть",
+
+    -- Nameplates
+    ["creature_dead_suffix"] = "мертв"
 }
 

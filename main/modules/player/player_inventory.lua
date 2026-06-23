@@ -1,5 +1,5 @@
 local items_db = require("main.modules.data.items_db")
-local interaction = require("main.modules.interaction")
+local interactions = require("main.modules.interactions")
 
 ---@class Inventory
 local M = {}
@@ -12,7 +12,7 @@ M.items = {}
 ---@return string|any
 local function get_clean_id(item_id)
     if type(item_id) == "userdata" then
-        return interaction.clean_id(item_id)
+        return interactions.clean_id(item_id)
     end
     return item_id
 end
@@ -73,11 +73,11 @@ function M.add_item(item_id, amount, uid, items, is_looted)
     -- 2. ЛОГИКА ДЛЯ НОВЫХ СЛОТОВ (Каноничный поиск свободного места)
     for i = 1, M.max_slots do
         local slot = M.items[i]
-        
+
         -- ИСПРАВЛЕНИЕ: Слот считается пустым, если таблицы нет (nil) ИЛИ если это пустая заглушка без ID
         if not slot or not slot.item_id then
             local add = math.min(remaining, max_stack)
-            
+
             -- Рождаем полноценный объект предмета со всеми его паспортами и Душой!
             local new_item = {
                 item_id = item_hash,
@@ -89,7 +89,7 @@ function M.add_item(item_id, amount, uid, items, is_looted)
 
             -- 🎯 СТРАХОВКА: Если бочка поднята из редактора (без UID), генерируем паспорт прямо на лету!
             if not new_item.uid and data.action_type == "container_item" then
-                local s_id = interaction.clean_id(item_id) or "container"
+                local s_id = interactions.clean_id(item_id) or "container"
                 new_item.uid = string.format("%s_%d_%d", s_id, os.time(), math.random(1000, 9999))
             end
 
@@ -219,15 +219,15 @@ end
 function M:try_stack_item_anywhere(item_id, amount, item_cfg)
     local remaining = amount
     local target_id = type(item_id) == "string" and hash(item_id) or item_id
-    
+
     for i = 1, self.max_slots do
         local slot = self.items[i]
-        
+
         -- 🚩 ВОТ ЭТА СТРОКА УБИРАЕТ ВСЕ ОШИБКИ ЛИНТЕРА НИЖЕ
         if slot and slot.item_id == target_id then
             local max_stack = item_cfg.max_stack or 64
             local space = max_stack - slot.amount
-            
+
             if space > 0 then
                 local to_add = math.min(remaining, space)
                 -- Теперь тут не будет "slot may be nil"
@@ -236,7 +236,7 @@ function M:try_stack_item_anywhere(item_id, amount, item_cfg)
                 remaining = remaining - to_add
             end
         end
-        
+
         if remaining <= 0 then return 0 end
     end
     return remaining
@@ -312,20 +312,20 @@ function M.get_save_data()
     for i = 1, M.max_slots do
         local item = M.items[i]
         if item and item.item_id then
-            local id_str = interaction.clean_id(item.item_id)
-            
+            local id_str = interactions.clean_id(item.item_id)
+
             -- Создаем слепок предмета
             data[i] = {
                 id = id_str,
                 amount = item.amount,
                 uid = item.uid
             }
-            
+
             -- 🎯 КРИТИЧЕСКИЙ ФИКС: Если это сундук/бочка, забираем в сейв её статус и шмотки!
             if item.is_looted then
                 data[i].is_looted = item.is_looted
             end
-            
+
             if item.items then
                 -- Рекурсивно сохраняем вложенные шмотки. 
                 -- Так как они тоже таблицы, мы подготавливаем их структуру
@@ -333,7 +333,7 @@ function M.get_save_data()
                 for sub_idx, sub_item in pairs(item.items) do
                     if sub_item then
                         data[i].items[sub_idx] = {
-                            id = interaction.clean_id(sub_item.item_id),
+                            id = interactions.clean_id(sub_item.item_id),
                             amount = sub_item.amount,
                             uid = sub_item.uid
                         }
@@ -361,7 +361,7 @@ function M.load_save_data(data)
                 uid = saved.uid,
                 is_looted = saved.is_looted or nil
             }
-            
+
             -- 🎯 КРИТИЧЕСКИЙ ФИКС: Восстанавливаем внутренности бочки
             if saved.items then
                 restored_item.items = {}
@@ -376,7 +376,7 @@ function M.load_save_data(data)
                     end
                 end
             end
-            
+
             M.items[i] = restored_item
         end
     end

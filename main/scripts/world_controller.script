@@ -4,7 +4,7 @@ local CHUNKS = {
     meadows = {
         url = "/world#factory_meadows",
         w = 8192, h = 4096,
-        pos = vmath.vector3(0, 0, 0), -- Честный левый нижний угол чанка в мире!
+        position = vmath.vector3(0, 0, 0), -- Честный левый нижний угол чанка в мире!
         root_id = nil
     },
 }
@@ -12,7 +12,7 @@ local CHUNKS = {
 local PADDING = 500 -- Запас для подгрузки
 
 function update(self, dt)
-    local p_pos = go.get_position("player")
+    local player_position = go.get_position("player")
 
     -- =========================================================================
     -- 1. СТРИМИНГ БЕСШОВНЫХ ЧАНКОВ ЗЕМЛИ И СУЩЕСТВ (По зонам)
@@ -21,13 +21,13 @@ function update(self, dt)
         -- 🎯 ЧЕСТНЫЕ МИРОВЫЕ ГРАНИЦЫ ОТ УГЛА (0,0):
         -- Так как левый нижний угол карты Meadows — это (0,0), границы чанка идут 
         -- строго от chunk.pos.x до chunk.pos.x + chunk.w! Никаких делений на 2!
-        local x_min = chunk.pos.x - PADDING
-        local x_max = chunk.pos.x + chunk.w + PADDING
-        local y_min = chunk.pos.y - PADDING
-        local y_max = chunk.pos.y + chunk.h + PADDING
+        local x_min = chunk.position.x - PADDING
+        local x_max = chunk.position.x + chunk.w + PADDING
+        local y_min = chunk.position.y - PADDING
+        local y_max = chunk.position.y + chunk.h + PADDING
 
-        local is_inside = p_pos.x >= x_min and p_pos.x <= x_max and
-                          p_pos.y >= y_min and p_pos.y <= y_max
+        local is_inside = player_position.x >= x_min and player_position.x <= x_max and
+                          player_position.y >= y_min and player_position.y <= y_max
 
         -- =========================================================================
         -- СПАВН ЧАНКА (Истинный ААА-конвейер Blizzard)
@@ -37,23 +37,23 @@ function update(self, dt)
             -- Спавним фабрику прямо в chunk.pos (0,0,0)! 
             -- Карта, тайлмап и маркеры Скелетов СРАЗУ рождаются на своих идеальных местах,
             -- как они нарисованы дизайнером в редакторе! Вообще без сдвигов!
-            local ids = collectionfactory.create(chunk.url, chunk.pos) 
+            local ids = collectionfactory.create(chunk.url, chunk.position)
 
             -- Находим и запоминаем абсолютный Си-путь рута ТОЛЬКО ради будущей выгрузки
-            for full_id, absolute_id in pairs(ids) do 
+            for full_id, absolute_id in pairs(ids) do
                 if string.find(tostring(full_id), "/root") then
-                    chunk.root_id = absolute_id 
+                    chunk.root_id = absolute_id
                     break
                 end
             end
 
             print("БЭКЕНД [WorldController]: Чанк земли успешно рожден в мировых координатах: " .. name)
-            
+
             -- МАТЕРИАЛИЗАЦИЯ БОЕВЫХ ТУШЕК:
             -- Так как фабрика отработала, маркеры-скелеты в эту же наносекунду кадра 
             -- запустили свой init(), запекли честные координаты в память и удалились.
             -- Сразу же командуем спавнеру вывести живых Скелетов из универсальной фабрики!
-            spawn_manager.spawn_zone(name) 
+            spawn_manager.spawn_zone(name)
 
         -- =========================================================================
         -- УДАЛЕНИЕ ЧАНКА
@@ -80,14 +80,28 @@ function update(self, dt)
     local screen_half_w = 1000
     local screen_half_h = 800
 
-    local view_x_min = p_pos.x - screen_half_w
-    local view_x_max = p_pos.x + screen_half_w
-    local view_y_min = p_pos.y - screen_half_h
-    local view_y_max = p_pos.y + screen_half_h
+    local view_x_min = player_position.x - screen_half_w
+    local view_x_max = player_position.x + screen_half_w
+    local view_y_min = player_position.y - screen_half_h
+    local view_y_max = player_position.y + screen_half_h
 
     -- Слепо, независимо и на максимальной Си-скорости выводим на землю 
     -- И статику из редактора, И дроп из рюкзака через один метод спавнера!
-    local current_game_zone = "overworld"
-    spawn_manager.spawn_world_items(current_game_zone, view_x_min, view_x_max, view_y_min, view_y_max)
+     -- =========================================================================
+    -- 2. УЛЬТИМАТИВНЫЙ БЕСШОВНЫЙ СПАВНЕР ПРЕДМЕТОВ (ИСПРАВЛЕНО)
+    -- =========================================================================
+    -- Перебираем чанки, чтобы узнать, внутри какого именно чанка сейчас находится маг
+    local active_zone_id = "overworld"
+    for name, chunk in pairs(CHUNKS) do
+        if chunk.root_id then -- Если этот чанк сейчас физически загружен и активен
+            active_zone_id = name -- Забираем его имя (например, "meadows")
+            break
+        end
+    end
+
+    -- Передаем в спавнер ЧЕСТНОЕ имя активной зоны чанка ("meadows") вместо захардкоженного "overworld"!
+    -- Теперь 'item_zone == current_zone' вернет 'true' ("meadows" == "meadows"), 
+    -- и фабрика сочно материализует все сундуки и бочки на Meadows-земле!
+    spawn_manager.spawn_world_items(active_zone_id, view_x_min, view_x_max, view_y_min, view_y_max)    
 end
 

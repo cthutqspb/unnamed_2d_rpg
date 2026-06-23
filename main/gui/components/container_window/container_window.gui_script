@@ -8,6 +8,7 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local items_db = require("main.modules.data.items_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
+local creatures_state = require("main.modules.game_state.creatures_state")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 local InventoryModel = require("main.modules.inventory_model")
 
@@ -92,22 +93,25 @@ function on_message(self, message_id, message, sender)
             local player_inv = interaction_manager.get_player_inventory()
             container_data = player_inv and player_inv:get_item(message.slot_index)
         else
-            -- Бочка на земле: достаем её из глобального стейта мира
-            container_data = world_items_state.get_item_by_uid(message.container_uid)
+            if message.entity_type == "creature" then
+                container_data = creatures_state.get(message.container_uid)
+            elseif message.entity_type == "world_item" then
+                container_data = world_items_state.get_item_by_uid(message.container_uid)
+            end
         end
 
         -- Си-мост / Гвард: если данных нет, создаем структуру на лету из того, что прислал бэкенд
         if not container_data then
             container_data = {
-                items = message.container_items or {}
+                items = {}
             }
         end
 
         -- Насыщаем конфигурацией сетки и страхуем массив предметов
         container_data.columns = message.columns or 6
         container_data.rows = message.rows or 4
-        if not container_data.items then 
-            container_data.items = {} 
+        if not container_data.items then
+            container_data.items = {}
         end
 
         -- Оборачиваем голые данные в твою ООП-модель

@@ -1,0 +1,58 @@
+local druid = require("druid.druid")
+local LogWindow = require("main.gui.components.log_window.LogWindow")
+local broadcast = require("main.modules.system.broadcast")
+
+---@class LogWindowScript
+---@field druid druid.instance
+---@field container_window LogWindow
+---@field broadcast_handler function
+
+function init(self)
+	  msg.post(".", "acquire_input_focus")
+    self.druid = druid.new(self)
+    self.log_window = self.druid:new(LogWindow, "")
+
+    local current_gui_url = msg.url()
+
+    self.broadcast_handler = function(data)
+        if data.message_id == hash("log_message") then
+            -- Перенаправляем бродкаст-пакет в Си-очередь текущего скрипта
+            msg.post(current_gui_url, "log_message", {
+                channel = data.channel or "system",
+                text = data.text
+            })
+        end
+
+        if data.message_id == hash("log_clear") then
+            msg.post(current_gui_url, "log_clear")
+        end
+    end
+
+    broadcast.subscribe("log_events", self.broadcast_handler)
+end
+
+function final(self)
+    broadcast.unsubscribe("log_events", self.broadcast_handler)
+end
+
+function update(self, dt)
+    -- 🎯 ВОТ ЭТОТ КРИТИЧЕСКИЙ КЛОЗУР ОЖИВЛЯЕТ РЕЗИНУ И ИНЕРЦИЮ:
+    self.druid:update(dt)
+end
+
+function on_message(self, message_id, message, sender)
+    if message_id == hash("log_message") then
+        self.log_window:render_log_line(message)
+    end
+
+    if message_id == hash("log_clear") then
+        self.log_window:log_clear()
+    end
+end
+
+function on_input(self, action_id, action)
+    return self.druid:on_input(action_id, action)
+end
+
+function on_reload(self)
+end

@@ -1,4 +1,4 @@
-local interaction = require("main.modules.interaction")
+local interactions = require("main.modules.interactions")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local items_db = require("main.modules.data.items_db")
 local abilities_db = require("main.modules.data.abilities_db")
@@ -55,7 +55,7 @@ function M.handle_slot_click(self, index, action_id, action)
     -- 2. Логика ДАБЛКЛИКА через универсальный модуль
     local click_id = self.template_id .. "_" .. index
 
-    if interaction.is_double_click(click_id) then
+    if interactions.is_double_click(click_id) then
         M.handle_double_click(self, index)
         return true
     end

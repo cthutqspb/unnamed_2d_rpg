@@ -57,6 +57,7 @@
 ---@field price number Стоимость предмета у торговцев
 ---@field weight number Физический вес шмотки в рюкзаке
 ---@field durability number|nil
+---@field loot_table_id string|nil
 ---@field columns number|nil
 ---@field rows number|nil
 ---@field id? string Строковый ID ("iron_sword"), пропишем при инициализации для редьюсеров

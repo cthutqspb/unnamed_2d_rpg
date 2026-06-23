@@ -104,10 +104,10 @@ M.REDUCERS = {
     end,
 
     ["item_drop"] = function(data)
-        local player_pos = character_data.player.last_pos
+        local player_position = character_data.player.last_position
         local source = data.source_model or interaction_manager.get_player_inventory()
 
-        local calculated_drop_pos = vmath.vector3(player_pos.x, player_pos.y + 40, 0)
+        local calculated_drop_pos = vmath.vector3(player_position.x, player_position.y + 40, 0)
         print("calculated_drop_pos", calculated_drop_pos)
         item_transfer_manager.drop_to_world(
             source,
@@ -166,10 +166,10 @@ M.REDUCERS = {
             container_uid = data.uid,
             container_id = hash(data.id),
             container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
-            container_items = instance.items,
+            entity_type = data.entity_type,
             columns = cfg and cfg.columns or 6,
             rows = cfg and cfg.rows or 4,
-            position = data.position, 
+            position = data.position,
             player_pos = go.get_position("game_scene:/player")
         })
     end,

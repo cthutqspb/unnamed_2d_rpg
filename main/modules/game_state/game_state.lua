@@ -46,7 +46,7 @@ function M.get_full_save_data()
     print("БЭКЕНД [GameState]: Сбор снапшота вселенной RPG...")
     return {
         world_items_state = world_items_state.get_all(),
-        containers_state = containers_state.get_all(),
+        -- containers_state = containers_state.get_all(),
         -- 🦾 Скелеты и Дракон теперь честно запечатываются в файл сохранения!
         creatures_state = creatures_state.get_all()
     }

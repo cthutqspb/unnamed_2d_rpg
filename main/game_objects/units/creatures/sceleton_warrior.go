@@ -49,22 +49,6 @@ embedded_components {
   }
 }
 embedded_components {
-  id: "creature_name"
-  type: "label"
-  data: "size {\n"
-  "  x: 96.0\n"
-  "  y: 24.0\n"
-  "}\n"
-  "text: \"\\321\\210\\320\\272\\320\\265\\320\\273\\320\\265\\321\\202\"\n"
-  "font: \"/assets/fonts/font_regular_18.font\"\n"
-  "material: \"/builtins/fonts/label-df.material\"\n"
-  ""
-  position {
-    y: 44.0
-    z: 1.0
-  }
-}
-embedded_components {
   id: "collision_collider"
   type: "collisionobject"
   data: "type: COLLISION_OBJECT_TYPE_KINEMATIC\n"

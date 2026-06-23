@@ -1,11 +1,7 @@
-local game_state = require("main.modules.game_state.game_state")
 local character_data = require("main.modules.character.character_data")
 local character_logic = require("main.modules.character.character_logic")
 local settings = require("main.modules.data.settings")
-local interaction = require("main.modules.interaction")
 local window_manager = require("main.gui.components.managers.window_manager")
-local gui_utils = require("main.gui.gui_utils")
-local camera = require("orthographic.camera")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
 ---@class PlayerPressedKeys
@@ -87,8 +83,8 @@ end
 ---@param dt number
 function update(self, dt)
     local player = character_data.player
-    local pos = go.get_position()
-    character_data.player.last_pos = { x = pos.x, y = pos.y }
+    local position = go.get_position()
+    character_data.player.last_position = { x = position.x, y = position.y, z = position.z }
     local hp_mod = (player.health < 20) and 0.50 or 1.0
     local current_speed = self.base_speed * hp_mod
 
@@ -106,7 +102,7 @@ function update(self, dt)
     -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
         msg.post("main:/container_window#gui", "close_window")
-        local d = self.move_target - pos
+        local d = self.move_target - position
         if vmath.length(d) > 5 then
             move = vmath.normalize(d)
         else
@@ -118,12 +114,12 @@ function update(self, dt)
     -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (Твой оригинальный код, не трогаем!)
     if vmath.length(move) > 0 then
         move = vmath.normalize(move)
-        go.set_position(pos + move * current_speed * dt)
+        go.set_position(position + move * current_speed * dt)
     end
 
     -- 🚩 ТВОЙ РОДНОЙ, ЧЕСТНЫЙ АВТОЛУТ (С поддержкой кастомных дистанций):
     if self.pending_item then
-        local ok, target_pos = pcall(go.get_world_position, self.pending_item)
+        local ok, target_position = pcall(go.get_world_position, self.pending_item)
         if not ok then
             self.pending_item = nil
             self.pending_event = nil
@@ -131,7 +127,7 @@ function update(self, dt)
         end
 
         -- Считаем дистанцию ровно так же, как было раньше
-        local dist = vmath.length(target_pos - go.get_position())
+        local dist = vmath.length(target_position - go.get_position())
 
         -- Если мы зашли в индивидуальный радиус этого действия
         if dist < self.pending_range then
@@ -238,14 +234,14 @@ function on_message(self, message_id, message, sender)
         self.move_input = vmath.vector3(0, 0, 0)
     end
 
-    -- Сигнал от ЛКМ-клика издалека по сундуку или кучке лута на земле (move_to_item)
-    if message_id == hash("move_to_item") then
-        self.move_target = go.get_world_position(message.item_id)
+    -- Сигнал от ЛКМ-клика издалека по сундуку или кучке лута на земле (move_to_entity)
+    if message_id == hash("move_to_entity") then
+        self.move_target = go.get_world_position(message.entity_id)
         self.move_input = vmath.vector3(0, 0, 0)
 
         msg.post("main:/container_window#gui", "close_window")
         -- 🎯 Ставим твой оригинальный автолут на рельсы
-        self.pending_item = message.item_id
+        self.pending_item = message.entity_id
         self.pending_event = "click" -- Для ЛКМ базовый ивент бочки
         self.pending_range = 45      -- Оригинальный рабочий радиус
     end
@@ -276,8 +272,8 @@ function on_message(self, message_id, message, sender)
         -- Разрешаем коду выталкивания срабатывать И для стен, И для группы creature!
         if message.group == hash("wall") or message.group == hash("creature") then
             -- Твой оригинальный рабочий код выталкивания персонажа из препятствий:
-            local new_pos = go.get_position() + message.normal * message.distance
-            go.set_position(new_pos)
+            local new_position = go.get_position() + message.normal * message.distance
+            go.set_position(new_position)
 
             -- Если игрок бежал по мышке (move_target), при столкновении с драконом/стеной сбрасываем бег
             if self.move_target then
@@ -287,11 +283,11 @@ function on_message(self, message_id, message, sender)
     end
 
     -- Кнопки экшен бара
-    
+
     -- Ловим сигнал от нашего ActionBar.lua
     if message_id == hash("player_action") then
         if message.event == "action" then
-            
+
             -- 🎯 ВОТ ЗДЕСЬ ЭТО СДЕЛАТЬ ПРАВИЛЬНО И КРАСИВО!
             -- Скрипт-контроллер переводит Си-пакет в вызов Lua-редьюсера
             actions_dispatcher.REDUCERS["action_bar_use"]({

@@ -16,10 +16,10 @@ function update(self, dt)
     -- Наш оригинальный gui_utils сам посчитает сдвиг едущей камеры, масштабирование 
     -- и тайлинг Hyprland, выдав идеальный world_pos в этой микросекунде!
     local gui_utils = require("main.gui.gui_utils")
-    local _, world_pos = gui_utils.transform_coordinates(self.last_action, hash("/camera"))
+    local _, world_position = gui_utils.transform_coordinates(self.last_action, hash("/camera"))
 
     -- Железно ставим физическую сферу курсора точно под остриё стрелки мыши в мире
-    go.set_position(vmath.vector3(world_pos.x, world_pos.y, 0))
+    go.set_position(vmath.vector3(world_position.x, world_position.y, 0))
 end
 
 function fixed_update(self, dt)

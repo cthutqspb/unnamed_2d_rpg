@@ -41,8 +41,8 @@ function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
         pos = pos            -- Точка дома
     })
 
-    print(string.format("💾 БЭКЕНД [Bake]: Сущность [%s] запечена в %s! Тип: %s | ID: %s",
-        entity_uid, zone_id, entity_type, entity_data.id or "unknown"))
+    print(string.format("💾 БЭКЕНД [Bake]: Сущность [%s] запечена в %s! Тип: %s | ID: %s Позиция %s",
+        entity_uid, zone_id, entity_type, entity_data.id or "unknown", pos))
 end
 
 ---Полностью очистить кэш запекания сущностей конкретной зоны при её выгрузке

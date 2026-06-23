@@ -1,6 +1,22 @@
+---@class ContextMenuAction
+---@field name_key string Локализационный ключ для текста кнопки ("menu_equip", "menu_drop")
+---@field event string Строковый ID редюсера из actions_dispatcher ("item_transfer", "item_use")
+---@field data table|nil Опциональный динамический пейлод для конкретного действия (например, { from_paperdoll = true })
+
+---@class ContextMenuFlags
+---@field is_equipped boolean|nil Надет ли предмет на куклу персонажа прямо сейчас
+---@field can_split boolean|nil   Можно ли разделить эту пачку предметов (amount > 1)
+
+---@class ContextMenuPayload
+---@field slot_index number|nil Индекс ячейки внутри инвентаря или контейнера
+---@field source_url url|string|nil Ссылка на GUI-контроллер, породивший клик (например, "main:/container_window#gui")
+
+---@class ContextMenuModule
+---@field data table<string, ContextMenuAction[]> Матрица распределения действий по типам объектов
 local M = {}
 
 -- Действия, общие строго для ВСЕХ предметов внутри инвентаря
+---@type ContextMenuAction[]
 local SHARED_ITEM_ACTIONS = {
     { name_key = "menu_drop",    event = "item_drop" },
     { name_key = "menu_examine", event = "object_examine" },
@@ -44,8 +60,8 @@ M.data = {
 ---Собрать динамический список доступных действий для объекта (БГ3/WoW-канон)
 ---@param object_type string Главный тип инспекции ("gui_item", "world_item", "world_object", "creature")
 ---@param item_cfg table|nil Конфиг из items_db (для существ nil)
----@param flags table|nil Флаги состояния (is_equipped, can_split)
----@param data table|nil Дополнительный пейлод (slot_index, source_url)
+---@param flags ContextMenuFlags|nil Флаги состояния (is_equipped, can_split)
+---@param data ContextMenuPayload|nil Дополнительный пейлод (slot_index, source_url)
 ---@return ContextMenuAction[] Список сформированных кнопок для меню
 function M.get_actions(object_type, item_cfg, flags, data)
     local f = flags or {}
@@ -58,7 +74,7 @@ function M.get_actions(object_type, item_cfg, flags, data)
     if d.slot_index ~= nil and item_cfg then
         local item_type = item_cfg.type or "default"
         local specific = M.data[item_type] or {}
-        
+
         for _, action in ipairs(specific) do
             local final_action = action
             if f.is_equipped and action.event == "item_transfer" then
@@ -101,7 +117,7 @@ function M.get_actions(object_type, item_cfg, flags, data)
         -- Если мы кликнули ПКМ по шмотке на земле, и её action_type в базе — "container_item",
         -- мы прямо посреди кадра динамически расширяем массив result нашими тремя кнопками!
         if object_type == "world_item" and item_cfg and item_cfg.action_type == "container_item" then
-            
+
             -- Удаляем базовую кнопку "menu_pickup" (Подобрать), так как для бочки 
             -- нам нужна кастомная кнопка "Забрать коробку целиком"!
             for i = #result, 1, -1 do

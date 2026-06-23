@@ -4,35 +4,44 @@ local player_paperdoll = require("main.modules.player.player_paperdoll")
 local character_data = require("main.modules.character.character_data")
 local game_state = require("main.modules.game_state.game_state")
 
+---@class SaveManagerModule
 local M = {}
 
 -- 🎯 ГИГИЕНА: Единый пуленепробиваемый путь к JSON файлу сохранения
+---@type string
 local SAVE_PATH = sys.get_save_file("MyAwesomeRPG", "save_01.json")
 
 -- Рекурсивная проверка и конвертация типов Defold в типы JSON
+---@param t any Входящие данные любого типа
+---@return any Очищенная от хэшей таблица или примитив
 local function prepare_for_json(t)
+    -- 🎯 1. ПУЛЕНЕПРОБИВАЕМЫЙ ПЕРЕХВАТ ВЕКТОРОВ DEFOLD (WoW/BG3 канон):
+    -- Если прилетел userdata-вектор, у него тип равен "userdata", но у него ЕСТЬ поля x и y!
+    -- Мы проверяем это первой строчкой через pcall (чтобы не крашнулось на голых хэшах).
+    -- Если это вектор — мгновенно раскладываем его в стерильную JSON-таблицу чисел {x, y, z}!
+    if type(t) == "userdata" and pcall(function() return t.x and t.y end) then
+        return { x = t.x, y = t.y, z = t.z or 0 }
+    end
+
+    -- 2. ГВАРД ДЛЯ ОСТАЛЬНЫХ СИ-ТИПОВ (Голые Хэши движка):
+    -- Сюда зайдут только чистые Си-хэши hash("skeleton_warrior"), у которых нет полей x и y.
+    -- Они канонично превратятся в безопасный текст, чтобы json.encode не рушил игру.
     if type(t) ~= "table" then
-        -- Если это хэш движка, переводим в строку (или число), но лучше вообще не допускать
-        if type(t) == "userdata" then 
-            return tostring(t) -- Хэш превратится в "[hash: 'id']" или хекс-строку. Сейв не упадет.
+        if type(t) == "userdata" then
+            return tostring(t)
         end
         return t
     end
 
-    -- Проверяем, не vector3 ли это от Defold
-    if t.x and t.y and type(t) ~= "table" then 
-        return { x = t.x, y = t.y, z = t.z or 0 }
-    end
-
+    -- 3. РЕКУРСИВНЫЙ ОБХОД ТАБЛИЦ (Твой оригинальный рабочий код)
     local clean = {}
     for k, v in pairs(t) do
-        -- Ключи JSON могут быть ТОЛЬКО строками. Хэш в качестве ключа — смерть для json.encode
+        -- Ключи JSON могут быть ТОЛЬКО строками. Хэш-ключ — смерть для json.encode
         local clean_key = type(k) == "userdata" and tostring(k) or k
         clean[clean_key] = prepare_for_json(v)
     end
     return clean
 end
-
 
 ---@return boolean Проверить существует ли файл сохранения на диске ПК (Для кнопки Continue)
 function M.exists()
@@ -71,7 +80,7 @@ function M.new_game()
     }
 
     -- Перезапускаем Proxy-коллекцию мира. Все маркеры редактора запекутся с нуля!
-    msg.post("main:/loader#script", "reload_game", { last_pos = nil })
+    msg.post("main:/loader#script", "reload_game", { last_position = nil })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
     broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
     broadcast.send("log_events", { message_id = hash("log_clear") })
@@ -81,8 +90,8 @@ end
 ---@return boolean
 function M.save_game()
     -- Безопасно распаковываем позицию игрока, гарантируя, что vector3 не уйдет в JSON
-    local p_pos = character_data.player.last_pos
-    local serializable_pos = { x = p_pos.x, y = p_pos.y, z = p_pos.z or 0 }
+    local player_position = character_data.player.last_position
+    local serializable_position = { x = player_position.x, y = player_position.y, z = player_position.z or 0 }
 
     local data = {
         version = 1,
@@ -93,7 +102,7 @@ function M.save_game()
             level = character_data.player.level,
             experience = character_data.player.experience,
             health = character_data.player.health,
-            last_pos = serializable_pos, -- Сюда ушла чистая таблица
+            last_position = serializable_position, -- Сюда ушла чистая таблица
             action_bars = prepare_for_json(character_data.player.action_bars) -- Чистим экшн-бары от хэшей
         },
         world = game_state.get_full_save_data() -- Модуль предметов с земли (там все чисто, только строки)
@@ -134,24 +143,29 @@ function M.load_game()
     player_inventory.load_save_data(data.inventory)
     player_paperdoll.load_save_data(data.paperdoll)
     character_data.player.action_bars = data.player.action_bars
-    
+
     game_state.restore_all(data.world)
 
     -- 🎯 КРИТИЧЕСКИЙ ФИКС: Конвертируем таблицу координат обратно в вектор Defold
-    local saved_pos = data.player.last_pos
-    local live_vector_pos = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 0)
-    
+    local saved_position = data.player.last_position
+
     -- Обновляем живое состояние в RAM игры
-    character_data.player.last_pos = live_vector_pos
+    character_data.player.last_position = {
+        x = saved_position.x,
+        y = saved_position.y,
+        z = saved_position.z or 1
+    }
 
     -- Передаем в прокси-лоадер валидный vector3
     msg.post("main:/loader#script", "reload_game", {
         is_load = true,
-        last_pos = live_vector_pos,
+        last_position = vmath.vector3(saved_position.x, saved_position.y, saved_position.z or 1),
         action_bars = data.player.action_bars
     })
-    
+
     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
+    broadcast.send("ui_events", { message_id = hash("clear_world_ui") })
+
     print("💾 БЭКЕНД [SaveManager]: Сейв успешно развернут. Векторы восстановлены!")
     return true
 end

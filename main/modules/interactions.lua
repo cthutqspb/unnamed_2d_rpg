@@ -47,7 +47,7 @@ function M.handle_click(self, interaction_range, callback)
     else
         print("Too far:", dist)
         -- Передаем ID этой конкретной цели игроку, чтобы он включил бег к ней
-        msg.post("game_scene:/player", "move_to_item", { item_id = go.get_id() })
+        msg.post("game_scene:/player", "move_to_entity", { entity_id = go.get_id() })
     end
 end
 
@@ -124,6 +124,29 @@ function M.clean_id(id)
     if not id then return nil end
     local s = tostring(id)
     return s:match("%[(.+)%]") or s
+end
+
+---Автоматически определить имя родительской Defold-коллекции (чанка карты),
+---внутри которой физически проснулся игровой объект в редакторе.
+---@return string zone_name Имя чанка строкой ("meadows", "swamp" и т.д.)
+function M.get_current_defold_chunk()
+    -- 1. Получаем абсолютный Си-URL текущего скрипта
+    local current_url = msg.url()
+    
+    -- 2. Переводим хэш пути в чистую Lua-строку (например, "/meadows/skeleton_1")
+    local absolute_path_str = tostring(current_url.path)
+    
+    -- 3. Регуляркой WoW-канона откусываем всё, что лежит между первыми слэшами!
+    -- Из строки "/meadows/skeleton_1" мы ювелирно заберем "meadows"
+    -- Из строки "/swamp/instance_1/box" мы заберем "swamp"
+    local chunk_name = string.match(absolute_path_str, "^/([^/]+)")
+    
+    -- Если объект лежит в корне самой game_scene (тест-сцена), сработает гвард-фолбек
+    if not chunk_name or chunk_name == "" or chunk_name == "game_scene" then
+        chunk_name = "meadows" -- Твой дефолтный стартовый биом
+    end
+    
+    return chunk_name
 end
 
 return M

@@ -15,27 +15,26 @@ function M.execute_ability(ability_id, target_go_id)
         msg.post("main:/gui_manager#hud", "show_screen_error", { text = "НЕТ ЦЕЛИ" })
         return
     end
-    
+
      -- 🎯 ТИТАНОВЫЙ БОЕВОЙ ГВАРД (Фикс спама по трупам):
     -- Безопасно проверяем, существует ли еще этот Си-объект на карте Meadows.
     -- Если моб уже был удален через go.delete(), pcall вернет false, 
     -- и мы тихо выйдем из комбат-цикла, сбросив таргет, без краша игры!
     local exists, target_pos = pcall(go.get_position, target_go_id)
-    
+
     if not exists or not target_pos then
         print("⚔️ БОЙ: Цель уже стерта из мира (мертва). Блокируем атаку.")
         -- Опционально: можешь послать Си-сигнал в interaction_manager, чтобы он сбросил current_target_go_id в nil
         msg.post("main:/gui_manager#hud", "show_screen_error", { text = "ЦЕЛЬ МЕРТВА" })
         return
     end
-    
-    
+
+
     local cfg = abilities_db.get_ability(ability_id)
     if not cfg then return end
 
     -- 3. Вычисляем дистанцию между игроком и целью в мире Defold
     local player_pos = go.get_position("game_scene:/player")
-    local target_pos = go.get_position(target_go_id)
     local distance = vmath.length(player_pos - target_pos)
 
     -- Страхуем range из конфига (если там 0, ставим 50px для удара посохом)
@@ -83,7 +82,7 @@ function M.apply_damage(attacker_id, target_id, raw_damage)
         -- Здесь мы точно так же завтра сможем спросить у buff_manager: "Сработают ли крылья?"
         -- А пока — просто скармливаем чистый, пробивший щиты урон в модель здоровья!
         character_logic.take_damage(final_damage)
-        
+
         local creature_uid = creatures_state.instances[attacker_id]
         if not creature_uid then return end
 
@@ -112,6 +111,7 @@ function M.apply_damage(attacker_id, target_id, raw_damage)
         -- Шлёма бродкаст, чтобы рамка ховера и верхняя полоска ХП цели перерисовались
         broadcast.send("combat_events", { event = "creature_attacked", go_id = target_id, uid = creature_uid })
 
+        
         -- Если мертвец окончательно испустил дух:
         if creature_data.health <= 0 then
             log_message = string.format("💀 БОЙ: Юнит %s [%s] пал в бою!", creature_data.creature_id, creature_uid)
@@ -121,6 +121,8 @@ function M.apply_damage(attacker_id, target_id, raw_damage)
 
             -- go.delete(target_id)
             -- creatures_state.unregister вызовется нативно внутри final() удаляемого скрипта существа!
+        else 
+            msg.post(target_id, "on_creature_damaged")
         end
     end
 

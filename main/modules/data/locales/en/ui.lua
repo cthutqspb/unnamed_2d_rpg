@@ -75,5 +75,8 @@ return {
 
     -- World contaienr
     ["menu_open"] = "Open",
+
+    -- Nameplates
+    ["creature_dead_suffix"] = "dead"
 }
 

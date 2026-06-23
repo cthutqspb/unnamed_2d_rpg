@@ -1,0 +1,172 @@
+local druid = require("druid.druid")
+local broadcast = require("main.modules.system.broadcast")
+local camera = require("orthographic.camera")
+local creatures_state = require("main.modules.game_state.creatures_state")
+local world_items_state = require("main.modules.game_state.world_items_state")
+local locales = require("main.modules.data.locales.locale_manager")
+local NameplateInstance = require("main.gui.components.layers.nameplates_layer.NameplateInstance")
+
+function init(self)
+    self.druid = druid.new(self)
+    self.created_plates = {}
+    gui.set_enabled(gui.get_node("root"), false)
+
+    local current_gui_url = msg.url()
+    self.on_combat_event = function(data)
+        if data.event == "creature_attacked" then
+            msg.post(current_gui_url, "creature_attacked", {
+                update_type = data.type,
+                uid = data.uid
+            })
+        end
+    end
+    -- msg.post(".", "")
+    -- if creatures_state and creatures_state.instances
+    --     for go_id, uid in pairs(creatures_state.instances) do
+    --         if
+    --         plate.instance:update_state(creature_instance_data)
+    --     end
+    -- end
+    -- for go_id, uid in pairs(creatures_state.instances) do
+    --     if creatures_state and creatures_state.exists(uid) then
+    --         self.created_plates[uid].instance:update_state(creatures_state.get(uid))
+    --     end
+    -- end
+
+    -- if creatures_state and creatures_state.instances then
+    --     for go_id, uid in pairs(creatures_state.instances) do
+    --       print("UID!", uid )
+    --           --msg.post(current_gui_url, "plate_update", {uid = uid})
+    --     end
+    -- end
+    -- for k, v in pairs(creatures_state.instances) do
+    --     print("UID!", k,v )
+    -- end
+    -- print('PLATES', self.created_plates)
+    self.on_ui_event = function(data)
+        if data.message_id == hash("clear_world_ui") then
+            msg.post(current_gui_url, "clear_all_nameplates")
+        end
+    end
+    broadcast.subscribe("ui_events", self.on_ui_event)
+    broadcast.subscribe("combat_events", self.on_combat_event)
+end
+
+function final(self)
+    broadcast.unsubscribe("combat_events", self.on_combat_event)
+end
+
+function update(self, dt)
+    self.druid:update(dt)
+    -- ========================================================
+    -- 🤖 ШАГ 1: ЛЕНИВЫЙ СПАВН ПЛАШЕК ИЗ ЖИВЫХ ИНСТАНСОВ В RAM
+    -- ========================================================
+    if creatures_state and creatures_state.instances then
+        for go_id, uid in pairs(creatures_state.instances) do
+            if not self.created_plates[uid] then
+                local creature_data = creatures_state.get(uid)
+                if creature_data then
+                    local cloned_nodes = gui.clone_tree(gui.get_node("root"))
+                    local root_node = cloned_nodes[hash("root")]
+                    gui.set_enabled(root_node, true)
+
+                    local plate_instance = self.druid:new(NameplateInstance, root_node, cloned_nodes)
+                    plate_instance:update_state(creature_data)
+                    -- Записываем стартовый текст имени
+                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(creature_data.name_key or "unknown_creature"))
+
+                    self.created_plates[uid] = {
+                        go_id = go_id,
+                        root_node = root_node,
+                        instance = plate_instance,
+                        kind = "creature"
+                    }
+                end
+            end
+        end
+    end
+
+    -- ==================================================================
+    -- 📐 ШАГ 2: ПОКАДРОВАЯ СИНХРОНИЗАЦИЯ КООРДИНАТ С АДАПТИВНЫМ СКЕЙЛОМ
+    -- ==================================================================
+    local window_w, window_h = window.get_size()
+    local project_w = sys.get_config_int("display.width")
+    local project_h = sys.get_config_int("display.height")
+
+    local scale_x = window_w / project_w
+    local scale_y = window_h / project_h
+
+    for uid, plate in pairs(self.created_plates) do
+        local world_pos = nil
+
+        -- 🎯 ЧИТАЕМ СТEЙТ ИЗ МОДEЛИ (Единый источник правды):
+        local data = creatures_state.get(uid)
+
+        if data then
+            -- Моб существует в бэкенд-памяти RAM (неважно, жив он или мертв!)
+            -- Мы забираем его координаты, чтобы текст имени покадрово следовал за трупом!
+            world_pos = data.saved_position
+        end
+
+        if world_pos then
+            -- 🎯 КОРРЕКЦИЯ СДВИГА:
+
+            local wx = world_pos.x or 0
+            local wy = world_pos.y or 0
+
+            local temp_pos = vmath.vector3(wx, wy, 0)
+            temp_pos.y = temp_pos.y + 45
+
+            local physical_screen_pos = camera.world_to_screen(hash("/camera"), temp_pos)
+
+            local final_gui_x = physical_screen_pos.x / scale_x
+            local final_gui_y = physical_screen_pos.y / scale_y
+
+            gui.set_position(plate.root_node, vmath.vector3(final_gui_x, final_gui_y, 0))
+        else
+            -- 🧹 СТРИМИНГ ЧАНКОВ (Деспавн):
+            -- Сюда код зайдет только тогда, когда игрок убежит за три Meadows-экрана,
+            -- фабрика чанков сделает полный go.delete() и сотрет паспорт моба из registry!
+            print("🧹 ИНТЕРФЕЙС: Чанк выгружен, окончательно удаляем плашку:", uid)
+            gui.delete_node(plate.root_node)
+            self.created_plates[uid] = nil
+        end
+    end
+end
+
+function on_message(self, message_id, message, sender)
+    -- =========================================================================
+    -- ⚔️ РЕАКТИВНЫЙ WoW-ОБРАБОТЧИК БОЕВЫХ СОБЫТИЙ ШИНЫ
+    -- =========================================================================
+    if message_id == hash("creature_attacked") then
+        local plate = self.created_plates[message.uid]
+        print("PLATE UPDATE")
+        if plate and plate.instance then
+            local creature_instance_data = creatures_state.get(message.uid)
+
+            if creature_instance_data then
+                plate.instance:update_state(creature_instance_data)
+            end
+        end
+    end
+
+    if message_id == hash("clear_all_nameplates") then
+        print("🧹 ИНТЕРФЕЙС: Принудительно выжигаем кэш плашек при загрузке сейва!")
+        
+        -- Удаляем физические GUI-ноды с экрана, чтобы они не фантомили
+        for uid, plate in pairs(self.created_plates) do
+            if plate.root_node then
+                gui.delete_node(plate.root_node)
+            end
+        end
+        
+        -- Стерильно обнуляем таблицу, чтобы ленивый спавн ЗАРАБОТАЛ заново!
+        self.created_plates = {}
+    end
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end

@@ -7,6 +7,7 @@
 ---@class PlayerPosition
 ---@field x number Координата X в мире
 ---@field y number Координата Y в мире
+---@field z number Координата Z в мире
 
 ---@class ActionSlotData
 ---@field action_type "ablity"|"item"|"empty" Тип действия в слоте
@@ -25,7 +26,7 @@
 ---@field hitbox_size number
 ---@field stats PlayerStatsTable Базовые характеристики расы/класса
 ---@field current_stats PlayerStatsTable Текущие характеристики с учетом баффов/шмота
----@field last_pos PlayerPosition 🚩 БЕТОННЫЙ ДЕФОЛТ: Последние координаты в мире
+---@field last_position PlayerPosition 🚩 БЕТОННЫЙ ДЕФОЛТ: Последние координаты в мире
 ---@field is_dead boolean
 -- 🎯 ФИКС ТИПOВ ДЛЯ НEOВИМA:
 -- Добавляем (ActionSlotData|nil)[] — теперь линтер знает, 
@@ -60,7 +61,7 @@ M.player = {
         stamina = 10
     },
     -- 🚩 ФИКС: Безопасные стартовые координаты, спасающие от nil-крашей при загрузке
-    last_pos = { x = 0, y = 0 },
+    last_position = { x = 0, y = 0, z = 1 },
     is_dead = false,
 
     -- 🎯 МАТРИЦА ПАНЕЛЕЙ СПОСОБНОСТЕЙ (Индексы строго с 1):

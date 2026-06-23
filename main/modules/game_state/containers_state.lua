@@ -1,4 +1,4 @@
-local interaction = require("main.modules.interaction")
+local interactions = require("main.modules.interactions")
 local M = {}
 
 M.registry = {}       -- Динамика: прогресс лутания и шмот (Для сейва)
@@ -13,7 +13,7 @@ function M.register(id, uid)
     -- Ключом оставляем голый Си-хэш id (userdata) для моментального рейкаста мыши!
     -- Значением пишем чистую Lua-строку uid через clean_id!
     if id then
-        M.instances[id] = interaction.clean_id(uid) or ""
+        M.instances[id] = interactions.clean_id(uid) or ""
     end
 end
 
@@ -30,7 +30,7 @@ end
 ---@param uid string|hash
 ---@param config table
 function M.register_static_config(uid, config)
-    local key = interaction.clean_id(uid)
+    local key = interactions.clean_id(uid)
     if key then
         M.static_configs[key] = config
     end
@@ -40,7 +40,7 @@ end
 ---@param uid string|hash
 ---@param data table
 function M.init(uid, data)
-    local key = interaction.clean_id(uid)
+    local key = interactions.clean_id(uid)
     if key then
         M.registry[key] = data
     end
@@ -50,7 +50,7 @@ end
 ---@param uid string|hash
 ---@return table|nil
 function M.get(uid)
-    local key = interaction.clean_id(uid)
+    local key = interactions.clean_id(uid)
     if not key then return nil end
     return M.registry[key] or M.static_configs[key]
 end

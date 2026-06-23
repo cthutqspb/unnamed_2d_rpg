@@ -23,6 +23,7 @@ embedded_instances {
   children: "drag_layer"
   children: "inventory_window"
   children: "log_window"
+  children: "nameplates_layer"
   children: "split_window"
   children: "tooltip_layer"
   data: "components {\n"
@@ -115,6 +116,14 @@ embedded_instances {
   data: "components {\n"
   "  id: \"log_window\"\n"
   "  component: \"/main/gui/components/log_window/log_window.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "nameplates_layer"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/main/gui/components/layers/nameplates_layer/nameplates_layer.gui\"\n"
   "}\n"
   ""
 }

@@ -7,6 +7,7 @@ local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
 local gui_utils = require("main.gui.gui_utils")
+local interactions = require("main.modules.interactions")
 local camera = require("orthographic.camera")
 local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
@@ -148,7 +149,7 @@ end
 ---@param self WorldScriptInstance
 ---@param dt number
 function update(self, dt)
-    local current_player_pos = character_data.player.last_pos
+    local current_player_pos = character_data.player.last_position
     if not current_player_pos or not self.last_action then return end
 
     -- Проверяем, сдвинулся ли персонаж на клавиатуре
@@ -209,10 +210,20 @@ function on_message(self, message_id, message, sender)
         local drop_pos = message.position     -- Готовая точка на Meadows-земле
         local source_type = message.source    -- "player", "creature", "object"
 
-        -- 1. 🎯 ЕДИНАЯ РЕГИСТРАЦИЯ ДУШИ В RAM:
-        -- Каким бы ни был источник, мы всегда первым делом создаем запись в world_items_state
-        local uid = world_items_state.add(item_id, drop_pos, message.amount or 1, true, message.item_uid)
-        local world_item = world_items_state.get_item_by_uid(uid)
+        -- 1. 🎯 ЕДИНАЯ РЕГИСТРАЦИЯ ДУШИ В RAM (ИСПРАВЛЕНО):
+        -- Метод add возвращает готовую таблицу паспорта из RAM-реестра.
+        -- Мы записываем её ПРЯМО в переменную world_item, минуя лишние поиски!
+        local world_item = world_items_state.add(message.item_uid, {
+            item_id = item_id,
+            saved_position = drop_pos,
+            amount = message.amount or 1,
+            is_dynamic = true,
+            loot_table_id = message.loot_table_id or "empty",
+            is_looted = message.is_looted
+        })
+
+        -- Переменная final_uid (если она нужна ниже по коду) хранит чистокровную строку!
+        local final_uid = item_uid
 
         if world_item then
             world_item.source_type = source_type -- Запекаем тип источника в Душу на будущее
@@ -261,63 +272,6 @@ function on_message(self, message_id, message, sender)
 
         print(string.format("🌍 БЭКЕНД МИРА [spawn_world_item]: Успешно рождена Душа. Источник: %s | ID: %s | UID: %s", 
             source_type, item_id, uid))
-
-    -- -- Сигнал выброса (дропа) предмета из инвентаря игрока в мир
-    -- elseif message_id == hash("spawn_dropped_item") then
-    --     local player_pos = go.get_position("player")
-    --
-    --     -- Используем нашу функцию для расчета точки клика в мире
-    --     local world_mouse = get_world_mouse_pos(self, message.mouse_x, message.mouse_y)
-    --
-    --     -- Вычисляем вектор и расстояние направления от игрока к курсору
-    --     local dir = vmath.vector3(world_mouse.x - player_pos.x, world_mouse.y - player_pos.y, 0)
-    --     local dir_norm = vmath.normalize(dir)
-    --
-    --     -- Предмет падает ровно в 40 пикселях от тела игрока по вектору мыши
-    --     local drop_distance = 40
-    --     local drop_pos = player_pos + dir_norm * drop_distance
-    --
-    --     local item_id = message.item_id
-    --     -- Регистрируем новый уникальный UID шмотки в глобальном реестре данных на земле
-    --     -- 🎯 MVC-АБСОЛЮТ (BG3-канон):
-    --     -- Мы просто заносим Душу предмета в память бэкенда с флагом is_dynamic = true!
-    --     -- Метод add вернет чистую строку UID, и пускай она спит в RAM!
-    --     -- Передаем message.item_uid в качестве existing_uid!
-    --     local uid = world_items_state.add(item_id, drop_pos, message.amount, true, message.item_uid)
-    --
-    --     -- 🎯 И САМОЕ ГЛАВНОЕ ДЛЯ МАТРЁШЕК:
-    --     -- Переносим накопленный в кармане лут обратно в Душу предмета на земле!
-    --     local world_chest = world_items_state.get_item_by_uid(uid)
-    --     if world_chest then
-    --         world_chest.items = message.items -- Передаем массив шмоток обратно в мир
-    --         world_chest.is_looted = message.is_looted
-    --     end
-    --
-    --     -- СТЕРТО НАМЕРТВО: local item_go = factory.create("#drop_factory", ...) 
-    --     -- СТЕРТО НАМЕРТВО: msg.post(item_go, "set_item_id", ...)
-    --     -- Фабрику дропа на объекте world можно вообще удалять из коллекции!
-    --
-    --     print("БЭКЕНД: Предмет " .. tostring(item_id) .. " выброшен. Душа создана в RAM: " .. uid)
-    --
-    -- elseif message_id == hash("spawn_world_item") then
-    --     local item_id = "creature_loot_bag" -- ID префаба мешка из твоей items_db
-    --     local drop_pos = message.position   -- Координаты смерти из creature.script
-    --
-    --     -- 1. Регистрируем новую Душу матрёшки в оперативной памяти земли
-    --     -- Флаг is_dynamic = true, чтобы чанки могли выгружать/загружать мешок
-    --     local uid = world_items_state.add(item_id, drop_pos, 1, true)
-    --
-    --     -- 2. 🎯 ЗАПЕКАЕМ ЛЕНИВУЮ ДУШУ СУЩЕСТВА:
-    --     local world_chest = world_items_state.get_item_by_uid(uid)
-    --
-    --     if world_chest then
-    --         world_chest.items = nil
-    --         world_chest.is_looted = false
-    --         world_chest.loot_table_id = message.loot_table_id
-    --     end
-    --
-    --     print(string.format("🌍 БЭКЕНД [Monster Loot]: На месте смерти создана Ленивая Душка [%s]. Таблица: %s",
-    --         uid, message.loot_table_id))
 
     elseif message_id == hash("item_pickup") then
         -- 🔬 ДЕБАГ ШАГ 1: Смотрим, ЧТО прилетело в сообщение лута
@@ -395,7 +349,7 @@ function on_message(self, message_id, message, sender)
 
             -- Регистрируем внутренности бочки в фокусе для драг-энд-дропа
             interaction_manager.set_focus(item_data)
-
+          
             -- Даем команду GUI-окну на отрисовку
             msg.post("main:/container_window#gui", "open_container_window", {
                 container_uid = uid,

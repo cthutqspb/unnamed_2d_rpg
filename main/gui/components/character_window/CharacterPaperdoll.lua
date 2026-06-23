@@ -1,5 +1,5 @@
 local component = require("druid.component")
-local interaction = require("main.modules.interaction")
+local interactions = require("main.modules.interactions")
 local player_paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local drag_manager = require("main.gui.components.managers.drag_manager")
@@ -70,7 +70,7 @@ end
 
 ---@param index string
 function M.handle_slot_click(index)
-    if interaction.is_double_click(index) then
+    if interactions.is_double_click(index) then
         local item_data = player_paperdoll.slots[index]
 
         msg.post(".", "item_action", {
