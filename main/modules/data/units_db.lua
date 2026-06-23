@@ -1,4 +1,4 @@
----@class CreatureConfig
+---@class UnitConfig
 ---@field name_key string Локализационный ключ имени существа
 ---@field base_hp number Базовое здоровье на 1 уровне
 ---@field hp_growth number Коэффициент роста ХП за каждый уровень (например, +15% это 1.15)
@@ -14,10 +14,10 @@
 
 local M = {}
 
----@type table<string, CreatureConfig>
-M.creatures = {
+---@type table<string, UnitConfig>
+M.units = {
      ["skeleton_warrior"] = {
-        name_key = "creature_skeleton_warrior_name",
+        name_key = "unit_skeleton_warrior_name",
         type = "undead",
         base_hp = 40,
         hp_growth = 1.12,     -- +12% здоровья за уровень
@@ -31,7 +31,7 @@ M.creatures = {
         ai_profile = "aggressive_patrol"
     },
     ["dire_boar"] = {
-        name_key = "creature_dire_boar_name",
+        name_key = "unit_dire_boar_name",
         type = "beast",
         base_hp = 50,         -- ХП на 1 уровне
         hp_growth = 1.15,     -- +15% ХП за каждый уровень
@@ -45,7 +45,7 @@ M.creatures = {
         ai_profile = "aggressive_patrol"
     },
     ["elder_green_dragon"] = {
-        name_key = "creature_elder_green_dragon_name",
+        name_key = "unit_elder_green_dragon_name",
         type = "dragon",
         base_hp = 420,
         hp_growth = 1.12,     -- +12% здоровья за уровень
@@ -64,20 +64,20 @@ M.creatures = {
 
 -- Быстрый кэш хэшированных ключей для мгновенного поиска из go.property
 ---@type any
-local creatures_by_hash = {}
+local units_by_hash = {}
 
-for id_str, data in pairs(M.creatures) do
+for id_str, data in pairs(M.units) do
     data.id = id_str
-    creatures_by_hash[hash(id_str)] = data
+    units_by_hash[hash(id_str)] = data
 end
 
 ---Универсальная быстрая функция получения статического конфига существа
 ---@param id any Идентификатор существа (хэш Defold или чистая Lua-строка)
----@return CreatureConfig|nil data Ссылка на статический конфиг или nil
-function M.get_creature(id)
-    -- Если прилетел хэш (из go.property в creature.script), мгновенно забираем из кэша. 
-    -- Если прилетела строка (из сумок или логов), забираем из M.creatures.
-    return creatures_by_hash[id] or M.creatures[id]
+---@return UnitConfig|nil data Ссылка на статический конфиг или nil
+function M.get_unit(id)
+    -- Если прилетел хэш (из go.property в unit.script), мгновенно забираем из кэша. 
+    -- Если прилетела строка (из сумок или логов), забираем из M.units.
+    return units_by_hash[id] or M.units[id]
 end
 
 return M

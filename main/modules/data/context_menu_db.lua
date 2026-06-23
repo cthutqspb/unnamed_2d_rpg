@@ -58,7 +58,7 @@ M.data = {
 }
 
 ---Собрать динамический список доступных действий для объекта (БГ3/WoW-канон)
----@param object_type string Главный тип инспекции ("gui_item", "world_item", "world_object", "creature")
+---@param object_type string Главный тип инспекции ("gui_item", "world_item", "world_object", "unit")
 ---@param item_cfg table|nil Конфиг из items_db (для существ nil)
 ---@param flags ContextMenuFlags|nil Флаги состояния (is_equipped, can_split)
 ---@param data ContextMenuPayload|nil Дополнительный пейлод (slot_index, source_url)

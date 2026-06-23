@@ -2,7 +2,7 @@ local locales = require("main.modules.data.locales.locale_manager")
 local component = require("druid.component")
 local HealthBar = require("main.gui.components.health_bar.HealthBar")
 local ManaBar = require("main.gui.components.mana_bar.ManaBar")
-local creatures_state = require("main.modules.game_state.creatures_state")
+local units_state = require("main.modules.game_state.units_state")
 
 ---@class TargetFrame : druid.component
 ---@field target_health_bar HealthBar Кастомный компонент полоски ХП
@@ -38,22 +38,22 @@ function M:on_target_event(message_id, message)
     if message_id == hash("target_changed") then
         self.uid = message.uid 
         -- 🧠 ЧИТАЕМ СТEЙТ ИЗ ПAМЯТИ ПО УИКAЛЬНОМУ UID СУЩEСТВA:
-        local creature_instance_data = creatures_state.get(message.uid)
+        local unit_instance_data = units_state.get(message.uid)
         
-        if creature_instance_data then
+        if unit_instance_data then
             -- Включаем визуал плашки на HUD экрана
             gui.set_enabled(self.root, true)
             
             -- Выплескиваем паспортные данные в текстовые ноды
-            for key,value in pairs(creature_instance_data) do
+            for key,value in pairs(unit_instance_data) do
                 print('KEY', key, "VALUE", value)
             end
-            gui.set_text(self.target_name, locales.get(creature_instance_data.name_key)) -- в будущем locales.get()
-            gui.set_text(self.target_level, string.format("Ур. %d", creature_instance_data.level))
+            gui.set_text(self.target_name, locales.get(unit_instance_data.name_key)) -- в будущем locales.get()
+            gui.set_text(self.target_level, string.format("Ур. %d", unit_instance_data.level))
             
             -- Считаем актуальный процент здоровья и скармливаем компоненту Друида!
             -- Твой HealthBar сочно и плавно сдвинет зеленую шкалу на нужный пиксель!
-            local hp_percent = creature_instance_data.health / creature_instance_data.max_health
+            local hp_percent = unit_instance_data.health / unit_instance_data.max_health
             self.target_health_bar:update_health(hp_percent)
             
            -- Задел под ману/энергию драконов кастеров
@@ -74,24 +74,24 @@ function M:on_target_event(message_id, message)
         end
 
         -- Идем в стерильную базу данных за свежими цифрами существа
-        local creature_instance_data = creatures_state.get(self.uid)
-        if not creature_instance_data then return end
+        local unit_instance_data = units_state.get(self.uid)
+        if not unit_instance_data then return end
 
         -- 🎯 МОНОЛИТНАЯ СИНХРОНИЗАЦИЯ СТЕЙТА: 
         -- Нам плевать, что именно изменилось (ХП или мана). Мы просто обновляем ВСЁ разом!
         
         -- 1. Красим полоску здоровья Друида
-        local hp_percent = creature_instance_data.health / creature_instance_data.max_health
+        local hp_percent = unit_instance_data.health / unit_instance_data.max_health
         self.target_health_bar:update_health(hp_percent)
         
         -- 2. Красим полоску маны Друида (Если у моба есть мана в конфиге базы данных)
-        if creature_instance_data.max_mana and creature_instance_data.max_mana > 0 then
-            local mana_percent = creature_instance_data.mana / creature_instance_data.max_mana
+        if unit_instance_data.max_mana and unit_instance_data.max_mana > 0 then
+            local mana_percent = unit_instance_data.mana / unit_instance_data.max_mana
             self.target_mana_bar:update_mana(mana_percent)
         end
 
         -- 3. Задел под ауры/дебаффы (когда сделаешь их, они будут рендериться здесь же)
-        -- self:refresh_auras(creature_instance_data.auras)
+        -- self:refresh_auras(unit_instance_data.auras)
     end    
 end
 

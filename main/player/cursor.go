@@ -10,7 +10,7 @@ embedded_components {
   "friction: 0.1\n"
   "restitution: 0.5\n"
   "group: \"mouse\"\n"
-  "mask: \"creature\"\n"
+  "mask: \"unit\"\n"
   "mask: \"container\"\n"
   "mask: \"item_loot\"\n"
   "embedded_collision_shape {\n"

@@ -1,27 +1,27 @@
 go.property("uid", hash(""))
-go.property("creature_id", hash("unknown_creature"))
-go.property("creature_level", 1)
-go.property("creature_rank", hash("common"))
+go.property("unit_id", hash("unknown_unit"))
+go.property("unit_level", 1)
+go.property("unit_rank", hash("common"))
 go.property("is_from_factory", false) -- В редакторе всегда false
 go.property("loot_table_id", hash("empty"))
 
 local locales = require("main.modules.data.locales.locale_manager")
 local interactions = require("main.modules.interactions")
-local creatures_db = require("main.modules.data.creatures_db")
+local units_db = require("main.modules.data.units_db")
 local broadcast = require("main.modules.system.broadcast")
-local creatures_state = require("main.modules.game_state.creatures_state")
-local creature_ai = require("main.modules.creature.ai.creature_ai")
+local units_state = require("main.modules.game_state.units_state")
+local unit_ai = require("main.modules.unit.ai.unit_ai")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local map_config = require("main.modules.data.map_config")
 
----@class CreatureScriptContext : AICreatureContext  -- Наследуем класс ИИ!
+---@class UnitScriptContext : AIUnitContext  -- Наследуем класс ИИ!
 ---@field go_id hash
 ---@field uid string
----@field creature_id string
----@field creature_level number
----@field creature_rank string
----@field creature_type string
+---@field unit_id string
+---@field unit_level number
+---@field unit_rank string
+---@field unit_type string
 ---@field loot_table_id string
 ---@field is_from_factory boolean
 ---@field speed number                 -- Наша рабочая скорость для ИИ
@@ -32,16 +32,16 @@ local map_config = require("main.modules.data.map_config")
 ---@field saved_position vector3
 ---@field ai_is_patrolling boolean     -- Флаг снижения скорости в патруле
 
----@param self CreatureScriptContext
+---@param self UnitScriptContext
 function init(self)
     self.go_id = go.get_id()
     self.spawn_position = go.get_position()
 
     -- 1. Стерильно очищаем идентификаторы из редактора / фабрики
     local string_uid = interactions.clean_id(self.uid) or ""
-    local string_id = interactions.clean_id(self.creature_id) or "unknown_creature"
-    local string_rank = interactions.clean_id(self.creature_rank) or "common"
-    local string_type = interactions.clean_id(self.creature_type) or ""
+    local string_id = interactions.clean_id(self.unit_id) or "unknown_unit"
+    local string_rank = interactions.clean_id(self.unit_rank) or "common"
+    local string_type = interactions.clean_id(self.unit_type) or ""
     local string_loot_table_id = interactions.clean_id(self.loot_table_id) or "empty"
 
     -- Если UID пустой (моб стоит изначально в редакторе), генерируем его по координатам
@@ -60,12 +60,12 @@ function init(self)
     -- =========================================================================
     if not self.is_from_factory then
         -- Вызываем наш чистый симметричный метод-вопрос!
-        if creatures_state.is_creature_collected and creatures_state.is_creature_collected(string_uid) then
+        if units_state.is_unit_collected and units_state.is_unit_collected(string_uid) then
             go.delete()
             return
         end
 
-        if creatures_state.is_loaded_from_save and not creatures_state.exists(string_uid) then
+        if units_state.is_loaded_from_save and not units_state.exists(string_uid) then
             go.delete()
             return
         end
@@ -75,11 +75,11 @@ function init(self)
         -- Запекаем чертеж монстра в конфигуратор карты
         local entity_data = {
             id = string_id,
-            level = self.creature_level or 1,
+            level = self.unit_level or 1,
             rank = string_rank
         }
 
-        local saved_data = creatures_state.get(string_uid)
+        local saved_data = units_state.get(string_uid)
 
         local baked_position = self.spawn_position
 
@@ -90,16 +90,16 @@ function init(self)
         map_config.bake_entity(
             dynamic_chunk_id,
             string_uid,
-            "creature",
+            "unit",
             entity_data,
             baked_position or self.spawn_position
         )
 
         -- Если Души моба еще нет в реестре RAM — запекаем паспорт через M.add!
-        if not creatures_state.exists(string_uid) then
-            creatures_state.add(string_uid, {
-                creature_id = string_id,
-                level = self.creature_level or 1,
+        if not units_state.exists(string_uid) then
+            units_state.add(string_uid, {
+                unit_id = string_id,
+                level = self.unit_level or 1,
                 type = string_type,
                 rank = string_rank,
                 loot_table_id = string_loot_table_id,
@@ -111,54 +111,70 @@ function init(self)
         return
     end
 
-    -- =========================================================================
+        -- =========================================================================
     -- ⚔️ ФAЗA 2: БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для монстров из Фабрики)
     -- =========================================================================
     -- Легально вызываем инкапсулированный метод связи! Никакой ручной лапши с таблицами!
-    creatures_state.register(self.go_id, string_uid)
+    units_state.register(self.go_id, string_uid)
 
     -- Читаем чистокровные, стопроцентно защищенные данные из RAM-памяти (или файла сохранения)
-    local creature_instance_data = creatures_state.get(string_uid)
+    local unit_instance_data = units_state.get_unit_by_uid(string_uid)
 
-    -- Стучимся в статичную базу creatures_db, чтобы вытащить имя анимации и базовые скейлы
-    local db_cfg = creatures_db.get_creature(string_id)
+    -- 🛡️ 1. UNIT-КАНОН СИНХРОНИЗАЦИИ СТРОК (ДОБАВЛЕНО):
+    -- Мы берем чистокровную строку unit_id ("skeleton_warrior") НАПРЯМУЮ из RAM-паспорта!
+    -- Перезаписываем string_id, полностью уничтожая мутацию в драконов!
+    if unit_instance_data and unit_instance_data.unit_id then
+        string_id = unit_instance_data.unit_id
+    end
+    self.unit_id = string_id -- Намертво сохраняем строку в контекст объекта для on_message!
 
-    if creature_instance_data then
+    -- Стучимся в статичную базу units_db по ЧИСТОЙ, ИСПРАВЛЕННОЙ строке!
+    local db_cfg = units_db.get_unit(string_id)
+
+    if unit_instance_data then
         -- 🌟 WOW-РЕАНИМАЦИЯ ТРУПА ИЗ СЕЙВА ПОСЛЕ СТРИМИНГА ЧАНКОВ:
         -- Возвращаем на место координаты, если это загрузка сейва
-        if creature_instance_data.saved_position then
-            go.set_position(creature_instance_data.saved_position)
+        if unit_instance_data.saved_position then
+            go.set_position(unit_instance_data.saved_position)
         end
 
-        if creature_instance_data.is_dead then
+        -- 🛡️ 2. ПРИНУДИТЕЛЬНЫЙ ПЕРЕКРАС И МАСШТАБ (ПЕРЕНЕСЕНО СЮДА, ДО ГВАРДА СМЕРТИ!):
+        -- Срываем дефолтную шкуру дракона с прехаба до того, как сработает return трупа.
+        -- Теперь объект гарантированно сменит визуал на скелета в первую же наносекунду!
+        local anim_name = db_cfg and db_cfg.animation or string_id
+        if sprite then
+            sprite.play_flipbook("#sprite", hash(anim_name))
+        end
+
+        if db_cfg and db_cfg.hitbox_size then
+            local base_prefab_size = 64
+            local scale_factor = db_cfg.hitbox_size / base_prefab_size
+            go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
+        end
+
+        if unit_instance_data.is_dead then
+            for k,v in pairs(unit_instance_data) do
+                print("PAIRS", k,v)
+            end
             -- Моб заспавнился из сейва мертвым! 
             -- Нам ЗАПРЕЩЕНО жестко дергать go.set в init на первом микрокадре!
             -- Мы шлем асинхронный Си-пакет самому себе ("."), чтобы движок уложил 
             -- труп набок на следующем тике кадра, когда все компоненты на 100% запекутся!
             msg.post(".", "apply_dead_state_after_spawn")
 
-            self.loot_table_id = creature_instance_data.loot_table_id
+            self.loot_table_id = unit_instance_data.loot_table_id
             print(string.format("💀 СУЩЕСТВО [%s]: Поставили асинхронную реанимацию трупа в очередь кадра.", string_uid))
             return -- Отрезаем инициализацию живого ИИ, как у тебя и было!
         end
 
         -- Читаем сочные, уже посчитанные от уровня и ранга статы из возвращенной структуры сейва!
-        self.speed = creature_instance_data.speed or 90
-        self.hitbox_size = creature_instance_data.hitbox_size or 64
-        self.attack_range_melee = creature_instance_data.attack_range_melee or 8
-        self.ai_profile = creature_instance_data.ai_profile or "aggressive_patrol"
-        self.loot_table_id = creature_instance_data.loot_table_id
+        self.speed = unit_instance_data.speed or 90
+        self.hitbox_size = unit_instance_data.hitbox_size or 64
+        self.attack_range_melee = unit_instance_data.attack_range_melee or 8
+        self.ai_profile = unit_instance_data.ai_profile or "aggressive_patrol"
+        self.loot_table_id = unit_instance_data.loot_table_id
 
-        -- Зрячая смена спрайта
-        local anim_name = db_cfg and db_cfg.animation or string_id
-        if sprite then sprite.play_flipbook("#sprite", hash(anim_name)) end
-
-        -- Принудительный масштаб хитбокса для фабрики коллекций
-        if db_cfg and db_cfg.hitbox_size then
-            local base_prefab_size = 64
-            local scale_factor = db_cfg.hitbox_size / base_prefab_size
-            go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
-        end
+        -- (Отсюда блок смены спрайта и масштаба удален, так как мы выполнили его выше!)
     else
         -- Экстренный фоллбек, если бэкенд почему-то выдал nil
         self.speed = db_cfg and db_cfg.base_speed or 90
@@ -166,16 +182,20 @@ function init(self)
         self.attack_range_melee = db_cfg and db_cfg.attack_range_melee or 8
         self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
         self.loot_table_id = string_loot_table_id
+
+        -- Фоллбек перекраса на случай краша RAM-реестра
+        local anim_name = db_cfg and db_cfg.animation or string_id
+        if sprite then sprite.play_flipbook("#sprite", hash(anim_name)) end
     end
 
     -- Запускаем ИИ живого моба
-    creature_ai.init(self.ai_profile, self)
+    unit_ai.init(self.ai_profile, self)
 end
 
----@param self CreatureScriptContext
+---@param self UnitScriptContext
 function final(self)
-    if creatures_state.unregister then
-        creatures_state.unregister(self.go_id)
+    if units_state.unregister then
+        units_state.unregister(self.go_id)
     end
 end
 
@@ -187,7 +207,7 @@ function update(self, dt)
 
     -- Опрашиваем профиль ИИ из базы данных
 
-    local move_direction = creature_ai.update(self.ai_profile, self, dt)
+    local move_direction = unit_ai.update(self.ai_profile, self, dt)
 
     -- Если мозг выдал вектор направления движения — плавно сдвигаем Game Object в мире
     if move_direction then
@@ -211,7 +231,7 @@ function update(self, dt)
         -- Мы вызываем твой бэкенд-мутатор, передавая ему свежесчитанный vector3!
         -- Теперь gui_script на этом же кадре прочитает из RAM новые координаты,
         -- и плашка ХП плавно покатится по экрану вслед за бегущим скелетом!
-        creatures_state.update_data(self.uid, {
+        units_state.update_data(self.uid, {
             saved_position = next_position,
         })
         -- =========================================================================
@@ -229,20 +249,20 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("click") then
         interaction_manager.set_target(self.go_id, self.uid)
 
-        local creature_data = creatures_state.get(self.uid)
-        local is_unit_dead = creature_data and creature_data.is_dead or false
+        local unit_data = units_state.get(self.uid)
+        local is_unit_dead = unit_data and unit_data.is_dead or false
 
         if is_unit_dead then
             interactions.handle_click(self, 50, function()
-              local db_cfg = creatures_db.get_creature(self.creature_id)
+              local db_cfg = units_db.get_unit(self.unit_id)
 
               -- 🎯 ВЫЗЫВАЕМ ОБЩИЙ ЭКШЕН:
               actions_dispatcher.REDUCERS["container_open_world"]({
-                  entity_type = "creature",
+                  entity_type = "unit",
                   uid = self.uid,
-                  id = self.creature_id,
+                  id = self.unit_id,
                   db_cfg = db_cfg,
-                  instance_data = creature_data, -- Передали живой стейт аргументом!
+                  instance_data = unit_data, -- Передали живой стейт аргументом!
                   position = go.get_position()
               })
             end)
@@ -251,7 +271,7 @@ function on_message(self, message_id, message, sender)
         end
     end
 
-    if message_id == hash("on_creature_damaged") then
+    if message_id == hash("on_unit_damaged") then
         -- 🎯 RIMWORLD-КАНОН (Вспышка урона):
         -- 1. Мгновенно выставляем цвет спрайта в чистый ярко-красный vector4(2, 0, 0, 1)
         -- (Мы задираем R в двойку, чтобы красный цвет сочно светился даже через шейдеры!)
@@ -262,14 +282,14 @@ function on_message(self, message_id, message, sender)
         -- Никаких Lua-таймеров в update, движок все обсчитает нативно на Си-уровне!
         go.animate("#sprite", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(1, 1, 1, 1), go.EASING_OUTSINE, 0.15)
 
-    elseif message_id == hash("on_creature_died") then
+    elseif message_id == hash("on_unit_died") then
         -- 1. Стучимся в Модель и официально выставляем флаг смерти в RAM!
         -- Мы передаем текущие нулевые параметры здоровья и флаг, что юнит мертв
         local current_position = go.get_position()
         local dead_body_pos = vmath.vector3(current_position.x, current_position.y, 0.9)
         go.set_position(dead_body_pos)
 
-        creatures_state.update_data(self.uid, {
+        units_state.update_data(self.uid, {
             health = 0,
             is_dead = true,
             saved_position = dead_body_pos
@@ -284,7 +304,7 @@ function on_message(self, message_id, message, sender)
         local rotation_quat = vmath.quat_rotation_z(math.rad(-90))
         go.set_rotation(rotation_quat)
 
-        creature_ai.disable(self)
+        unit_ai.disable(self)
         interaction_manager.clear_target()
 
         print(string.format("💀 СУЩЕСТВО [%s]: Физическое тело перешло в режим ТРУПА. Ждем обыска карманов.", self.uid))
@@ -301,7 +321,7 @@ function on_message(self, message_id, message, sender)
         go.set_rotation(rotation_quat)
 
         -- Наглухо обесточиваем покадровую логику ИИ
-        creature_ai.disable(self)
+        unit_ai.disable(self)
         return
     end
 end

@@ -88,6 +88,6 @@ return {
     ["menu_open"] = "Открыть",
 
     -- Nameplates
-    ["creature_dead_suffix"] = "мертв"
+    ["unit_dead_suffix"] = "мертв"
 }
 

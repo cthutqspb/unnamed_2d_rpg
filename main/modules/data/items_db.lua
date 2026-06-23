@@ -65,11 +65,11 @@ local M = {}
 
 ---@type table<string, any>
 M.items_raw = {
-    ["creature_loot_bag"] = {
+    ["unit_loot_bag"] = {
         action_type = "container_item",
         name_key = "container_chest_common_name",
         desc_key = "container_chest_common_desc",
-        animation = "creature_loot_bag",
+        animation = "unit_loot_bag",
         tile_index = 3408,
         texture = "project_utumno",
         type = "container",

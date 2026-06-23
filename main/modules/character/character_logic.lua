@@ -1,6 +1,7 @@
 local paperdoll = require("main.modules.player.player_paperdoll")
 local items_db = require("main.modules.data.items_db")
 local character_data = require("main.modules.character.character_data")
+local units_state = require("main.modules.game_state.units_state")
 local broadcast = require("main.modules.system.broadcast") -- Подключаем шину событий
 
 ---@class CharacterLogicModule
@@ -22,6 +23,17 @@ function M.get_total_stat(stat_name)
         end
     end
     return total
+end
+
+---Покадрово зафиксировать новые координаты игрока в RAM-памяти бэкенда
+---@param position vector3 Текущие нативные Си-координаты из go.get_position()
+function M.update_position(position)
+    -- Шлём Си-вектор в наш единый мутатор стейта.
+    -- Модуль сам применит пуленепробиваемое округление пикселей (+0.5) 
+    -- и защитит будущие JSON-сейвы от нано-дроби floating-point!
+    units_state.update_data("player", {
+        saved_position = position
+    })
 end
 
 ---Вычислить максимальный запас здоровья на основе текущей выносливости (Stamina)

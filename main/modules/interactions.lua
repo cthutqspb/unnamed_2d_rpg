@@ -20,7 +20,7 @@ local MOVE_THRESHOLD = 5
 local GROUPS = {
     hash("container"),  -- Сундуки, бочки, трупы
     hash("item_loot"),  -- Вещи на земле
-    hash("creature"),   -- Кабаны, росянки, NPC
+    hash("unit"),   -- Кабаны, росянки, NPC
     hash("interactable")        -- Двери, рычаги, разрушаемый декор
 }
 

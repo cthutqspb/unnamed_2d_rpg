@@ -15,7 +15,7 @@ function M:init(template_id)
     end
 
     self.nodes = {
-        --keys         
+        -- keys         
         stamina = get_node("player_stamina_title"),
         agility = get_node("player_agility_title"),
         strength = get_node("player_strength_title"),
@@ -29,11 +29,16 @@ function M:init(template_id)
         health = get_node("player_health_value")
     }
 
-    -- Динамически собираем ноды статов на основе данных из модуля
+    -- 🛡️ ЗАЩИТА ТАЙМИНГОВ: Страхуем чтение таблицы статов от nil!
+    -- Если бэкенд стейта еще не успел прогрузиться из-за циклического require, 
+    -- мы подставляем пустую таблицу. Druid соберет пустой массив нод статов, 
+    -- не ломая логику init(), и окно успешно создастся в памяти!
+    local player = character_data.player
+    local base_stats = (player and player.stats) or {}
+
     self.stat_nodes = {}
-    for stat_id, _ in pairs(character_data.player.stats) do
+    for stat_id, _ in pairs(base_stats) do
         local path = template_id .. "/player_" .. stat_id .. "_value"
-        -- Проверяем наличие ноды один раз при инициализации
         local ok, node = pcall(gui.get_node, path)
         if ok then
             self.stat_nodes[stat_id] = node
@@ -44,24 +49,31 @@ function M:init(template_id)
 end
 
 function M:update_display()
+    -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
     local player = character_data.player
-    
+    if not player or not player.stats or not player.current_stats then 
+        return 
+    end
+
     -- keys
     gui.set_text(self.nodes.stamina, locales.get("stat_stamina"))
     gui.set_text(self.nodes.agility, locales.get("stat_agility"))
     gui.set_text(self.nodes.strength, locales.get("stat_strength"))
     gui.set_text(self.nodes.intellect, locales.get("stat_intellect"))
 
-
-    gui.set_text(self.nodes.name, player.name)
-    gui.set_text(self.nodes.race, player.race)
-    gui.set_text(self.nodes.class, player.class)
-    gui.set_text(self.nodes.level, tostring(player.level))
-    gui.set_text(self.nodes.health, player.health .. " / " .. player.max_health)
+    -- values
+    -- Добавляем к строкам or "" или or "0" на случай, если поля паспорта еще пустые
+    gui.set_text(self.nodes.name, player.name or "Unknown")
+    gui.set_text(self.nodes.race, player.race or "human")
+    gui.set_text(self.nodes.class, player.class or "warrior")
+    gui.set_text(self.nodes.level, tostring(player.level or 1))
+    
+    local current_hp = player.health or 100
+    local maximum_hp = player.max_health or 100
+    gui.set_text(self.nodes.health, current_hp .. " / " .. maximum_hp)
     
     -- Обновляем только те статы, для которых нашлись ноды в GUI
     for stat_id, node in pairs(self.stat_nodes) do
-        ---@type number, number
         local current = player.current_stats[stat_id] or 0
         local base = player.stats[stat_id] or 0
         local bonus = current - base

@@ -77,6 +77,6 @@ return {
     ["menu_open"] = "Open",
 
     -- Nameplates
-    ["creature_dead_suffix"] = "dead"
+    ["unit_dead_suffix"] = "dead"
 }
 

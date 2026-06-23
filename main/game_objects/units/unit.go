@@ -1,6 +1,6 @@
 components {
-  id: "creature"
-  component: "/main/game_objects/units/creatures/creature.script"
+  id: "unit"
+  component: "/main/game_objects/units/unit.script"
 }
 embedded_components {
   id: "interaction_collider"
@@ -9,7 +9,7 @@ embedded_components {
   "mass: 0.0\n"
   "friction: 0.1\n"
   "restitution: 0.5\n"
-  "group: \"creature\"\n"
+  "group: \"unit\"\n"
   "mask: \"mouse\"\n"
   "embedded_collision_shape {\n"
   "  shapes {\n"
@@ -32,7 +32,7 @@ embedded_components {
 embedded_components {
   id: "sprite"
   type: "sprite"
-  data: "default_animation: \"skeleton_warrior\"\n"
+  data: "default_animation: \"default\"\n"
   "material: \"/builtins/materials/sprite.material\"\n"
   "size {\n"
   "  x: 64.0\n"
@@ -55,9 +55,9 @@ embedded_components {
   "mass: 0.0\n"
   "friction: 0.1\n"
   "restitution: 0.5\n"
-  "group: \"creature\"\n"
+  "group: \"unit\"\n"
   "mask: \"player\"\n"
-  "mask: \"creature\"\n"
+  "mask: \"unit\"\n"
   "embedded_collision_shape {\n"
   "  shapes {\n"
   "    shape_type: TYPE_SPHERE\n"

@@ -104,7 +104,7 @@ M.REDUCERS = {
     end,
 
     ["item_drop"] = function(data)
-        local player_position = character_data.player.last_position
+        local player_position = character_data.player.saved_position
         local source = data.source_model or interaction_manager.get_player_inventory()
 
         local calculated_drop_pos = vmath.vector3(player_position.x, player_position.y + 40, 0)
@@ -139,9 +139,9 @@ M.REDUCERS = {
     ["container_open_world"] = function(data)
         -- Передаем из скриптов: 
         -- data.uid (self.uid)
-        -- data.id (self.creature_id или self.item_id)
+        -- data.id (self.unit_id или self.item_id)
         -- data.db_cfg (базовый конфиг из базы существ или предметов)
-        -- data.instance_data (живая Lua-таблица из creatures_state или world_items_state)
+        -- data.instance_data (живая Lua-таблица из units_state или world_items_state)
         -- data.position (go.get_position())
 
         local instance = data.instance_data
@@ -238,7 +238,7 @@ M.REDUCERS = {
     --     print("-------------------")
     -- end,
 
-    ["creature_attack"] = function(data)
+    ["unit_attack"] = function(data)
         -- ⚔️ ЗАДЕЛ НА БУДУЩЕЕ: Сюда прилетит клик "Атаковать кабана" из меню!
         print("БЭКЕНД БОЯ: Начинаем охоту на кабана:", data.target_go_id)
     end,

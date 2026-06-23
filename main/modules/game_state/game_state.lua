@@ -1,12 +1,12 @@
 local world_items_state = require("main.modules.game_state.world_items_state")
 local containers_state = require("main.modules.game_state.containers_state")
-local creatures_state = require("main.modules.game_state.creatures_state")
+local units_state = require("main.modules.game_state.units_state")
 
 local M = {}
 
 ---Узнать тип объекта и получить его чистые данные по go_id из мира (из рейкаста)
 ---@param go_id hash Идентификатор игрового объекта из физического луча мыши
----@return string|nil kind Тип объекта ("world_object", "world_item", "creature")
+---@return string|nil kind Тип объекта ("world_object", "world_item", "unit")
 ---@return string|nil uid Уникальный строковый UID объекта в реестре состояний
 ---@return table|nil data Таблица чистых данных объекта
 function M.get_inspect_info(go_id)
@@ -27,10 +27,10 @@ function M.get_inspect_info(go_id)
     end
 
     ---@type any
-    local creatures_uid = creatures_state.instances[go_id]
-    if creatures_uid then
-        local data = creatures_state.get(creatures_uid)
-        return "creature", creatures_uid, data
+    local units_uid = units_state.instances[go_id]
+    if units_uid then
+        local data = units_state.get(units_uid)
+        return "unit", units_uid, data
     end
 
     return nil, nil, nil
@@ -48,8 +48,82 @@ function M.get_full_save_data()
         world_items_state = world_items_state.get_all(),
         -- containers_state = containers_state.get_all(),
         -- 🦾 Скелеты и Дракон теперь честно запечатываются в файл сохранения!
-        creatures_state = creatures_state.get_all()
+        units_state = units_state.get_all()
     }
+end
+
+---Получить полную структуру данных игрока как Универсального Юнита из реестра (WoW-Фасад)
+---@return UnitInstanceData|nil Возвращает паспорт игрока из RAM
+function M.get_player_data()
+    if units_state and units_state.get_unit_by_uid then
+        return units_state.get_unit_by_uid("player")
+    end
+    return nil
+end
+
+---Универсальный Сервис-Локатор (Канон BG3 / Osiris): Каскадный поиск сущности по её UID
+---@param uid string Уникальный строковый идентификатор из Tiled или фабрики ("Mage_Boss", "i_X_Y", "Main_Quest_Chest")
+---@return table|nil data Возвращает RAM-паспорт Души объекта (юнита, предмета или контейнера)
+function M.get_entity_by_uid(uid)
+    if not uid or uid == "" or uid == hash("") then return nil end
+
+    -- 🦾 КAСКAДНЫЙ WoW-ПОИСК:
+    -- Мы последовательно заглядываем в реестры RAM по хэш-ключам. 
+    -- Поиск в мапах Lua происходит за O(1) Си-тактов, поэтому нагрузка равна нулю!
+
+    -- 1. Сначала ищем в Юнитах (Игрок, Скелеты, Драконы, Боссы из Tiled)
+    if units_state and units_state.get_unit_by_uid then
+        local unit_data = units_state.get_unit_by_uid(uid)
+        if unit_data then return unit_data end
+    end
+
+    -- 2. Если не нашли, заглядываем в Предметы на земле (Дроп и статические шмотки)
+    if world_items_state and world_items_state.get_item_by_uid then
+        local item_data = world_items_state.get_item_by_uid(uid)
+        if item_data then return item_data end
+    end
+
+    -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
+    if containers_state and containers_state.get then
+        local container_data = containers_state.get(uid)
+        if container_data then return container_data end
+    end
+
+    -- Сущность полностью отсутствует во вселенной RAM игры
+    return nil
+end
+
+---Получить список всех зарегистрированных на сцене физических Game Object ID юнитов
+---@return table<hash, string> -- Мапа, где ключ - go_id движка, а значение - строковый uid
+function M.get_active_unit_instances()
+    if units_state and units_state.instances then
+        return units_state.instances
+    end
+    return {}
+end
+
+---Взвести или сбросить флаг боя для юнита в реестре RAM (ИСПРАВЛЕНО)
+---@param uid string Уникальный строковый UID монстра ("c_X_Y")
+---@param is_combat boolean true, если моб вступает в бой, false — если выходит
+function M.set_combat(uid, is_combat)
+    -- Мы легально и безопасно прокидываем вызов во внутренний units_state,
+    -- полностью избавляя внешние скрипты ИИ от этой лапши!
+    if units_state and units_state.set_combat then
+        units_state.set_combat(uid, is_combat)
+    end
+end
+
+
+---Принудительно создать чистокровный Unit-паспорт для игрока в RAM при Новой Игра (ИСПРАВЛЕНО)
+---@param default_props table Дефолтные характеристики (unit_id, stats и т.д.)
+---@return UnitInstanceData|nil Возвращает созданную таблицу паспорта
+function M.create_player_unit(default_props)
+    if units_state and units_state.add then
+        -- Вызываем инкапсулированный метод add через Фасад!
+        units_state.add("player", default_props)
+        return units_state.get_unit_by_uid("player")
+    end
+    return nil
 end
 
 ---Раздача прилетевших из JSON данных обратно в оперативную память Lua
@@ -85,9 +159,9 @@ function M.restore_all(full_data)
 
     -- 3. 🦾 РEСТAВРAЦИЯ МОНСТРОВ (Породоистый WoW-канон):
     -- Возвращаем Скелетов в живую память бэкенда при загрузке сейва!
-    if full_data.creatures_state and creatures_state.restore_all then
-        print("Restoring creatures_state...")
-        creatures_state.restore_all(full_data.creatures_state)
+    if full_data.units_state and units_state.restore_all then
+        print("Restoring units_state...")
+        units_state.restore_all(full_data.units_state)
     end
 
     print("--- DEBUG: RESTORE ALL END ---")
@@ -99,7 +173,7 @@ function M.clear_all()
     if world_items_state.clear then world_items_state.clear() end
     if containers_state.clear then containers_state.clear() end
     -- 🦾 Чистим Скелетов, страхуя рантайм от фантомных ранений прошлого прохождения!
-    if creatures_state.clear then creatures_state.clear() end
+    if units_state.clear then units_state.clear() end
 end
 
 return M

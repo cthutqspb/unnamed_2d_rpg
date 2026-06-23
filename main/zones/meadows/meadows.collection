@@ -1,32 +1,22 @@
 name: "meadows"
 instances {
   id: "dragon"
-  prototype: "/main/game_objects/units/creatures/dragon.go"
+  prototype: "/main/game_objects/units/unit.go"
   position {
     x: 5590.0
     y: 2630.0
     z: 1.0
   }
   component_properties {
-    id: "creature"
+    id: "unit"
     properties {
       id: "uid"
-      value: "green_dragon_01"
+      value: "dragon_01"
       type: PROPERTY_TYPE_HASH
     }
     properties {
-      id: "creature_id"
+      id: "unit_id"
       value: "elder_green_dragon"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_level"
-      value: "50.0"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "creature_rank"
-      value: "rare"
       type: PROPERTY_TYPE_HASH
     }
   }
@@ -42,83 +32,47 @@ instances {
 }
 instances {
   id: "sceleton_warrior"
-  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
+  prototype: "/main/game_objects/units/unit.go"
   position {
     x: 5052.0527
     y: 3044.74
     z: 1.0
   }
   component_properties {
-    id: "creature"
+    id: "unit"
     properties {
       id: "uid"
-      value: "skel01"
+      value: "skeleton_01"
       type: PROPERTY_TYPE_HASH
     }
     properties {
-      id: "creature_id"
+      id: "unit_id"
       value: "skeleton_warrior"
       type: PROPERTY_TYPE_HASH
     }
     properties {
       id: "loot_table_id"
-      value: "creature_common"
+      value: "unit_common"
       type: PROPERTY_TYPE_HASH
     }
   }
 }
 instances {
   id: "sceleton_warrior1"
-  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
+  prototype: "/main/game_objects/units/unit.go"
   position {
     x: 5265.7285
     y: 3155.4863
     z: 1.0
   }
-  component_properties {
-    id: "creature"
-    properties {
-      id: "uid"
-      value: "skel02"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_id"
-      value: "skeleton_warrior"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "loot_table_id"
-      value: "creature_common"
-      type: PROPERTY_TYPE_HASH
-    }
-  }
 }
 instances {
   id: "sceleton_warrior2"
-  prototype: "/main/game_objects/units/creatures/sceleton_warrior.go"
+  prototype: "/main/game_objects/units/unit.go"
   position {
     x: 5330.8735
     y: 3039.5283
     z: 1.0
-  }
-  component_properties {
-    id: "creature"
-    properties {
-      id: "uid"
-      value: "skel03"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "creature_id"
-      value: "skeleton_warrior"
-      type: PROPERTY_TYPE_HASH
-    }
-    properties {
-      id: "loot_table_id"
-      value: "creature_common"
-      type: PROPERTY_TYPE_HASH
-    }
   }
 }
 instances {
@@ -165,7 +119,7 @@ instances {
   prototype: "/main/game_objects/world_item/world_item.go"
   position {
     x: 4507.524
-    y: 2581.6206
+    y: 2582.6206
     z: 1.0
   }
   component_properties {

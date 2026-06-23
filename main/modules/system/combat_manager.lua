@@ -1,5 +1,5 @@
 local character_logic = require("main.modules.character.character_logic")
-local creatures_state = require("main.modules.game_state.creatures_state")
+local units_state = require("main.modules.game_state.units_state")
 local abilities_db = require("main.modules.data.abilities_db")
 local broadcast = require("main.modules.system.broadcast")
 
@@ -83,46 +83,46 @@ function M.apply_damage(attacker_id, target_id, raw_damage)
         -- А пока — просто скармливаем чистый, пробивший щиты урон в модель здоровья!
         character_logic.take_damage(final_damage)
 
-        local creature_uid = creatures_state.instances[attacker_id]
-        if not creature_uid then return end
+        local unit_uid = units_state.instances[attacker_id]
+        if not unit_uid then return end
 
-        local creature_data = creatures_state.get(creature_uid)
-        if not creature_data or creature_data.health <= 0 then return end
+        local unit_data = units_state.get(unit_uid)
+        if not unit_data or unit_data.health <= 0 then return end
 
-        log_message = string.format("💥 БОЙ: Юнит %s [%s] нанес -%d урона игроку!", creature_data.creature_id, creature_uid, final_damage)
+        log_message = string.format("💥 БОЙ: Юнит %s [%s] нанес -%d урона игроку!", unit_data.unit_id, unit_uid, final_damage)
 
         broadcast.send("combat_events", { event = "player_damaged", amount = final_damage })
 
     -- СЛУЧАЙ Б: Игрок (или летящий Ледяной Болт) бьет Скелета/Дракона
     else
         -- target_id здесь — это Си-идентификатор go_id тушки моба на карте Meadows
-        local creature_uid = creatures_state.instances[target_id]
-        if not creature_uid then return end
+        local unit_uid = units_state.instances[target_id]
+        if not unit_uid then return end
 
-        local creature_data = creatures_state.get(creature_uid)
-        if not creature_data or creature_data.health <= 0 then return end
+        local unit_data = units_state.get(unit_uid)
+        if not unit_data or unit_data.health <= 0 then return end
 
         -- Списываем ХП у монстра внутри его живой бэкенд-таблицы
-        creature_data.health = math.max(0, creature_data.health - raw_damage)
+        unit_data.health = math.max(0, unit_data.health - raw_damage)
         log_message = string.format("💥 БОЙ: Юниту %s [%s] нанесено -%d урона! Живое ХП: %d/%d",
-            creature_data.creature_id, creature_uid, raw_damage, creature_data.health, creature_data.max_health)
+            unit_data.unit_id, unit_uid, raw_damage, unit_data.health, unit_data.max_health)
         print(log_message)
 
         -- Шлёма бродкаст, чтобы рамка ховера и верхняя полоска ХП цели перерисовались
-        broadcast.send("combat_events", { event = "creature_attacked", go_id = target_id, uid = creature_uid })
+        broadcast.send("combat_events", { event = "unit_attacked", go_id = target_id, uid = unit_uid })
 
         
         -- Если мертвец окончательно испустил дух:
-        if creature_data.health <= 0 then
-            log_message = string.format("💀 БОЙ: Юнит %s [%s] пал в бою!", creature_data.creature_id, creature_uid)
+        if unit_data.health <= 0 then
+            log_message = string.format("💀 БОЙ: Юнит %s [%s] пал в бою!", unit_data.unit_id, unit_uid)
             print(log_message)
-            msg.post(target_id, "on_creature_died")
+            msg.post(target_id, "on_unit_died")
             -- Стираем Си-тело монстра с Meadows-земли
 
             -- go.delete(target_id)
-            -- creatures_state.unregister вызовется нативно внутри final() удаляемого скрипта существа!
+            -- units_state.unregister вызовется нативно внутри final() удаляемого скрипта существа!
         else 
-            msg.post(target_id, "on_creature_damaged")
+            msg.post(target_id, "on_unit_damaged")
         end
     end
 

@@ -83,8 +83,14 @@ end
 ---@param dt number
 function update(self, dt)
     local player = character_data.player
+    if not player or not player.stats or not player.current_stats then 
+        return 
+    end
+
     local position = go.get_position()
-    character_data.player.last_position = { x = position.x, y = position.y, z = position.z }
+    
+    character_logic.update_position(position)
+
     local hp_mod = (player.health < 20) and 0.50 or 1.0
     local current_speed = self.base_speed * hp_mod
 
@@ -269,8 +275,8 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("contact_point_response") then
         -- 🎯 ФИКС СТАЛКИВАНИЯ МОНСТРОВ:
-        -- Разрешаем коду выталкивания срабатывать И для стен, И для группы creature!
-        if message.group == hash("wall") or message.group == hash("creature") then
+        -- Разрешаем коду выталкивания срабатывать И для стен, И для группы unit!
+        if message.group == hash("wall") or message.group == hash("unit") then
             -- Твой оригинальный рабочий код выталкивания персонажа из препятствий:
             local new_position = go.get_position() + message.normal * message.distance
             go.set_position(new_position)

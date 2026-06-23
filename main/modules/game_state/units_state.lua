@@ -1,10 +1,13 @@
-local creatures_db = require("main.modules.data.creatures_db")
+local units_db = require("main.modules.data.units_db")
 
----@class CreatureInstanceData
+---@class UnitInstanceData
+---@field is_player boolean
 ---@field name_key string
----@field creature_id string Строковый ID вида ("skeleton")
+---@field unit_id string Строковый ID вида ("skeleton")
 ---@field uid string Уникальный строковый UID конкретного монстра
 ---@field level number Текущий уровень существа
+---@field stats table<string, number>
+---@field current_stats table<string, number>
 ---@field type string Тип существа ("undead", "beast", "humanoid")
 ---@field rank string Ранг сложности ("common", "rare", "elite")
 ---@field loot_table_id string
@@ -22,6 +25,7 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field is_in_combat boolean|nil
 ---@field is_dead boolean|nil
 ---@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
+---@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
 ---@field ai_target vector3|nil
 
 ---@class RankModifiers
@@ -30,14 +34,14 @@ local creatures_db = require("main.modules.data.creatures_db")
 ---@field resists table<string, number> Задел под резисты к стихиям (fire, frost и т.д.)
 ---@field bonus_abilities string[] Список дополнительных способностей, открываемых рангом
 
----@class CreaturesState
----@field registry table<string, CreatureInstanceData>
+---@class UnitState
+---@field registry table<string, UnitInstanceData>
 ---@field instances table<hash, string>
 ---@field is_loaded_from_save boolean
 local M = {}
 
--- Главный реестр живых монстров в оперативной памяти [uid] = CreatureInstanceData
----@type table<string, CreatureInstanceData>
+-- Главный реестр живых монстров в оперативной памяти [uid] = UnitInstanceData
+---@type table<string, UnitInstanceData>
 M.registry = {}
 
 -- Быстрая телефонная книга связи физического go_id с бэкенд-уидом [go_id] = uid
@@ -102,43 +106,66 @@ function M.add(uid, props)
         return M.registry[uid]
     end
 
-    local cfg = creatures_db.get_creature(props.creature_id)
-    if not cfg then
-        print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.creature_id)
-        return nil
+    -- local cfg = units_db.get_unit(props.unit_id)
+    -- if not cfg then
+    --     print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.unit_id)
+    --     return nil
+    -- end
+
+    -- 🎯 WoW-ГВАРД ИСКЛЮЧЕНИЯ ИГРОКА (ИСПРАВЛЕНО):
+    -- Если создается Юнит игрока, мы полностью пропускаем проверку по базе монстров units_db, 
+    -- так как у игрока свои собственные кастомные статы, расы и классы!
+    local is_player_unit = (uid == "player" or props.is_player == true)
+
+    if not is_player_unit then
+        -- Ветка монстров: Жестко проверяем шаблон по статичной базе units_db
+        local cfg = units_db.get_unit(props.unit_id)
+        if not cfg then
+            print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.unit_id)
+            return nil
+        end
+        
+        -- ... твой зеркальный код расчета ХП и Дамага монстра от уровня и ранга (level_modifier) ...
+        -- ... (max_hp = math.floor, final_dmg = math.floor) ...
     end
 
     -- Математика скалирования характеристик от уровня
-    local level_modifier_hp = math.pow(cfg.hp_growth, props.level - 1)
-    local level_modifier_dmg = math.pow(cfg.damage_growth, props.level - 1)
+    -- local level_modifier_hp = math.pow(cfg.hp_growth, props.level - 1)
+    -- local level_modifier_dmg = math.pow(cfg.damage_growth, props.level - 1)
+    --
+    -- local max_hp = math.floor(cfg.base_hp * level_modifier_hp)
+    -- local final_dmg = math.floor(cfg.base_damage * level_modifier_dmg)
+    --
+    -- -- Расчет множителей ранга существа
+    -- local rank_mods = compute_rank_modifiers(props.rank)
+    -- max_hp = math.floor(max_hp * rank_mods.hp_mult)
+    -- final_dmg = math.floor(final_dmg * rank_mods.dmg_mult)
 
-    local max_hp = math.floor(cfg.base_hp * level_modifier_hp)
-    local final_dmg = math.floor(cfg.base_damage * level_modifier_dmg)
-
-    -- Расчет множителей ранга существа
-    local rank_mods = compute_rank_modifiers(props.rank)
-    max_hp = math.floor(max_hp * rank_mods.hp_mult)
-    final_dmg = math.floor(final_dmg * rank_mods.dmg_mult)
-
-    ---@type CreatureInstanceData
     local instance_data = {
-        name_key = cfg.name_key,
-        creature_id = props.creature_id,
         uid = uid,
-        level = props.level,
+        unit_id = props.unit_id or "unknown",
+        name_key = props.name_key or "unknown_name",
+        is_player = (props.is_player == true),
         type = props.type or "undead",
         rank = props.rank,
+        level = props.level or 1,
+        experience = props.experience or 0,
+        health = props.health or 100,
+        max_health = props.max_health or 100,
+        mana = props.mana,
+        max_mana = props.max_mana,
+        --damage = final_dmg,
+        --speed = cfg.base_speed,
+        hitbox_size = props.hitbox_size or 64,
         loot_table_id = props.loot_table_id,
         is_collected = false,
-        max_health = max_hp,
-        health = max_hp,
-        damage = final_dmg,
-        speed = cfg.base_speed,
-        hitbox_size = cfg.hitbox_size,
-        attack_range_melee = cfg.attack_range_melee,
-        ai_profile = cfg.ai_profile or "aggressive_patrol",
-        -- СЕРИАЛИЗАЦИОННЫЙ ФИКС: Храним как плоскую JSON-таблицу чисел {x, y}
-        saved_position = props.saved_position
+        --attack_range_melee = cfg.attack_range_melee,
+        --ai_profile = cfg.ai_profile or "aggressive_patrol",
+        stats = props.stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 },
+        current_stats = props.current_stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 },
+        saved_position = props.saved_position or vmath.vector3(0, 0, 1.0),
+        is_dead = (props.is_dead == true),
+        action_bars = props.action_bars or {}
     }
 
     M.registry[uid] = instance_data
@@ -170,6 +197,16 @@ function M.remove(uid)
     end
 end
 
+
+---@param uid string Уникальный строковый идентификатор ("player" или "c_X_Y")
+---@return UnitInstanceData|nil Возвращает таблицу живого паспорта юнита из RAM
+function M.get_unit_by_uid(uid)
+    if M.registry and M.registry[uid] then
+        return M.registry[uid]
+    end
+    return nil
+end
+
 ---Проверить, существует ли Душа монстра в глобальной памяти бэкенда
 ---@param uid string
 ---@return boolean
@@ -180,7 +217,7 @@ end
 ---Дополнительный быстрый метод-вопрос для скриптов
 ---@param uid string
 ---@return boolean
-function M.is_creature_collected(uid)
+function M.is_unit_collected(uid)
     if M.registry and M.registry[uid] then
         return M.registry[uid].is_collected == true
     end
@@ -189,13 +226,13 @@ end
 
 ---Получить динамические данные монстра по его UID
 ---@param uid string
----@return CreatureInstanceData|nil
+---@return UnitInstanceData|nil
 function M.get(uid)
     return M.registry[uid]
 end
 
 ---Получить весь реестр живых монстров (для сохранения игры)
----@return table<string, CreatureInstanceData>
+---@return table<string, UnitInstanceData>
 function M.get_all()
     return M.registry
 end
@@ -205,25 +242,25 @@ end
 function M.restore_all(data)
     M.registry = data or {}
     M.is_loaded_from_save = true
-     print("🔬 [creatures_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
+     print("🔬 [units_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
     -- 🎯 ЧИСТОКРОВНАЯ РЕГЕНЕРАЦИЯ ВЕКТОРОВ ПРИ ЗАГРУЗКЕ СЕЙВА:
     -- Пробегаем по всем восстановленным паспортам монстров в RAM.
     -- Кто превратил вектор в плоскую таблицу для сейва — тот сам возвращает его назад!
-    for uid, creature_data in pairs(M.registry) do
-        local saved_pos = creature_data.saved_position
+    for uid, unit_data in pairs(M.registry) do
+        local saved_pos = unit_data.saved_position
          print(string.format("🔬   UID: %s | Жив: %s | Позиция в сейве: X=%s, Y=%s",
-            uid, tostring(not creature_data.is_dead),
+            uid, tostring(not unit_data.is_dead),
             tostring(saved_pos and saved_pos.x), tostring(saved_pos and saved_pos.y)))
         -- Если позиция прилетела из JSON-файла как плоская таблица {x, y, z}
         if saved_pos and type(saved_pos) == "table" then
             -- 💥 МЫ НА ЛЕТУ ВОЗВРАЩАЕМ ЕЙ СТАТУС ВЕКТОРА DEFOLD!
             -- Мы берём сохранённый .z без всякого хардкода! У трупа там нативно 
             -- восстановится честный слой 0.9, а у живого моба — слой 1.0!
-            creature_data.saved_position = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 1.0)
+            unit_data.saved_position = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 1.0)
         end
     end
 
-    print("💾 БЭКЕНД [creatures_state]: Все JSON-координаты монстров успешно переведены в Си-векторы vmath.vector3!")
+    print("💾 БЭКЕНД [units_state]: Все JSON-координаты монстров успешно переведены в Си-векторы vmath.vector3!")
 end
 
 function M.clear()
@@ -295,13 +332,13 @@ end
 ---Проверить, находится ли Душа моба в боевом состоянии (WoW-канон)
 ---@param uid string
 ---@return boolean
-function M.is_creature_in_combat(uid)
-    local creature_state = M.registry and M.registry[uid]
-    if not creature_state then return false end
+function M.is_unit_in_combat(uid)
+    local unit_state = M.registry and M.registry[uid]
+    if not unit_state then return false end
 
     -- Вся логика флагов ИИ и агро спрятана внутри синглтона стейта!
     -- Прямое, моментальное чтение полей без создания ООП-геттеров и метатаблиц!
-    return creature_state.is_in_combat == true or creature_state.ai_target ~= nil
+    return unit_state.is_in_combat == true or unit_state.ai_target ~= nil
 end
 
 -- =========================================================================

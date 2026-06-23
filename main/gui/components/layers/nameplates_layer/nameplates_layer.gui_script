@@ -1,7 +1,7 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local camera = require("orthographic.camera")
-local creatures_state = require("main.modules.game_state.creatures_state")
+local units_state = require("main.modules.game_state.units_state")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local locales = require("main.modules.data.locales.locale_manager")
 local NameplateInstance = require("main.gui.components.layers.nameplates_layer.NameplateInstance")
@@ -13,33 +13,33 @@ function init(self)
 
     local current_gui_url = msg.url()
     self.on_combat_event = function(data)
-        if data.event == "creature_attacked" then
-            msg.post(current_gui_url, "creature_attacked", {
+        if data.event == "unit_attacked" then
+            msg.post(current_gui_url, "unit_attacked", {
                 update_type = data.type,
                 uid = data.uid
             })
         end
     end
     -- msg.post(".", "")
-    -- if creatures_state and creatures_state.instances
-    --     for go_id, uid in pairs(creatures_state.instances) do
+    -- if units_state and units_state.instances
+    --     for go_id, uid in pairs(units_state.instances) do
     --         if
-    --         plate.instance:update_state(creature_instance_data)
+    --         plate.instance:update_state(unit_instance_data)
     --     end
     -- end
-    -- for go_id, uid in pairs(creatures_state.instances) do
-    --     if creatures_state and creatures_state.exists(uid) then
-    --         self.created_plates[uid].instance:update_state(creatures_state.get(uid))
+    -- for go_id, uid in pairs(units_state.instances) do
+    --     if units_state and units_state.exists(uid) then
+    --         self.created_plates[uid].instance:update_state(units_state.get(uid))
     --     end
     -- end
 
-    -- if creatures_state and creatures_state.instances then
-    --     for go_id, uid in pairs(creatures_state.instances) do
+    -- if units_state and units_state.instances then
+    --     for go_id, uid in pairs(units_state.instances) do
     --       print("UID!", uid )
     --           --msg.post(current_gui_url, "plate_update", {uid = uid})
     --     end
     -- end
-    -- for k, v in pairs(creatures_state.instances) do
+    -- for k, v in pairs(units_state.instances) do
     --     print("UID!", k,v )
     -- end
     -- print('PLATES', self.created_plates)
@@ -61,25 +61,25 @@ function update(self, dt)
     -- ========================================================
     -- 🤖 ШАГ 1: ЛЕНИВЫЙ СПАВН ПЛАШЕК ИЗ ЖИВЫХ ИНСТАНСОВ В RAM
     -- ========================================================
-    if creatures_state and creatures_state.instances then
-        for go_id, uid in pairs(creatures_state.instances) do
+    if units_state and units_state.instances then
+        for go_id, uid in pairs(units_state.instances) do
             if not self.created_plates[uid] then
-                local creature_data = creatures_state.get(uid)
-                if creature_data then
+                local unit_data = units_state.get(uid)
+                if unit_data then
                     local cloned_nodes = gui.clone_tree(gui.get_node("root"))
                     local root_node = cloned_nodes[hash("root")]
                     gui.set_enabled(root_node, true)
 
                     local plate_instance = self.druid:new(NameplateInstance, root_node, cloned_nodes)
-                    plate_instance:update_state(creature_data)
+                    plate_instance:update_state(unit_data)
                     -- Записываем стартовый текст имени
-                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(creature_data.name_key or "unknown_creature"))
+                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(unit_data.name_key or "unknown_unit"))
 
                     self.created_plates[uid] = {
                         go_id = go_id,
                         root_node = root_node,
                         instance = plate_instance,
-                        kind = "creature"
+                        kind = "unit"
                     }
                 end
             end
@@ -100,7 +100,7 @@ function update(self, dt)
         local world_pos = nil
 
         -- 🎯 ЧИТАЕМ СТEЙТ ИЗ МОДEЛИ (Единый источник правды):
-        local data = creatures_state.get(uid)
+        local data = units_state.get(uid)
 
         if data then
             -- Моб существует в бэкенд-памяти RAM (неважно, жив он или мертв!)
@@ -138,14 +138,14 @@ function on_message(self, message_id, message, sender)
     -- =========================================================================
     -- ⚔️ РЕАКТИВНЫЙ WoW-ОБРАБОТЧИК БОЕВЫХ СОБЫТИЙ ШИНЫ
     -- =========================================================================
-    if message_id == hash("creature_attacked") then
+    if message_id == hash("unit_attacked") then
         local plate = self.created_plates[message.uid]
         print("PLATE UPDATE")
         if plate and plate.instance then
-            local creature_instance_data = creatures_state.get(message.uid)
+            local unit_instance_data = units_state.get(message.uid)
 
-            if creature_instance_data then
-                plate.instance:update_state(creature_instance_data)
+            if unit_instance_data then
+                plate.instance:update_state(unit_instance_data)
             end
         end
     end

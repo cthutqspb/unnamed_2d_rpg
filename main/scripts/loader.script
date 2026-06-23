@@ -16,7 +16,7 @@ end
 ---@param sender url
 function on_message(self, message_id, message, sender)
     if message_id == hash("reload_game") then
-        self.pending_position = message.last_position
+        self.pending_position = message.saved_position
         msg.post("#game_proxy", "unload")
 
     elseif message_id == hash("proxy_unloaded") then

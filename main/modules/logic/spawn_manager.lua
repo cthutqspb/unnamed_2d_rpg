@@ -1,5 +1,5 @@
 local map_config = require("main.modules.data.map_config")
-local creatures_state = require("main.modules.game_state.creatures_state")
+local units_state = require("main.modules.game_state.units_state")
 local world_items_state = require("main.modules.game_state.world_items_state")
 
 ---@class SpawnManagerModule
@@ -19,18 +19,18 @@ local active_items = {}
 
 ---Внутренний метод материализации физического тела существа на сцене
 ---@param uid string Уникальный строковый UID монстра
----@param creature_instance_data table Паспортные данные существа из RAM-реестра
-local function materialize_creature(uid, creature_instance_data)
+---@param unit_instance_data table Паспортные данные существа из RAM-реестра
+local function materialize_unit(uid, unit_instance_data)
     -- Гвард: если существо уже мертво или полностью зачищено (разлутано) — игнорируем спавн
-    if creature_instance_data.is_dead or creature_instance_data.is_collected then
-        return
-    end
+    -- if unit_instance_data.is_dead or unit_instance_data.is_collected then
+    --     return
+    -- end
 
     -- 🛡️ ЗАЩИТА ОТ ДУБЛИРОВАНИЯ ТЕЛ:
     -- Проверяем, не существует ли уже этот конкретный UID физически на Meadows-карте
     local has_physical_body = false
-    if creatures_state.instances then
-        for registered_game_object_id, registered_unique_id in pairs(creatures_state.instances) do
+    if units_state.instances then
+        for registered_game_object_id, registered_unique_id in pairs(units_state.instances) do
             if registered_unique_id == uid and go.exists(registered_game_object_id) then
                 has_physical_body = true
                 active_bodies[registered_game_object_id] = uid
@@ -42,20 +42,20 @@ local function materialize_creature(uid, creature_instance_data)
     -- Если тела в мире нет — со спокойной душой спавним его из фабрики
     if not has_physical_body then
         -- Берём чистокровный вектор координат из переданных паспортных данных
-        local final_position = creature_instance_data.saved_position
+        local final_position = unit_instance_data.saved_position
 
-        local factory_url = "game_scene:/world_controller#creature_factory"
+        local factory_url = "game_scene:/world_controller#unit_factory"
         local game_object_id = factory.create(factory_url, final_position, nil, {
             uid = hash(uid),
-            creature_id = hash(creature_instance_data.creature_id),
-            creature_level = creature_instance_data.level or 1,
-            creature_rank = hash(creature_instance_data.rank or "common"),
+            unit_id = hash(unit_instance_data.unit_id),
+            unit_level = unit_instance_data.level or 1,
+            unit_rank = hash(unit_instance_data.rank or "common"),
             is_from_factory = true,
         })
 
         if game_object_id then
             active_bodies[game_object_id] = uid
-            creatures_state.instances[game_object_id] = uid
+            units_state.instances[game_object_id] = uid
         end
     end
 end
@@ -69,10 +69,14 @@ end
 function M.spawn_zone(zone_name)
     -- 🛡️ ИНВЕРСИЯ СПАВНА: Если игра загружена из сейва, мы ВООБЩЕ игнорируем map_config!
     -- Мы спавним мир по чистокровным паспортам RAM, полностью исключая гонку потоков.
-    if creatures_state.is_loaded_from_save then
-        for unique_identifier, creature_instance_data in pairs(creatures_state.get_all()) do
+    if units_state.is_loaded_from_save then
+        for uid, unit_instance_data in pairs(units_state.get_all()) do
+            if uid == "player" or unit_instance_data.is_player == true then
+               -- Просто пропускаем шаг и идем к следующему юниту в реестре
+            else
             -- Вызываем наш единый вынесенный метод материализации
-            materialize_creature(unique_identifier, creature_instance_data)
+                materialize_unit(uid, unit_instance_data)
+            end
         end
         return
     end
@@ -86,12 +90,12 @@ function M.spawn_zone(zone_name)
     for _, entity_node in ipairs(entity_list) do
         local uid = entity_node.uid
 
-        if entity_node.type == "creature" then
+        if entity_node.type == "unit" then
             -- Вытаскиваем паспорт, созданный в Фазе 1 встроенным мобом
-            local creature_instance_data = creatures_state.get(uid)
-            if creature_instance_data then
+            local unit_instance_data = units_state.get(uid)
+            if unit_instance_data then
                 -- Вызываем этот же самый метод! Дублирование полностью устранено.
-                materialize_creature(uid, creature_instance_data)
+                materialize_unit(uid, unit_instance_data)
             end
         end
     end
@@ -274,12 +278,12 @@ function M.clear_all_bodies(zone_name)
     print("БЭКЕНД: Умная выгрузка тел для зоны " .. zone_name)
 
     local survivors = {}
-    for creature_go, creature_uid in pairs(active_bodies) do
-        if go.exists(creature_go) then
-            if creatures_state.is_creature_in_combat and creatures_state.is_creature_in_combat(creature_uid) then
-                survivors[creature_go] = creature_uid
+    for unit_go, unit_uid in pairs(active_bodies) do
+        if go.exists(unit_go) then
+            if units_state.is_unit_in_combat and units_state.is_unit_in_combat(unit_uid) then
+                survivors[unit_go] = unit_uid
             else
-                go.delete(creature_go)
+                go.delete(unit_go)
             end
         end
     end

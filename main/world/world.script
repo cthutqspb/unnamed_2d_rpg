@@ -2,7 +2,7 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
-local creatures_db = require("main.modules.data.creatures_db")
+local units_db = require("main.modules.data.units_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
@@ -73,7 +73,7 @@ local function check_hover(self, gui_pos, world_pos)
     -- Берем id, который физический триггер курсора записал нам в контекст.
     local active_id = self.current_hover_id
     if active_id then
-        -- Вытаскиваем данные из бэкенд-телефонных книг ("container", "item_loot", "creature")
+        -- Вытаскиваем данные из бэкенд-телефонных книг ("container", "item_loot", "unit")
         local kind, uid, state_data = game_state.get_inspect_info(active_id)
 
         if kind and state_data then
@@ -83,7 +83,7 @@ local function check_hover(self, gui_pos, world_pos)
                 CustomCursor.set_style("cursor_outline_yellow")
                 tooltip_type = state_data.is_dynamic and "world_item" or "world_object"
 
-            elseif kind == "creature" then
+            elseif kind == "unit" then
                 CustomCursor.set_style("cursor_outline_red")
                 tooltip_type = "world_unit"
 
@@ -149,7 +149,13 @@ end
 ---@param self WorldScriptInstance
 ---@param dt number
 function update(self, dt)
-    local current_player_pos = character_data.player.last_position
+    -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
+    local player = character_data.player
+    if not player or not player.stats or not player.current_stats then 
+        return 
+    end
+
+    local current_player_pos = character_data.player.saved_position
     if not current_player_pos or not self.last_action then return end
 
     -- Проверяем, сдвинулся ли персонаж на клавиатуре
@@ -206,9 +212,9 @@ function on_message(self, message_id, message, sender)
 
     elseif message_id == hash("spawn_world_item") then
         -- Базовые параметры, общие для ВСЕХ типов спавна
-        local item_id = message.item_id       -- Для плеера: "iron_sword", для моба: "creature_loot_bag"
+        local item_id = message.item_id       -- Для плеера: "iron_sword", для моба: "unit_loot_bag"
         local drop_pos = message.position     -- Готовая точка на Meadows-земле
-        local source_type = message.source    -- "player", "creature", "object"
+        local source_type = message.source    -- "player", "unit", "object"
 
         -- 1. 🎯 ЕДИНАЯ РЕГИСТРАЦИЯ ДУШИ В RAM (ИСПРАВЛЕНО):
         -- Метод add возвращает готовую таблицу паспорта из RAM-реестра.
@@ -240,16 +246,16 @@ function on_message(self, message_id, message, sender)
             -- =====================================================================
             -- ВЕТКА Б: Лут из поверженного Монстра (Включаем ленивую генерацию WoW)
             -- =====================================================================
-            -- elseif source_type == "creature" then
+            -- elseif source_type == "unit" then
             --     print("SPAWN ITEM")
             --     world_item.items = nil -- Оставляем пустым для Lazy Evaluation при клике ногами!a
             --     world_item.is_looted = false
             --     world_item.loot_table_id = message.loot_table_id
-            --     world_item.source_creature_id = message.creature_id
+            --     world_item.source_unit_id = message.unit_id
             --
-            --     local creature_cfg = creatures_db.get_creature(message.creature_id)
-            --     if creature_cfg then
-            --         world_item.name = creature_cfg.name_key .. "_dead"
+            --     local unit_cfg = units_db.get_unit(message.unit_id)
+            --     if unit_cfg then
+            --         world_item.name = unit_cfg.name_key .. "_dead"
             --     else
             --         world_item.name = "ui_corpse_fallback_name" -- на всякий случай
             --     end

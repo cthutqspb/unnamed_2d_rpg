@@ -224,4 +224,58 @@ function M:get_slot_at_position(x, y)
     return nil
 end
 
+-- Внутри CharacterWindow.lua в самом низу, перед return M
+
+---Динамически переключить ВСЁ окно и его подкомпоненты на инспекцию ЛЮБОГО Юнита (WoW/BG3 канон)
+---@param unit_uid string Уникальный строковый UID цели ("player", "c_skeleton_42")
+---@param unit_inventory table|nil Бэкенд-модель инвентаря/карманов этой цели
+---@param unit_paperdoll table|nil Бэкенд-модель куклы экипировки этой цели
+function M:bind_unit(unit_uid, unit_inventory, unit_paperdoll)
+    -- Ленивый Фасад для проверки флага игрока
+    local game_state = require("main.modules.game_state.game_state")
+    local unit_data = game_state.get_entity_by_uid(unit_uid)
+    if not unit_data then return end
+
+    -- =========================================================================
+    -- 🛡️ ФИЛЬТРАЦИЯ ДОСТУПНОСТИ ВКЛАДОК (Feature Detection)
+    -- =========================================================================
+    -- Если мы инспектируем МОНСТРА — Журнал квестов и Таланты ему не положены по лору!
+    -- Мы просто гасим Си-ноды кнопок переключения этих вкладок на верхней панели!
+    local is_player = unit_data.is_player
+    
+    if self.tabs.journal then gui.set_enabled(self.tabs.journal.btn, is_player) end
+    if self.tabs.talents then gui.set_enabled(self.tabs.talents.btn, is_player) end
+
+    -- Если игрок сидел во вкладке талантов монстра, принудительно возвращаем UI на главную страницу
+    if not is_player and (self.active_tab == "journal" or self.active_tab == "talents") then
+        self:switch_tab("character")
+    end
+
+    -- =========================================================================
+    -- 🦾 ПОЛИМОРФНЫЙ СДВИГ ИСТОЧНИКОВ ДАННЫХ ВНУТРИ ПОДКОМПОНЕНТОВ
+    -- =========================================================================
+    
+    -- 1. Переключаем Универсальный виджет характеристик на UID нового существа
+    if self.character_stats and self.character_stats.set_inspect_target then
+        self.character_stats:set_inspect_target(unit_uid)
+    end
+
+    -- 2. Переключаем модель сетки инвентаря/карманов на новую таблицу данных
+    if self.static_grid then
+        -- Если у монстра нет карманов (nil), прокидываем пустую заглушку, чтобы сетка не упала
+        self.static_grid.data_source = unit_inventory or { slots = {}, get_items = function() return {} end }
+    end
+
+    -- 3. Переключаем модель куклы шмота на куклу этого конкретного монстра
+    if self.paperdoll then
+        -- В будущем, когда у мобов появятся куклы, мы пропишем подмену источника и для них:
+        -- self.paperdoll.data_source = unit_paperdoll
+    end
+
+    -- Полностью обновляем визуал всех вкладок под новые прилетевшие данные!
+    self:update_all_displays()
+    self:refresh_all()
+end
+
+
 return M
