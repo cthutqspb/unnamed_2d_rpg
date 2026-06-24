@@ -35,9 +35,8 @@ end
 function M:update_state(unit_instance_data)
     if not unit_instance_data then return end
 
-    local hp_percent = unit_instance_data.health / unit_instance_data.max_health
-    print("HP PERCENT", hp_percent)
-    self.nameplate_instance_health_bar:update_health(hp_percent)
+    local health_percent = unit_instance_data.health / unit_instance_data.max_health
+    self.nameplate_instance_health_bar:update_health(health_percent)
 
     if unit_instance_data.is_dead then
         local dead_text = locales.get(unit_instance_data.name_key) .. " (" .. locales.get("unit_dead_suffix") .. ")"

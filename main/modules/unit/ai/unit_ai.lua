@@ -18,6 +18,7 @@ local combat_manager = require("main.modules.system.combat_manager")
 ---@field hitbox_size number
 ---@field damage number
 ---@field attack_range number Итоговый рассчитанный радиус ближнего боя до пупка игрока
+---@field primary_ability string
 
 ---@class AIProfileStrategy
 ---@field init fun(ctx: AIUnitContext) Инициализация параметров конкретной стратегии
@@ -62,26 +63,28 @@ PROFILES["aggressive_patrol"] = {
         ctx.ai_target = nil
         ctx.ai_is_patrolling = false
 
-        -- 1. Вытаскиваем характеристики монстра из живого бэкенда
-        local unit_instance_data = game_state.get_entity_by_uid(ctx.uid)
-        local monster_hitbox = unit_instance_data and unit_instance_data.hitbox_size or 64
-        local monster_reach = unit_instance_data and unit_instance_data.attack_range_melee or 8
-        -- 🎯 ВЫТАСКИВАЕM ДИНАМИЧЕСКИЙ УРОН:
-        -- Бэкенд за секунду рассчитал урон с учётом уровня и рангов common/rare/elite/boss!
-        ctx.damage = unit_instance_data and unit_instance_data.damage or 3
-        -- 2. 🎯 ВЫТАСКИВАEМ ГАБАРИТЫ ИГРOКА ИЗ СИНГЛТOНА:
-        -- Читаем размер хитбокса мага (64 пикселя) напрямую из character_data
+        -- 1. Вытаскиваем характеристики ЭТОГО конкретного монстра из живого бэкенда Фасада
+        local monster_data = game_state.get_entity_by_uid(ctx.uid)
+        local monster_hitbox = monster_data and monster_data.hitbox_size or 64
+
+        -- 2. 🦾 ААА-КАНОН РАДИУСА (ИСПРАВЛЕНО):
+        -- Вместо чтения битых полей attack_range_melee из баз данных, ИИ знает:
+        -- Ренж базовой автоатаки ближнего боя (melee_attack) во всей нашей вселенной 
+        -- равен строго 12 пикселям! А базовый хитбокс Игрока-цели всегда равен 64 пикселям.
+        local melee_ability_range = 12
         local player_hitbox = 64
 
-        -- 3. 🧱 УЛЬТИМАТИВНАЯ ААА-ФOРМУЛА БЛИЖНEГO БOЯ (Сумма радиусов + Досягаемость):
-        -- Скелет:  32 (моб) + 32 (игрок) + 8  (оружие) = 72 пикселя до центра игрока.
-        -- Дракон:  64 (моб) + 32 (игрок) + 16 (оружие) = 112 пикселей до центра игрока!
+        -- 🧱 УЛЬТИМАТИВНАЯ ФOРМУЛА БЛИЖНEГO БOЯ (Сумма радиусов + Ренж умения):
+        -- Скелет:  32 (моб) + 32 (игрок) + 12 (абилка) = 76 пикселей до центра мага.
+        -- Дракон:  64 (моб) + 32 (игрок) + 12 (абилка) = 108 пикселей до центра мага!
+        -- Математика работает идеально, полиморфно и без единой строчки хардкода в базах!
         local monster_radius = monster_hitbox / 2
         local player_radius = player_hitbox / 2
 
-        ctx.attack_range = monster_radius + player_radius + monster_reach
+        ctx.attack_range = monster_radius + player_radius + melee_ability_range
+        ctx.primary_ability = monster_data and monster_data.abilities and monster_data.abilities[1] or "melee_attack"
 
-        -- Скалирование зон видимости (оставляем твой зрячий канон)
+        -- Скалирование зон видимости агро от габаритов туши (твой зрячий канон)
         if monster_hitbox >= 128 then
             ctx.agro_range = 450
             ctx.loose_range = 650
@@ -90,8 +93,8 @@ PROFILES["aggressive_patrol"] = {
             ctx.loose_range = 450
         end
 
-        print(string.format("🧠 ИИ ИНИЦ: [%s] | ID=%s | Урон=%d | Дист.Атаки=%d",
-            ctx.uid, ctx.unit_id, ctx.damage, ctx.attack_range))
+        print(string.format("🧠 ИИ ИНИЦ: [%s] | ID=%s | Габариты=%d | Авто-Ренж Ближнего Боя=%d",
+            ctx.uid, ctx.unit_id, monster_hitbox, ctx.attack_range))
     end,
 
     update = function(ctx, dt)
@@ -144,7 +147,11 @@ PROFILES["aggressive_patrol"] = {
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
                     -- Пинаем боевой менеджер по оригинальным рельсам
-                    combat_manager.apply_damage(ctx.go_id, "/player", ctx.damage)
+                    combat_manager.execute_ability(
+                        ctx.go_id,
+                        hash("/player"),
+                        ctx.primary_ability
+                    )
                     ctx.ai_timer = (ctx.unit_id == "elder_green_dragon") and 2.0 or 1.5
                 end
                 move_direction = nil
@@ -272,7 +279,7 @@ PROFILES["aggressive_patrol"] = {
             end
         end
 
-        return move_direction    
+        return move_direction
     end
 }
 
@@ -310,7 +317,6 @@ end
 function M.disable(ctx)
     -- 1. 🎯 ПЕРЕКЛЮЧАЕМ КОНЕЧНЫЙ АВТОМАТ В СТEЙТ СMEРТИ:
     ctx.ai_state = "DEAD"
-    
     -- 2. Полностью вычищаем все активные таймеры раздумий и откатов автоатак
     ctx.ai_timer = 0
     ctx.ai_target = nil

@@ -68,9 +68,9 @@ function M:update_display()
     gui.set_text(self.nodes.class, player.class or "warrior")
     gui.set_text(self.nodes.level, tostring(player.level or 1))
     
-    local current_hp = player.health or 100
-    local maximum_hp = player.max_health or 100
-    gui.set_text(self.nodes.health, current_hp .. " / " .. maximum_hp)
+    local current_health = player.health or 100
+    local maximum_health = player.max_health or 100
+    gui.set_text(self.nodes.health, current_health .. " / " .. maximum_health)
     
     -- Обновляем только те статы, для которых нашлись ноды в GUI
     for stat_id, node in pairs(self.stat_nodes) do

@@ -4,7 +4,7 @@ local combat_manager = require("main.modules.system.combat_manager")
 local items_db = require("main.modules.data.items_db")
 local loot_tables = require("main.modules.data.loot_tables")
 local character_data = require("main.modules.character.character_data")
-local character_logic = require("main.modules.character.character_logic")
+local unit_logic = require("main.modules.unit.logic.unit_logic")
 
 ---@class ActionPayload
 ---@field slot_index number|string|nil Индекс слота (число для сумки, строка для куклы)
@@ -184,11 +184,12 @@ M.REDUCERS = {
     -- === СЛАЙС 3: БОЕВОЙ ТАРГЕТИНГ И ПАНЕЛИ СПОСОБНОСТЕЙ ===
     ["action_bar_assign"] = function(data)
         -- Перенаправляем чистый payload в метод мутации памяти
-        character_logic.set_action_bar_slot(
+        unit_logic.set_action_bar_slot(
             data.target_bar_index,
             data.target_slot_index,
             data.drag_type, -- "ablity / "item" / "empty"
-            data.action_id  -- "melee_attack" / "frostbolt" / nil
+            data.action_id,  -- "melee_attack" / "frostbolt" / nil
+            nil
         )
     end,
 
@@ -204,9 +205,9 @@ M.REDUCERS = {
         if data.drag_type == "ability" then
             -- Забираем чистый Си-хэш текущего таргета из твоего геттера
             local target_go_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
-            
+            print("action_id", data.action_id)
             -- Пинаем комбат менеджер выполнить автоатаку или спелл
-            combat_manager.execute_ability(data.action_id, target_go_id)
+            combat_manager.execute_ability("player", target_go_id, data.action_id)
         end
     end,
 

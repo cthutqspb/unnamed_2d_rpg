@@ -1,3 +1,4 @@
+local utils = require("main.modules.utils")
 local units_db = require("main.modules.data.units_db")
 
 ---@class UnitInstanceData
@@ -6,20 +7,22 @@ local units_db = require("main.modules.data.units_db")
 ---@field unit_id string Строковый ID вида ("skeleton")
 ---@field uid string Уникальный строковый UID конкретного монстра
 ---@field level number Текущий уровень существа
----@field stats table<string, number>
+---@field experience number
+---@field base_stats table<string, number>
 ---@field current_stats table<string, number>
 ---@field type string Тип существа ("undead", "beast", "humanoid")
 ---@field rank string Ранг сложности ("common", "rare", "elite")
----@field loot_table_id string
+---@field loot_table_id string|nil
 ---@field is_collected boolean
 ---@field health number Текущее живое ХП в данный момент времени
 ---@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
 ---@field mana number|nil
 ---@field max_mana number|nil
+---@field auras table|nil
 ---@field damage number Рассчитанный урон с учетом уровня
 ---@field speed number Скорость перемещения
 ---@field hitbox_size number
----@field attack_range_melee number
+---@field spellcast_range number
 ---@field ai_profile string
 ---@field saved_position vector3|nil
 ---@field is_in_combat boolean|nil
@@ -28,9 +31,19 @@ local units_db = require("main.modules.data.units_db")
 ---@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
 ---@field ai_target vector3|nil
 
+---@class UnitStatsTable
+---@field strength number
+---@field agility number
+---@field intellect number
+---@field stamina number
+
+---@class ActionSlotData
+---@field action_type "ability"|"item"|"empty" Тип действия в слоте
+---@field action_id string|nil            Строковый ID из базы способностей или предметов
+
 ---@class RankModifiers
----@field hp_mult number       Множитель максимального здоровья
----@field dmg_mult number      Множитель базового урона
+---@field health_multiplier number       Множитель максимального здоровья
+---@field damage_multiplier number      Множитель базового урона
 ---@field resists table<string, number> Задел под резисты к стихиям (fire, frost и т.д.)
 ---@field bonus_abilities string[] Список дополнительных способностей, открываемых рангом
 
@@ -57,31 +70,31 @@ local function compute_rank_modifiers(rank)
     -- Базовые дефолтные модификаторы для обычного моба (common)
     ---@type RankModifiers
     local modifiers = {
-        hp_mult = 1.0,
-        dmg_mult = 1.0,
+        health_multiplier = 1.0,
+        damage_multiplier = 1.0,
         resists = { fire = 0, frost = 0, shadow = 0 },
         bonus_abilities = {}
     }
 
     if rank == "rare" then
-        modifiers.hp_mult = 1.5
-        modifiers.dmg_mult = 1.2
+        modifiers.health_multiplier = 1.5
+        modifiers.damage_multiplier = 1.2
         -- Редкий моб получает легкую защиту
         modifiers.resists.fire = 10
         modifiers.resists.frost = 10
         -- table.insert(modifiers.bonus_abilities, "enrage") -- задел на будущее!
 
     elseif rank == "elite" then
-        modifiers.hp_mult = 3.0
-        modifiers.dmg_mult = 1.5
+        modifiers.health_multiplier = 3.0
+        modifiers.damage_multiplier = 1.5
         modifiers.resists.fire = 25
         modifiers.resists.frost = 25
         modifiers.resists.shadow = 25
         -- table.insert(modifiers.bonus_abilities, "shield_slam")
 
     elseif rank == "boss" then
-        modifiers.hp_mult = 5.0
-        modifiers.dmg_mult = 2.0
+        modifiers.health_multiplier = 5.0
+        modifiers.damage_multiplier = 2.0
         -- Босс ультимативно защищен от магии
         modifiers.resists.fire = 50
         modifiers.resists.frost = 50
@@ -96,78 +109,113 @@ end
 -- СИСТЕМНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ РЕЕСТРОМ (Зеркало world_items_state)
 -- =========================================================================
 
----Добавить нового монстра в глобальный реестр (Вызывается СТРОГО в Bake Mode)
----@param uid string Уникальный строковый UID моба
----@param props table Таблица изначальных параметров из чертежа редактора
+-- main/modules/game_state/units_state.lua
+
+---Добавить юнита/игрока в глобальный реестр RAM (Стерильный WoW-канон)
+---@param uid string Уникальный строковый UID ("player", "c_X_Y")
+---@param props table Параметры спавна из Tiled или файла сохранения JSON
 ---@return table|nil
 function M.add(uid, props)
     if M.registry and M.registry[uid] then
-        print("🛡️ БЭКЕНД: Паспорт моба уже существует в RAM. Защита спасла сейв от затирания для:", uid)
         return M.registry[uid]
     end
 
-    -- local cfg = units_db.get_unit(props.unit_id)
-    -- if not cfg then
-    --     print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.unit_id)
-    --     return nil
-    -- end
-
-    -- 🎯 WoW-ГВАРД ИСКЛЮЧЕНИЯ ИГРОКА (ИСПРАВЛЕНО):
-    -- Если создается Юнит игрока, мы полностью пропускаем проверку по базе монстров units_db, 
-    -- так как у игрока свои собственные кастомные статы, расы и классы!
     local is_player_unit = (uid == "player" or props.is_player == true)
 
+    -- 🦾 ЭТАЛОН 1: СБОРКА ИСХОДНЫХ ХАРАКТЕРИСТИК (БЕЗ ДУБЛИРОВАНИЯ)
+    local source_stats = props.stats
+    local source_abilities = props.abilities
+    local monster_cfg = nil
+
     if not is_player_unit then
-        -- Ветка монстров: Жестко проверяем шаблон по статичной базе units_db
-        local cfg = units_db.get_unit(props.unit_id)
-        if not cfg then
+        monster_cfg = units_db.get_unit(props.unit_id)
+        if not monster_cfg then
             print("ERROR: Попытка запечь паспорт неизвестного монстра:", props.unit_id)
             return nil
         end
-        
-        -- ... твой зеркальный код расчета ХП и Дамага монстра от уровня и ранга (level_modifier) ...
-        -- ... (max_hp = math.floor, final_dmg = math.floor) ...
+        -- Если у моба нет кастомных стат (Новая Игра), берем его базовый расовый конфиг из базы
+        source_stats = source_stats or monster_cfg.base_stats
+        source_abilities = source_abilities or (monster_cfg and monster_cfg.abilities) or { "melee_attack" }
+    else
+        -- Фоллбек для игрока, если props пустой
+        source_stats = source_stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 }
     end
 
-    -- Математика скалирования характеристик от уровня
-    -- local level_modifier_hp = math.pow(cfg.hp_growth, props.level - 1)
-    -- local level_modifier_dmg = math.pow(cfg.damage_growth, props.level - 1)
-    --
-    -- local max_hp = math.floor(cfg.base_hp * level_modifier_hp)
-    -- local final_dmg = math.floor(cfg.base_damage * level_modifier_dmg)
-    --
-    -- -- Расчет множителей ранга существа
-    -- local rank_mods = compute_rank_modifiers(props.rank)
-    -- max_hp = math.floor(max_hp * rank_mods.hp_mult)
-    -- final_dmg = math.floor(final_dmg * rank_mods.dmg_mult)
+    -- Намертво изолируем базовые и текущие статы через твой DeepCopy модуль утилит
+    local clean_stats = utils.deepcopy(source_stats)
+    local clean_current_stats = utils.deepcopy(source_stats)
+    local clean_source_abilities = utils.deepcopy(source_abilities)
 
-    local instance_data = {
-        uid = uid,
-        unit_id = props.unit_id or "unknown",
-        name_key = props.name_key or "unknown_name",
-        is_player = (props.is_player == true),
-        type = props.type or "undead",
-        rank = props.rank,
-        level = props.level or 1,
-        experience = props.experience or 0,
-        health = props.health or 100,
-        max_health = props.max_health or 100,
-        mana = props.mana,
-        max_mana = props.max_mana,
-        --damage = final_dmg,
-        --speed = cfg.base_speed,
-        hitbox_size = props.hitbox_size or 64,
-        loot_table_id = props.loot_table_id,
-        is_collected = false,
-        --attack_range_melee = cfg.attack_range_melee,
-        --ai_profile = cfg.ai_profile or "aggressive_patrol",
-        stats = props.stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 },
-        current_stats = props.current_stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 },
-        saved_position = props.saved_position or vmath.vector3(0, 0, 1.0),
-        is_dead = (props.is_dead == true),
-        action_bars = props.action_bars or {}
-    }
+    -- 🦾 ЭТАЛОН 2: ЛИНЕЙНЫЙ НАЛИТ ПАРАМЕТРОВ (Strictly по фракциям)
+    local instance_data = {}
 
+    if is_player_unit then
+        -- 🌟 ВЕТКА ИГРОКА: Кристально плоские и понятные дефолты мага
+        instance_data = {
+            uid = "player",
+            unit_id = props.unit_id or "player_mage",
+            name_key = props.name_key or "class_mage",
+            is_player = true,
+            type = "humanoid",
+            rank = "common",
+            level = props.level or 1,
+            experience = props.experience or 0,
+            health = props.health or 100,
+            max_health = props.max_health or 100,
+            mana = props.mana or 50,
+            max_mana = props.max_mana or 50,
+            speed = 220,
+            spellcast_range = 0,
+            hitbox_size = props.hitbox_size or 64,
+            loot_table_id = "empty",
+            ai_profile = "none"
+        }
+    else
+        -- 💀 ВЕТКА МОНСТРОВ: Рассчитываем динамическое скалирование ХП от уровня и ранга
+        assert(monster_cfg, "Critical Error: monster_cfg is missing in monster spawn branch")
+
+        local level_modifier = math.pow(monster_cfg.health_growth or 1, (props.level or 1) - 1)
+        local calculated_max_health = math.floor((monster_cfg.base_health or 40) * level_modifier)
+
+        if compute_rank_modifiers then
+            local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.default_rank)
+            calculated_max_health = math.floor(calculated_max_health * rank_mods.health_multiplier)
+        end
+
+        instance_data = {
+            uid = uid,
+            unit_id = props.unit_id,
+            name_key = props.name_key or monster_cfg.name_key,
+            is_player = false,
+            type = props.type or monster_cfg.type,
+            rank = props.rank or monster_cfg.default_rank,
+            level = props.level or 1,
+            experience = props.experience or 0,
+
+            -- Если грузим сейв — берем ХП из JSON (props), если Новая игра — берем расчетное!
+            health = props.health or calculated_max_health,
+            max_health = props.max_health or calculated_max_health,
+            mana = props.mana or monster_cfg.base_mana,
+            max_mana = props.max_mana or monster_cfg.base_mana,
+            speed = monster_cfg.base_speed or 90,
+            spellcast_range = monster_cfg.spellcast_range or 120,
+            hitbox_size = props.hitbox_size or monster_cfg.hitbox_size,
+            loot_table_id = props.loot_table_id or monster_cfg.loot_table_id,
+            ai_profile = monster_cfg.ai_profile or "aggressive_patrol"
+        }
+    end
+
+    -- 🦾 ЭТАЛОН 3: СКЛЕЙКА ОБЩИХ СИСТЕМНЫХ ПОЛЕЙ ЮНИТА
+    instance_data.is_collected = (props.is_collected == true)
+    instance_data.is_dead = (props.is_dead == true)
+    instance_data.saved_position = props.saved_position or vmath.vector3(0, 0, 1.0)
+    instance_data.action_bars = props.action_bars or {}
+    -- Привязываем наши изолированные таблицы статов DeepCopy
+    instance_data.stats = clean_stats
+    instance_data.current_stats = clean_current_stats
+    instance_data.abilities = clean_source_abilities
+
+    -- Записываем готовую Душу Юнита в Single Source of Truth реестра RAM
     M.registry[uid] = instance_data
     return instance_data
 end

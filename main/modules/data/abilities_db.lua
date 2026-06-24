@@ -2,25 +2,35 @@
 ---@field level number|nil
 ---@field class string|nil
 
+---@class AbilityCostConfig
+---@field resource string Тип ресурса ("mana", "energy", "rage", "battery", "heat")
+---@field value number Количество
+
 ---@class AbilityDamageConfig
 ---@field min number Минимальный урон
 ---@field max number Максимальный урон
 ---@field type string Тип урона ("physical", "magic")
+---@field weapon_multiplier number|nil
+---@field scaling_stats table<string, number>|nil 🦾 МУЛЬТИ-СТАТ СКЕЙЛИНГ: {intellect = 1.0, strength = 0.5}
 
-
----@class AbiltityConfig
+---@class AbilityConfig
 ---@field action_type string
+---@field id string Уникальный строковый ID заклинания ("frostbolt")
 ---@field name_key string
 ---@field desc_key string
 ---@field texture string
 ---@field animation string
 ---@field title_index number
+---@field projectile_id string|nil
 ---@field range number
+---@field cast_time number|nil
 ---@field cooldown number
+---@field cost AbilityCostConfig|nil
+---@field requires_target boolean
 ---@field required AbilityRequiredStats
 ---@field damage AbilityDamageConfig
 ---@field effect string
----@field is_off_gcd boolean
+---@field triggers_gcd boolean
 local M = {}
 
 M.abilites_raw = {
@@ -31,18 +41,22 @@ M.abilites_raw = {
         texture = "project_utumno",
         animation = "melee_attack",
         title_index = 3266,
-        range = 0,                     -- дистанция удара посохом (в пикселях)
+        range = 12,                     -- дистанция удара посохом (в пикселях)
         cooldown = 1.5,         -- скорость атаки (раз в 1.5 секунды)
+        requires_target = true,
         required = {
           level = 1,
           class = "all"
         },
         damage = {
             min = 2,
-            max = 4
+            max = 4,
+            type = "physical",
+            weapon_multiplier = 1.0,
+            scaling_stats = { strength = 1.0 }
         },
         effect = "none",
-        is_off_gcd = true               -- ВАЖНО: автоатака не запускает ГКД магии!
+        triggers_gcd = false              -- ВАЖНО: автоатака не запускает ГКД магии!
     },
     ["frostbolt"] = {
         action_type = "ability",
@@ -51,23 +65,28 @@ M.abilites_raw = {
         texture = "project_utumno",
         animation = "frostbolt",
         tile_index = 1650,
+        projectile_id = "frostbolt_projectile",
         range = 350,
         cooldown = 0, -- нет КД, но будет время каста
+        requires_target = true,
         required = {
             level = 1,
             class = "mage"
         },
         damage = {
             min = 9,
-            max = 15
+            max = 15,
+            type = "frost",
+            weapon_multiplier = 0.2,
+            scaling_stats = { intellect = 1.0 }
         },
         effect = "freeze",
-        is_off_gcd = false              -- магия запускает ГКД!
+        triggers_gcd = true              -- магия запускает ГКД!
     }
 }
 
 -- Быстрый кэш хэшированных ключей для мгновенного поиска из голых свойств Defold (go.property)
----@type table<hash, AbiltityConfig>
+---@type table<hash, AbilityConfig>
 local abilities_by_hash = {}
 
 for id_str, data in pairs(M.abilites_raw) do
@@ -76,7 +95,7 @@ for id_str, data in pairs(M.abilites_raw) do
 end
 
 ---@param id any
----@return AbiltityConfig|nil data
+---@return AbilityConfig|nil data
 function M.get_ability(id)
     return abilities_by_hash[id] or M.abilites_raw[id]
 end

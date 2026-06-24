@@ -1,5 +1,5 @@
 local character_data = require("main.modules.character.character_data")
-local character_logic = require("main.modules.character.character_logic")
+local unit_logic = require("main.modules.unit.logic.unit_logic")
 local settings = require("main.modules.data.settings")
 local window_manager = require("main.gui.components.managers.window_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
@@ -27,7 +27,7 @@ local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 ---@param self PlayerScriptInstance
 ---@param amount number
 local function take_damage(self, amount)
-    character_logic.take_damage(amount)
+    unit_logic.take_damage(amount)
     if character_data.player.health <= 0 then
         print("Player died!")
     end
@@ -36,21 +36,21 @@ end
 ---@param self PlayerScriptInstance
 ---@param amount number
 local function heal(self, amount)
-    character_logic.heal(amount)
+    unit_logic.heal(amount)
     if character_data.player.health >= character_data.player.max_health then
-        print("Already full HP!")
+        print("Already full health!")
     end
 end
 
 local function burn_mana(self, amount)
-    character_logic.burn_mana(amount)
+    unit_logic.burn_mana(amount)
     if character_data.player.mana <= 0 then
         print("No more MP!")
     end
 end
 
 local function restore_mana(self, amount)
-    character_logic.restore_mana(amount)
+    unit_logic.restore_mana(amount)
     if character_data.player.mana >= character_data.player.max_mana then
         print("Already full MP!")
     end
@@ -83,16 +83,17 @@ end
 ---@param dt number
 function update(self, dt)
     local player = character_data.player
-    if not player or not player.stats or not player.current_stats then 
-        return 
+    if not player or not player.stats or not player.current_stats then
+        return
     end
 
     local position = go.get_position()
-    
-    character_logic.update_position(position)
+    character_data.update_position(position)
 
-    local hp_mod = (player.health < 20) and 0.50 or 1.0
-    local current_speed = self.base_speed * hp_mod
+    -- 🛡️ ИДЕАЛЬНАЯ АРХИТЕКТУРА СКОРОСТИ (ИСПРАВЛЕНО):
+    -- Скрипт больше не занимается самодеятельностью и не считает ХП!
+    -- Он просто слепо берет готовую, выверенную бэкендом скорость юнита из RAM!
+    local current_speed = player.speed or 120
 
     -- Если есть ввод с клавиатуры — отменяем движение мышью и сбрасываем лут
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
@@ -112,12 +113,12 @@ function update(self, dt)
         if vmath.length(d) > 5 then
             move = vmath.normalize(d)
         else
-            self.move_target = nil -- Пришли на место клика на земле
+            self.move_target = nil
             move = vmath.vector3(0, 0, 0)
         end
     end
 
-    -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (Твой оригинальный код, не трогаем!)
+    -- 3. ПРИМЕНЯЕМ ДВИЖЕНИЕ (Чистый Си-накат на основе current_speed из RAM!)
     if vmath.length(move) > 0 then
         move = vmath.normalize(move)
         go.set_position(position + move * current_speed * dt)

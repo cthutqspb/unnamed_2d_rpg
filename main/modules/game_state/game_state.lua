@@ -2,6 +2,10 @@ local world_items_state = require("main.modules.game_state.world_items_state")
 local containers_state = require("main.modules.game_state.containers_state")
 local units_state = require("main.modules.game_state.units_state")
 
+---@class GameStateFacade
+---@field get_uid_by_go_id function
+---@field get_entity_by_uid function
+---@field get_player_data function 
 local M = {}
 
 ---Узнать тип объекта и получить его чистые данные по go_id из мира (из рейкаста)
@@ -61,6 +65,17 @@ function M.get_player_data()
     return nil
 end
 
+---Покадрово зафиксировать координаты игрока во внутреннем стейте юнитов (WoW-Фасад)
+---@param position vector3 Си-вектор координат из player.script
+function M.update_player_position(position)
+    if units_state and units_state.update_data then
+        -- Фасад сам зряче командует стейту обновить данные для ключа "player"
+        units_state.update_data("player", {
+            saved_position = position
+        })
+    end
+end
+
 ---Универсальный Сервис-Локатор (Канон BG3 / Osiris): Каскадный поиск сущности по её UID
 ---@param uid string Уникальный строковый идентификатор из Tiled или фабрики ("Mage_Boss", "i_X_Y", "Main_Quest_Chest")
 ---@return table|nil data Возвращает RAM-паспорт Души объекта (юнита, предмета или контейнера)
@@ -92,6 +107,36 @@ function M.get_entity_by_uid(uid)
     -- Сущность полностью отсутствует во вселенной RAM игры
     return nil
 end
+
+-- Внутри твоего game_state.lua
+
+---Универсальный Сервис-Локатор (Канон BG3): Каскадный перевод Си Game Object ID в строковый UID
+---@param go_id hash Нативный хэш-адрес объекта на сцене движка (target_id, sender, клик мыши)
+---@return string|nil uid Возвращает строковый UID ("player", "c_X_Y", "i_X_Y", "box_X_Y")
+function M.get_uid_by_go_id(go_id)
+    if not go_id or go_id == hash("") then return nil end
+
+    -- 🦾 КAСКAДНЫЙ ПОИСК ИHСТАHСОВ (O(1) Си-тактов процессора):
+    
+    -- 1. Сначала проверяем, не Живой ли это Юнит (Игрок, Скелет, Дракон)
+    if units_state and units_state.instances and units_state.instances[go_id] then
+        return units_state.instances[go_id]
+    end
+
+    -- 2. Если не нашли, проверяем, не Предмет ли это на земле (Оружие, мешки с лутом)
+    if world_items_state and world_items_state.instances and world_items_state.instances[go_id] then
+        return world_items_state.instances[go_id]
+    end
+
+    -- 3. Если и там глухо, проверяем, не интерактивный ли это Контейнер (Сундук, Бочка, Шкаф)
+    if containers_state and containers_state.instances and containers_state.instances[go_id] then
+        return containers_state.instances[go_id]
+    end
+
+    -- Физический Си-объект полностью неизвестен бэкенду стейтов
+    return nil
+end
+
 
 ---Получить список всех зарегистрированных на сцене физических Game Object ID юнитов
 ---@return table<hash, string> -- Мапа, где ключ - go_id движка, а значение - строковый uid

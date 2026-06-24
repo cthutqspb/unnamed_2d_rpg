@@ -1,7 +1,7 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local CharacterWindow = require("main.gui.components.character_window.CharacterWindow")
-local character_logic = require("main.modules.character.character_logic")
+local unit_logic = require("main.modules.unit.logic.unit_logic")
 local player_inv = require("main.modules.player.player_inventory")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
@@ -30,7 +30,7 @@ function init(self)
     self.broadcast_handler = function(data)
         if data.message_id == hash("inventory_changed") then
             -- 1. Считаем цифры мгновенно
-            character_logic.update_derived_stats()
+            unit_logic.update_derived_stats()
             -- 2. Включаем Dirty Flag для отрисовки в следующем кадре (защита от Wrong Scene)
             if self.character_window then
                 self.character_window:request_refresh()
