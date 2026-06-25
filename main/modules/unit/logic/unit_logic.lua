@@ -26,23 +26,14 @@ function M.get_total_stat(stat_name, unit_data)
     local unit = resolve_unit(unit_data)
     if not unit or not unit.stats then return 0 end
 
-    -- Жестко читаем только БАЗОВОЕ значение стата из таблицы stats (которое никогда не растет от шмота!)
+    -- Читаем генетическую базу стата
     local total = unit.stats[stat_name] or 0
 
-    -- ВРЕМЕННЫЙ МОСТ СОВМЕСТИМОСТИ ДЛЯ КУКЛЫ ШМОТА:
-    if unit.is_player then
-        local player_paperdoll = require("main.modules.player.player_paperdoll")
-        if player_paperdoll and player_paperdoll.slots then
-            for _, item_data in pairs(player_paperdoll.slots) do
-                if item_data and item_data.item_id then
-                    local item_cfg = items_db.get_item(item_data.item_id)
-                    if item_cfg and item_cfg.stats and item_cfg.stats[stat_name] then
-                        total = total + item_cfg.stats[stat_name]
-                    end
-                end
-            end
-        end
-    elseif unit.paperdoll and unit.paperdoll.slots then
+    -- 🦾 УЛЬТИМАТИВНЫЙ ПОЛИМОРФИЗМ (ИСПРАВЛЕНО):
+    -- Больше никаких require("player_paperdoll") и разделений на игрока/мобов!
+    -- Код просто лезет в .paperdoll.slots объекта, который сейчас обсчитывается.
+    -- Если это маг — посчитает мага. Если это скелет — посчитает скелета!
+    if unit.paperdoll and unit.paperdoll.slots then
         for _, item_data in pairs(unit.paperdoll.slots) do
             if item_data and item_data.item_id then
                 local item_cfg = items_db.get_item(item_data.item_id)

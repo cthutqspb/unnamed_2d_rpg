@@ -7,17 +7,16 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local items_db = require("main.modules.data.items_db")
-local world_items_state = require("main.modules.game_state.world_items_state")
-local units_state = require("main.modules.game_state.units_state")
+local game_state = require("main.modules.game_state.game_state")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
-local InventoryModel = require("main.modules.inventory_model")
-
-local h_touch = hash("touch")
+local inventory_model = require("main.modules.models.inventory_model")
+local loot_tables = require("main.modules.data.loot_tables")
 
 ---@class ContainerWindowScript
 ---@field druid druid.instance
 ---@field container_window ContainerWindow
 ---@field broadcast_handler function
+---@field from_inventory boolean Флаг: открыт ли контейнер из инвентаря игрока (матрешка)
 
 function init(self)
     msg.post(".", "acquire_input_focus")
@@ -30,14 +29,11 @@ function init(self)
         rows = 4,
         spacing = 2
     })
+    self.from_inventory = false
+      local current_gui_url = msg.url()
     self.broadcast_handler = function(data)
         if data.message_id == hash("inventory_changed") then
-            -- Сундуку не нужно пересчитывать статы персонажа, 
-            -- ему нужно просто обновить иконки
-            if self.container_window and self.container_window:is_visible() then
-                self.container_window:request_refresh()
-                print("🔬 GUI [ContainerWindow]: Окно открыто, сочно обновили иконки лута.")
-            end
+            msg.post(current_gui_url, "inventory_changed_async")
         end
     end
     broadcast.subscribe("inventory_events", self.broadcast_handler)
@@ -79,83 +75,141 @@ end
 ---@param message table
 ---@param sender url
 function on_message(self, message_id, message, sender)
-    -- ОТКРЫТИЕ ОКНА
     if message_id == hash("open_container_window") then
         msg.post(".", "acquire_input_focus")
 
-        -- =========================================================================
-        -- 🕹️ КОНТРОЛЛЕР: Собираем данные и упаковываем в Модель
-        -- =========================================================================
+        -- 🎯 1. КОНСЕРВИРУЕМ СKВОЗНОЙ КОНТЕКСТ ХОДЬБЫ И МЕНЮ:
+        -- Сохраняем имя флага строго один в один, чтобы заблокировать закрытие окон при беге!
+        self.from_inventory = message.from_inventory or false
+
         local container_data = nil
 
+        -- Извлекаем вечную, персистентную Lua-таблицу карточки из Single Source of Truth
         if message.from_inventory and message.slot_index then
-            -- Бочка в кармане: достаем её «Душу» прямо из инвентаря игрока
-            local player_inv = interaction_manager.get_player_inventory()
-            container_data = player_inv and player_inv:get_item(message.slot_index)
+            -- Бочка в кармане: достаем её «Душу» прямо из объектного рюкзака игрока в RAM!
+            local player_data = game_state.get_player_data()
+            local player_live_inventory = player_data and player_data.inventory
+            container_data = player_live_inventory and player_live_inventory:get_item(message.slot_index)
         else
-            if message.entity_type == "unit" then
-                container_data = units_state.get(message.container_uid)
-            elseif message.entity_type == "world_item" then
-                container_data = world_items_state.get_item_by_uid(message.container_uid)
-            end
+            -- Сундук на земле Meadows: дергаем вечный стейт через game_state по UID!
+            container_data = game_state.get_entity_by_uid(message.container_uid)
         end
 
-        -- Си-мост / Гвард: если данных нет, создаем структуру на лету из того, что прислал бэкенд
+        -- Си-мост / Гвард (Твой родной код страховки)
         if not container_data then
-            container_data = {
-                items = {}
-            }
+            container_data = { items = {} }
         end
 
-        -- Насыщаем конфигурацией сетки и страхуем массив предметов
+        -- Запекаем конфигурацию сетки бочки
         container_data.columns = message.columns or 6
         container_data.rows = message.rows or 4
+        -- =========================================================================
+        -- 🎲 ЛEНИВOЙ ГEНEРAЦИИ ЛУТA НА ПОРОГЕ GUI (ТВОЙ ЗОЛОТОЙ СТАНДАРТ):
+        -- =========================================================================
+        -- Если у извлеченной из стейта карточки бочки/сундука еще нет массива предметов,
+        -- или если её открывают в самый первый раз в жизни — бросаем кубики дропа!
+        -- Это на 1000% спасает от затираний и фантомных пустых сундуков при первом открытии.
+        if not container_data.items or not container_data.is_looted then
+            -- Вычисляем ID таблицы лута из прилетевших параметров
+            local raw_loot_id = container_data.loot_table_id or message.container_uid or "empty"
+
+            -- Если это карманная матрешка, у которой нет своего loot_table_id в ячейке,
+            -- мы легально берем имя хэша её ID предмета (например, строка "chest_common")
+            local final_loot_id = (raw_loot_id == "empty" or raw_loot_id == "unknown")
+                and (message.container_id and tostring(message.container_id) or "empty")
+                or raw_loot_id
+
+            print("🎲 GUI [Container]: Первая ленивая генерация лута Матрёшки/Сундука по таблице:", final_loot_id)
+
+            -- Импортируем модуль таблиц лута (внутри GUI-скрипта окон это на 100% легально)
+
+            -- Наливаем сгенерированный шмот НАПРЯМУЮ в вечные кишки стейта container_data!
+            container_data.items = loot_tables.get_loot(hash(final_loot_id)) or {}
+            container_data.is_looted = true
+        end
+
+        -- Зеркальный Си-мост страховки каркаса массива:
         if not container_data.items then
             container_data.items = {}
         end
 
-        -- Оборачиваем голые данные в твою ООП-модель
-        local model = InventoryModel.wrap(container_data)
-        model.max_slots = container_data.columns * container_data.rows
+        -- Рождаем чистый ООП-инстанс инвентаря сундука/бочки прямо здесь, внутри GUI-сцены
+        local total_slots = container_data.columns * container_data.rows
+        local model = inventory_model.new(nil, total_slots)
 
-        -- Решаем вопрос с фокусом драг-энд-дропа (теперь на уровне Контроллера)
+        -- =========================================================================
+        -- 🦾 2. АБСОЛЮТНОЕ РАВЕНСТВО ССЫЛОК К ИСТИННОМУ СТEЙТ У (ЗАФИКСИРОВАНО):
+        -- =========================================================================
+        -- Мы заставляем поле .items нашей модели указывать НАПРЯМУЮ на массив предметов 
+        -- извлеченной и УЖЕ СГЕНЕРИРОВАННОЙ выше карточки container_data.items!
+        -- Теперь любое Си-действие трансфер-менеджера мутирует strictly живую Душу бочки 
+        -- внутри кармана игрока (или на земле), полностью исключая повторную регенерацию!
+        model.items = container_data.items
+
+        container_data.uid = message.container_uid or container_data.uid
+        model.uid = container_data.uid
+
+        -- Передаем зрячий объект в фокус трансфер-менеджера
         interaction_manager.set_focus(model)
 
-        -- =========================================================================
-        -- 🎨 ПРЕДСТАВЛЕНИЕ (View): Отдаем готовую модель на отрисовку
-        -- =========================================================================
+        -- Отрисовка (Твой родной вызов)
         self.container_window:open(
-            model,                              -- Передаем ЖИВУЮ модель инвентаря!
-            message.container_name,             -- Хэш локализации заголовка
-            message.position,                   -- Мировая позиция сундука (для сдвига окна)
-            message.player_pos                  -- Мировая позиция игрока
+            model,
+            message.container_name,
+            message.position,
+            message.player_pos
         )
-        self.container_window:toggle()
+        -- =========================================================================
+        -- 🎯 БЕСШОВНАЯ ММО-ПЕРЕЗАПИСЬ КОНТЕНТА (ИСПРАВЛЕНО НАМЕРТВО БЕЗ ТOГГЛA):
+        -- =========================================================================
+        -- Вместо глупого триггера toggle() мы вводим зрячую проверку видимости!
+        if not self.container_window:is_visible() then
+            -- Если окно было закрыто — сочно открываем его, пушим в стек и настраиваем ввод
+            self.container_window:set_visible(true)
+            window_manager.push(self, msg.url(), self.container_window.render_order or 7)
+            window_manager.reorder_focus()
+            print("📦 GUI [Container]: Окно контейнера открыто впервые.")
+        else
+            -- 🚀 ШЁЛК ПЕРЕЗАПИСИ: Окно уже на экране! Мы ПРОПУСКАЕМ дерганье стека ввода Defold,
+            -- но принудительно пинаем Grid на моментальный рефреш новых иконок в этот же кадр!
+            if self.container_window.static_grid and self.container_window.static_grid.refresh then
+                self.container_window.static_grid:refresh()
+            end
+            print("🔄 GUI [Container]: Бесшовная ММО-перезапись контента! Загружена новая бочка UID:", model.uid)
+        end
     end
-    -- ЗАКРЫТИЕ (от ESC или менеджера окон)
+
+    --- если on_move то проверяем from_inventory
+    -- =========================================================================
+    -- 🦾 2. СИСТЕМНЫЕ СИ-ТРИГГЕРЫ ОКНА ЛУТА
+    -- =========================================================================
     if message_id == hash("close_window") then
         if self.container_window:is_visible() then
+            if message.on_move and self.from_inventory then return end
             self.container_window:toggle()
+            interaction_manager.clear_focus()
         end
 
     elseif message_id == hash("set_focus_visual") then
-        -- Вызываем метод базового окна. 
-        -- Теперь мы находимся внутри родной сцены, и Defold будет счастлив!
         if self.container_window and self.container_window.set_focus_visual then
             self.container_window:set_focus_visual(message.is_active)
         end
 
+    -- =========================================================================
+    -- 🦾 3. СПЛИТ СТАКОВ ВНУТРИ ВНЕШНЕГО СУНДУКА (ИСПРАВЛЕНО)
+    -- =========================================================================
     elseif message_id == hash("split_confirmed") then
         local slot_index, current_amount = message.slot_index, message.current_amount
         local data_source = self.container_window.static_grid:get_data_source()
 
-        if not data_source or not data_source.items then return end
+        if not data_source then return end
+        local item = data_source:get_item(slot_index)
 
-        local item = data_source.items[slot_index]
-        local item_cfg = item and items_db.get_item(item.item_id)
+        -- Оборонительный ААА-гвард: вытаскиваем чертеж шмотки с проверкой на nil
+        local item_cfg = item and item.item_id and items_db.get_item(item.item_id)
 
         if item and item_cfg then
-            -- Визуально урезаем циферку в сундуке на экране
+            -- Визуально урезаем циферку в ячейке сундука на экране
             local remaining = item.amount - current_amount
             self.container_window.static_grid:set_slot_amount_visual(slot_index, remaining)
 
@@ -167,17 +221,13 @@ function on_message(self, message_id, message, sender)
                 is_split = true
             }
 
-            -- Взводим слепой драг
-            drag_manager.start(
-                self.container_window.static_grid,
-                slot_index,
-                split_item,
-                item_cfg
-            )
+            -- 🎯 Взводим драг, передавая в качестве сорса ЖИВУЮ модель этого сундука!
+            drag_manager.start(data_source, slot_index, split_item, item_cfg)
         end
 
-
-    -- ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ
+    -- =========================================================================
+    -- 🦾 4. ОБРАБОТКА ДАБЛКЛИКОВ И КНОПКИ "ЗАБРАТЬ ВСЁ" (ИСПРАВЛЕНО)
+    -- =========================================================================
     elseif message_id == hash("refresh") then
         self.container_window.static_grid:refresh()
 
@@ -193,56 +243,89 @@ function on_message(self, message_id, message, sender)
         local item = data_source:get_item(slot_index)
         local item_cfg = items_db.get_item(item_id)
 
+        -- 🦾 Извлекаем из RAM-паспорта игрока его живые инвентарь и куклу
+        local player_data = game_state.get_player_data()
+        local live_inventory = player_data and player_data.inventory
+        local live_paperdoll = player_data and player_data.paperdoll
+
         if item and item_cfg then
-            if message.event == "item_transfer" then
-                -- 🎯 ЦЕЛЬ: Кукла (Paperdoll)
-                -- Пытаемся взять открытую куклу через window_manager или напрямую модуль
-                local target = interaction_manager.get_player_paperdoll()
+            local is_equippable = item_cfg.equip_slot and item_cfg.equip_slot ~= ""
+
+            -- Напрямую надеть вещь из контейнера на тело можно СТРОГО при трех условиях:
+            --   - Прилетело событие экипировки ("item_transfer")
+            --   - У предмета в базе данных ЕСТЬ слот куклы (is_equippable)
+            --   - Контейнер открыт ИЗ КАРМАНА игрока (self.is_pocket_container == true)
+            local can_equip_directly = (message.event == "item_transfer") and is_equippable and self.from_inventory
+
+            if can_equip_directly and live_paperdoll and live_inventory then
+                -- =====================================================================
+                -- 🎒 КЕЙС А: МАТРЁШКА В КАРМАНЕ -> НАДЕВАЕМ НА ТЕЛО (BG3 КАНОН)
+                -- =====================================================================
+                -- Проверяем, надето ли уже что-то на кукле мага в этом слоте
+                local current_equipped = live_paperdoll:get_item(item_cfg.equip_slot)
+
+                if current_equipped and current_equipped.item_id then
+                    -- 🛡️ ТИТАНОВЫЙ ГВАРД ПЕРЕПОЛНЕНИЯ (Твоя заложенная механика!):
+                    -- Если на маге уже висит старый топор, мы НЕ свапаем его в бочку!
+                    -- Мы сначала бережно переносим этот топор с куклы в основной рюкзак мага!
+                    local free_slot_in_bag = live_inventory:get_first_empty_slot()
+                    if free_slot_in_bag then
+                        -- Снимаем топор в рюкзак мага
+                        live_inventory:set_item(free_slot_in_bag, current_equipped)
+                        live_paperdoll:set_item(item_cfg.equip_slot, nil)
+                        print("⚔️ БЭКЕНД [Loot]: Старый предмет с куклы успешно снят и убран в основной рюкзак.")
+                    else
+                        print("🚨 БЭКЕНД: Не удалось надеть вещь из бочки, основной инвентарь мага ПОЛОН!")
+                        return -- Блокируем транзакцию, чтобы топор не испарился
+                    end
+                end
+
+                -- Теперь, когда слот куклы гарантированно пуст, а старый топор лежит в сумке,
+                -- мы сочно и безбажно перемещаем новый меч из бочки прямо на куклу мага!
                 item_transfer_manager.execute_transfer(
                     data_source,
                     slot_index,
-                    target,
+                    live_paperdoll,
                     item_cfg.equip_slot,
                     item,
                     item_cfg
                 )
-
-            elseif message.event == "item_loot" then
-                -- 🎯 ЦЕЛЬ: Инвентарь игрока
-                local target = interaction_manager.get_player_inventory()
+            else
+                -- =====================================================================
+                -- 💀 КЕЙС Б: КОНТЕЙНЕР В МИРЕ ИЛИ ЛКМ ДАБЛКЛИК -> СТРОГО ЛУТ В СУМКУ
+                -- =====================================================================
+                -- Если сундук стоит на земле Meadows, или если это банка без слота куклы —
+                -- вещь пуленепробиваемо отправляется строго в основной рюкзак мага (live_inventory)!
                 item_transfer_manager.execute_transfer(
                     data_source,
                     slot_index,
-                    target,
-                    nil,
+                    live_inventory,
+                    nil, -- передаем nil для зрячего авто-лута в сумку!
                     item,
                     item_cfg
                 )
             end
         end
+
         if message.event == "item_loot_all" then
-            local target = interaction_manager.get_player_inventory()
-            
+            -- 🎯 ЦЕЛЬ: Инвентарь игрока (ИСПРАВЛЕНО: Сменили стёртый синглтон на живой инстанс)
+            local target = live_inventory
+
             for i = 1, data_source.max_slots do
                 local _item = data_source:get_item(i)
                 local _item_cfg = _item and _item.item_id and items_db.get_item(_item.item_id)
 
                 if _item and _item_cfg then
                     -- =========================================================================
-                    -- 🛡️ ГВАРД АННИГИЛЯЦИИ ДЛЯ СИСТЕМЫ TAKE ALL
+                    -- 🛡️ Твой родной, нетронутый ГВАРД АННИГИЛЯЦИИ ДЛЯ СИСТЕМЫ TAKE ALL
                     -- =========================================================================
                     -- Проверяем: не пытается ли массовый лут засунуть текущий контейнер в самого себя?
-                    -- Сравниваем физические адреса массивов лута в RAM
                     local is_self_loot = (_item.items and data_source.items and _item.items == data_source.items)
-                    
-                    -- Сравниваем UID паспорта (пробиваемся через возможные поля)
                     local source_uid = data_source.uid or (data_source.item_data and data_source.item_data.uid)
                     local is_same_uid = (_item.uid and source_uid and _item.uid == source_uid)
 
                     if is_self_loot or is_same_uid then
                         print("⚠️ ГЕЙМДИЗАЙН [LootAll]: Пропущен перенос контейнера в самого себя в слоте:", i)
-                        -- ИСПОЛЬЗУЕМ КЛЮЧЕВОЕ СЛОВО Lua для пропуска итерации (в Lua 5.1+ через goto или просто инверсию условия)
-                        -- Чтобы не плодить goto, мы просто оборачиваем трансфер в инвертированное условие:
                     else
                         -- Рекурсивный гвард: проверяем, чтобы внутри забираемого предмета не лежал наш текущий источник
                         local is_nested_paradox = false
@@ -272,53 +355,130 @@ function on_message(self, message_id, message, sender)
                     -- =========================================================================
                 end
             end
-        end    
+        end
+        -- 🎯 СИНХРОНИЗАЦИЯ СЕТОК (ДОБАВЛЕНО): Пинаем реактивный бродкаст,
+        -- чтобы рюкзак мага на экране сочно обновил свои ячейки вслед за транзакциями лута!
+        broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     end
+
+    if message_id == hash("inventory_changed_async") then
+        print("🚀 GUI [Container]: Поймали асинхронный inventory_changed_async!!!")
+
+        if self.container_window and self.container_window:is_visible() and self.from_inventory then
+            -- =========================================================================
+            -- 🎯 ПУЛЕНЕПРОБИВАЕМЫЙ ПЕРЕХВАТ UID ИЗ ФОКУСА (ИСПРАВЛЕНО НАМЕРТВО):
+            -- =========================================================================
+            -- Мы убираем слепые гадания полей Druid-инстансов!
+            -- Мы лезем в interaction_manager и забираем живую модель открытого сундука.
+            -- У этой модели поле .uid гарантированно хранит честный строковый UID бочки!
+            local focused_model = interaction_manager.get_focus and interaction_manager.get_focus()
+            local current_uid = focused_model and focused_model.uid
+
+            if current_uid then
+                print("🔍 GUI [Container]: Зряче проверяем рюкзак на наличие бочки UID:", current_uid)
+
+                -- Лезем в Single Source of Truth — в живой рюкзак мага в RAM
+                local player_data = game_state.get_player_data()
+                local player_inv = player_data and player_data.inventory
+
+                -- Проверяем, осталась ли вообще эта бочка внутри карманов нашего мага
+                local is_still_in_backpack = false
+                if player_inv and player_inv.items then
+                    for i = 1, player_inv.max_slots or #player_inv.items do
+                        local slot_item = player_inv.items[i]
+                        if slot_item and slot_item.uid == current_uid then
+                            print("🎯 ФИКС: Нашли бочку в рюкзаке! Она все еще на месте.")
+                            is_still_in_backpack = true
+                            break
+                        end
+                    end
+                end
+
+                -- =========================================================================
+                -- 💥 БУМ!!! ПРИНУДИТЕЛЬНОЕ ЗAКРЫТИE ОKОН-ПРИЗРAКOВ:
+                -- =========================================================================
+                if not is_still_in_backpack then
+                    print("🛡️ GUI [Container]: Бочка выброшена в мир! Асинхронно и легально закрываем окно лута.")
+
+                    if self.container_window.close then
+                        self.container_window:close()
+                    else
+                        gui.set_enabled(gui.get_node("root"), false)
+                        interaction_manager.clear_focus()
+                    end
+                    return -- Мгновенно выходим, отменяя рефреш
+                end
+            else
+                print("🚨 GUI [Container]: Критическая ошибка! UID открытого контейнера равен nil в фокусе!")
+            end
+        end
+
+        -- Если бочка все еще в сумке, взводим её родной Dirty-флаг отложенного рефреша
+        if self.container_window and self.container_window.request_refresh then
+            self.container_window:request_refresh()
+        end
+    end
+
 end
 
----@param self ContainerWindowScript
----@param action_id hash
----@param action table
 function on_input(self, action_id, action)
-    if not self.container_window or not self.container_window:is_visible() then
-        return self.druid:on_input(action_id, action)
-    end
-
-    -- 1. Сначала отдаем ввод Друиду (кнопки, вкладки и начало драга)
-    local handled = self.druid:on_input(action_id, action)
-
-    -- 2. Логика Драга (твоя идеальная версия)
-    if drag_manager.is_dragging() then
-        if not action_id or action_id == h_touch then
-            drag_manager.update(action.x, action.y)
-            -- Используем self.character_window.root, который нашла БАЗА
-            if gui.pick_node(self.container_window.root, action.x, action.y) then
-                drag_manager.set_over_gui(true)
-            end
-        end
-
-        if action_id == h_touch and action.released then
-            if self.container_window.static_grid:on_drop(action.x, action.y) then return true end
-            -- Используем self.character_window.root из БАЗЫ
-            if gui.pick_node(self.container_window.root, action.x, action.y) then
-                drag_manager.finish(nil, nil)
-                return true
-            end
-        end
-    end
-
-    -- 3. ФИНАЛЬНЫЙ ШТРИХ: блокировка мира через БАЗУ
-    if action_id and action.x and action.y then
-        -- Используем метод из базы, который проверяет координаты
-        if self.container_window:is_over_window(action.x, action.y) then
-            -- 🚩 ГЛАВНЫЙ ФИКС: Если игрок КЛИКНУЛ (pressed) по окну
-            if action.pressed and action_id == h_touch then
-                -- Говорим менеджеру, что мы теперь главные!
-                window_manager.handle_window_click(self.container_window, msg.url())
-            end
-
-            return true -- Блокируем мир
-          end
-    end
-    return handled
+    return window_manager.handle_window_input(self, action_id, action, drag_manager, self.container_window)
 end
+
+-- function on_input(self, action_id, action)
+--     -- 🚀 СВЯТОЙ ААА-МИНУС КОПИПАСТЫ (РЕФАКТОРИНГ ПОД БУДУЩИЕ ОКНА):
+--     -- Мы просто вызываем статический метод хэндлера, передавая туда СВОЙ self скрипта!
+--     -- Никаких двоеточий! Внутри модуля код выполнится в контексте нашего родного self.druid!
+--     return window_input_handler.handle(self, action_id, action)
+-- end
+
+-- ---@param self ContainerWindowScript
+-- ---@param action_id hash
+-- ---@param action table
+-- function on_input(self, action_id, action)
+--      local active_oop_win = window_manager.active_instance
+--     local is_mouse_moving = (action_id == nil) or (action_id == hash("touch"))
+--     local is_item_dragging = drag_manager and drag_manager.is_dragging and drag_manager.is_dragging()
+--
+--     -- 🦾 ЗРЯЧИЙ ААА-ГВАРД АКТИВНОГО ОКНА (ИСПРАВЛЕНО НАМЕРТВО):
+--     -- Если игрок тащит Кристальный Меч из инвентаря — гвард отключается (not is_item_dragging выдаст false),
+--     -- сундук просыпается, его on_drop зряче ловит фазу released и бережно кладет вещь в слот!
+--     if active_oop_win and (self.container_window ~= active_oop_win) and is_mouse_moving and not action.pressed and not is_item_dragging then
+--         return false 
+--     end
+--     if not self.container_window or not self.container_window:is_visible() then
+--         return self.druid:on_input(action_id, action)
+--     end
+--
+--     local handled = self.druid:on_input(action_id, action)
+--
+--     -- ЛОГИКА ОПЕРАЦИЙ ДРАГА НА КУРСОРЕ
+--     if drag_manager.is_dragging() then
+--         if not action_id or action_id == h_touch then
+--             drag_manager.update(action.x, action.y)
+--             if gui.pick_node(self.container_window.root, action.x, action.y) then
+--                 drag_manager.set_over_gui(true)
+--             end
+--         end
+--
+--         if action_id == h_touch and action.released then
+--             if self.container_window.static_grid:on_drop(action.x, action.y) then return true end
+--             if gui.pick_node(self.container_window.root, action.x, action.y) then
+--                 drag_manager.set_over_gui(false)
+--                 drag_manager.finish(nil, nil)
+--                 return true
+--             end
+--         end
+--     end
+--
+--     -- БЛОКИРОВКА КЛИКОВ СКВОЗЬ ИНТЕРФЕЙС В МИР MEADOWS
+--     if action_id and action.x and action.y then
+--         if self.container_window:is_over_window(action.x, action.y) then
+--             if action.pressed and action_id == h_touch then
+--                 window_manager.handle_window_click(self.container_window, msg.url())
+--             end
+--             return true
+--         end
+--     end
+--     return handled
+-- end

@@ -4,11 +4,12 @@ local broadcast = require("main.modules.system.broadcast")
 local M = {}
 
 ---Выбросить предмет из модели данных в игровой мир
----@param source table @Чистая Lua-модель источника предметов (например, player_inventory)
+---@param source table @Чистая Lua-модель источника предметов (например, инвентарь игркоа)
 ---@param source_slot number|string @Индекс исходного слота или тип слота куклы
 ---@param item table @Данные выбрасываемого предмета
 ---@param position vector3 @Координата спавна X
 function M.drop_to_world(source, source_slot, item, position)
+    print("IS LOOT FROM TRANSFER MANAGER: ", item.is_looted)
     msg.post("game_scene:/world", "spawn_world_item", {
         source = "player",
         item_uid = item.uid,

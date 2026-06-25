@@ -47,6 +47,22 @@ function M.add(uid, props)
         uid = string.format("%s_%d_%d", clean_item_id, os.time(), salt)
     end
 
+    -- 🦾 УМНЫЙ ААА-КАМБЭК МАТРЁШЕК НА ЗЕМЛЮ (ДОБАВЛЕНО):
+    -- Если карточка в RAM существовала, но была ПОДНЯТА игроком (is_collected == true),
+    -- а сейчас её выбрасывают ОБРАТНО на землю — это легальное возвращение бочки в мир!
+    if M.registry and M.registry[uid] and M.registry[uid].is_collected then
+        local existing = M.registry[uid]
+        print("🌍 БЭКЕНД [WorldState]: Возврат матрешки на землю! Оживляем UID:", uid)
+
+        existing.is_collected = false -- Сбрасываем флаг сбора, бочка снова жива для мира!
+        existing.saved_position = props.saved_position -- Обновляем координаты на новую точку сброса!
+
+        -- Если при дропе прилетели измененные шмотки из рюкзака — бережно обновляем их Душу
+        if props.items then existing.items = props.items end
+
+        return existing -- Мгновенно возвращаем обновленную, ожившую Душу бочки, минуя гвард затирания!
+    end
+
     -- 🛡️ ЗЕРКАЛЬНЫЙ ГВАРД СЕЙВА:
     if M.registry and M.registry[uid] then
         print("🛡️ БЭКЕНД: Паспорт предмета уже существует в RAM. Защита спасла сейв от затирания для:", uid)

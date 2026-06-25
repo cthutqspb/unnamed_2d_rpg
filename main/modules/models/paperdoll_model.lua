@@ -1,25 +1,33 @@
 local items_db = require("main.modules.data.items_db")
 local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
-local character_data = require("main.modules.character.character_data")
 
 ---@class Item
 ---@field item_id hash|string|nil
 ---@field amount integer
 ---@field uid string|nil
 
----@class Paperdoll
+---@class PaperdollInstance
+---@field slots table<string, Item>
+---@field owner table|nil
 local M = {}
+M.__index = M
 
----@type table<string, Item>
-M.slots = {
-    HEAD = {item_id = nil, amount = 0, uid = nil},
-    CHEST = {item_id = nil, amount = 0, uid = nil},
-    LEGS = {item_id = nil, amount = 0, uid = nil},
-    MAIN_HAND = {item_id = nil, amount = 0, uid = nil},
-    SHIELD = {item_id = nil, amount = 0, uid = nil}
-}
+---@return PaperdollInstance
+function M.new(owner)
+    local instance = setmetatable({}, M)
 
--- ИНТЕРФЕЙСНЫЕ МЕТОДЫ (Используем self для доступа к данным)
+    instance.owner = owner
+
+    instance.slots = {
+        HEAD = {item_id = nil, amount = 0, uid = nil},
+        CHEST = {item_id = nil, amount = 0, uid = nil},
+        LEGS = {item_id = nil, amount = 0, uid = nil},
+        MAIN_HAND = {item_id = nil, amount = 0, uid = nil},
+        SHIELD = {item_id = nil, amount = 0, uid = nil}
+    }
+
+    return instance
+end
 
 ---@param slot_type string
 ---@return Item|nil
@@ -45,10 +53,10 @@ function M:set_item(slot_type, item_data)
     end
 end
 
----@param item Item
----@param slot_type string
+---@param item Item Требуемый предмет
+---@param slot_type string Слот экипировки
 ---@return boolean
-function M:can_equip_item(item, slot_type)
+function M:can_equip_item(item, slot_type) -- 🛡️ ИСПРАВЛЕНО: УБРАЛИ unit_data! Сигнатура чиста!
     if not self.slots[slot_type] or not item.item_id then
         return false
     end
@@ -58,36 +66,38 @@ function M:can_equip_item(item, slot_type)
         return false
     end
 
+    -- 🦾 ЗРЯЧИЙ ЮНИТ-КАНОН: Кукла сама берет паспорт своего хозяина из своего поля self.owner!
+    local unit_data = self.owner
+    if not unit_data then return false end
+
     ---@type RequirementResult
-    local check = item_requirements_manager.check(cfg, character_data.player, item)
+    local check = item_requirements_manager.check(cfg, unit_data, item)
     if not check.is_ok then
-        print("CANNOT EQUIP: " .. (check.reason or "low stats"))
+        if unit_data.is_player then
+            print("CANNOT EQUIP: " .. (check.reason or "low stats"))
+        end
         return false
     end
 
     return true
 end
 
--- СИСТЕМНЫЕ МЕТОДЫ (Оставил через точку, так как они работают с модулем напрямую)
-
----@return table<string, Item>
-function M.get_save_data()
-    return M.slots
+--@return table<string, Item>
+function M:get_save_data()
+    return self.slots
 end
 
 ---@param data table<string, Item>
-function M.load_save_data(data)
-    M.clear()
+function M:load_save_data(data)
+    self:clear()
     if not data then return end
 
     for slot_type, slot_data in pairs(data) do
-        local current_slot = M.slots[slot_type]
+        local current_slot = self.slots[slot_type]
         if current_slot and slot_data.item_id then
             local id = slot_data.item_id
 
-            -- Если пришла строка (из JSON), чистим её и хешируем
             if type(id) == "string" then
-                -- Убираем обертку "hash: [item_id]", если она есть
                 id = id:match("%[(.-)%]") or id
                 current_slot.item_id = hash(id)
             else
@@ -100,9 +110,8 @@ function M.load_save_data(data)
     end
 end
 
-
-function M.clear()
-    for _, slot in pairs(M.slots) do
+function M:clear()
+    for _, slot in pairs(self.slots) do
         slot.item_id = nil
         slot.amount = 0
         slot.uid = nil

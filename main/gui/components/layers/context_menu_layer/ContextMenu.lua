@@ -89,10 +89,26 @@ function M:create_menu_button(action, index, data, config)
     gui.set_size(btn_node, vmath.vector3(config.btn_width, config.btn_height, 0))
     -- 2. ЛОГИКА КЛИКА
     local btn_instance = self.druid:new_button(btn_node, function()
-        msg.post(data.source_url, "context_menu_action", { event = action.event, data = data })
+        -- Создаем зрячий, объединенный payload для нашего gui_script!
+        -- Мы берем исходные данные клика (data) и намертво вшиваем в них 
+        -- сгенерированные базой меню контексты (item_id, slot_index, unit_uid)!
+        local merged_payload = {}
+        if data then
+            for k, v in pairs(data) do merged_payload[k] = v end
+        end
+        if action.data then
+            for k, v in pairs(action.data) do merged_payload[k] = v end
+        end
+
+        -- Отправляем в character_window.gui_script (или container_window) 
+        -- ультимативно зрячую посылку, готовую к ААА-транзакциям!
+        msg.post(data.source_url, "context_menu_action", { 
+            event = action.event, 
+            data = merged_payload 
+        })
+        
         self:hide()
     end)
-
     -- 3. ЖЕСТКОЕ ОТКЛЮЧЕНИЕ СТИЛЯ (Чтобы не было анимации увеличения)
     btn_instance.style.set_color = function() end
     btn_instance.style.set_scale = function() end

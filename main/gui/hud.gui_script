@@ -3,7 +3,7 @@ local broadcast = require("main.modules.system.broadcast")
 local PlayerFrame = require("main.gui.components.player_frame.PlayerFrame")
 local TargetFrame = require("main.gui.components.target_frame.TargetFrame")
 local ActionBar = require("main.gui.components.action_bar.ActionBar")
-local player_inv = require("main.modules.player.player_inventory")
+local game_state = require("main.modules.game_state.game_state") 
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 
@@ -46,7 +46,25 @@ function init(self)
     -- 📬 СЛАЙС 1: ИНВЕНТАРНЫЕ СОБЫТИЯ (inventory_events)
     self.on_inventory_event = function(data)
         if data.message_id == hash("add_item") then
-            local success = player_inv.add_item(data.item_id, data.amount)
+            -- 🎯 ВЫНИМАЕМ АКТУАЛЬНЫЙ ИНСТАНС РЮКЗАКА ИГРОКА ИЗ RAM-ПАСПОРТА:
+            local player_data = game_state.get_player_data()
+            if not player_data or not player_data.inventory then
+                print("🚨 HUD: Не удалось выдать предмет, рюкзак мага отсутствует в RAM!")
+                return
+            end
+
+            -- 🦾 ЗРЯЧИЙ ААА-НАЛИВ: Вызываем метод через двоеточие строго на инстансе мага!
+            -- Наш универсальный inventory_model сам сочно раскидает шмот по ячейкам в RAM,
+            -- а сигналы "refresh" ниже заставят окна перерисовать свежие иконки на экране!
+            local success = player_data.inventory:add_item(
+                data.item_id,
+                data.amount,
+                data.uid,
+                data.items,
+                data.is_looted,
+                data.loot_table_id
+            )
+
             if success then
                 msg.post("main:/character_window#gui", "refresh")
                 msg.post("main:/inventory_window#gui", "refresh")
@@ -183,7 +201,7 @@ function on_input(self, action_id, action)
         -- Б) Отпускание мыши (Drop) над экшен-баром или в мир
         if action_id == hash("touch") and action.released then
             local bar_grid = self.action_bar and (self.action_bar.static_grid or self.action_bar.grid)
-            
+
             -- Опрашиваем боевую сетку напрямую!
             if bar_grid and bar_grid:on_drop(action.x, action.y) then
                 print("🚩 ХУД: Боевая сетка успешно сожрала дроп из инвентаря!")
@@ -218,7 +236,7 @@ function on_input(self, action_id, action)
     -- =========================================================================
     if action.pressed and action_id then
         local key_index = nil
-        
+
         -- Быстрый развод Си-хэшей числового ряда клавиатуры движка Defold
         if     action_id == hash("key_1") then key_index = 1
         elseif action_id == hash("key_2") then key_index = 2

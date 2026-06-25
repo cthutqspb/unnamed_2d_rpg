@@ -57,7 +57,8 @@ local TABS_CONFIG = {
                             event = "item_transfer",
                             data = {
                                 slot_index = index,
-                                item_id = item.item_id
+                                item_id = item.item_id,
+                                from_paperdoll = false
                             }
                         })
                     end
@@ -254,22 +255,30 @@ function M:bind_unit(unit_uid, unit_inventory, unit_paperdoll)
     -- =========================================================================
     -- 🦾 ПОЛИМОРФНЫЙ СДВИГ ИСТОЧНИКОВ ДАННЫХ ВНУТРИ ПОДКОМПОНЕНТОВ
     -- =========================================================================
-    
     -- 1. Переключаем Универсальный виджет характеристик на UID нового существа
     if self.character_stats and self.character_stats.set_inspect_target then
         self.character_stats:set_inspect_target(unit_uid)
     end
 
     -- 2. Переключаем модель сетки инвентаря/карманов на новую таблицу данных
-    if self.static_grid then
-        -- Если у монстра нет карманов (nil), прокидываем пустую заглушку, чтобы сетка не упала
-        self.static_grid.data_source = unit_inventory or { slots = {}, get_items = function() return {} end }
+    -- Мы вытаскиваем инстанс созданного Друидом дочернего компонента инвентаря.
+    -- (В твоей иерархии Друида он лежит либо в self.components, либо под именем self.static_grid)
+    local inventory_grid_component = self.static_grid or (self.components and self.components["static_grid"])
+    
+    if inventory_grid_component and inventory_grid_component.set_data_source then
+        -- 🎯 ПРЯМАЯ ИНЪЕКЦИЯ: Скармливаем универсальной сетке живой инстанс нового рюкзака!
+        -- Метод set_data_source внутри себя сам вызовет рефреш и обновит ячейки
+        inventory_grid_component:set_data_source(unit_inventory)
     end
 
     -- 3. Переключаем модель куклы шмота на куклу этого конкретного монстра
-    if self.paperdoll then
-        -- В будущем, когда у мобов появятся куклы, мы пропишем подмену источника и для них:
-        -- self.paperdoll.data_source = unit_paperdoll
+    -- Точно так же вытаскиваем инстанс созданной Друидом куклы
+    local paperdoll_component = self.paperdoll or (self.components and self.components["character_paperdoll"])
+    
+    if paperdoll_component and paperdoll_component.set_inspect_target then
+        -- 🦾 БУДУЩЕЕ НАСТУПИЛО: Говорим виджету куклы шмота переключить свою сессию 
+        -- на RAM-паспорт этого конкретного существа (мага, компаньона или скелета)!
+        paperdoll_component:set_inspect_target(unit_uid)
     end
 
     -- Полностью обновляем визуал всех вкладок под новые прилетевшие данные!

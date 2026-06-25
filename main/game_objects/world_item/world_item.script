@@ -258,7 +258,7 @@ function on_message(self, message_id, message, sender)
                 local item_data = world_items_state.get_item_by_uid(self.uid)
 
                 if item_data then
-                    actions_dispatcher.REDUCERS["container_open_world"]({
+                    actions_dispatcher.REDUCERS["container_open"]({
                         entity_type = "world_item",
                         uid = self.uid,
                         id = self.item_id,

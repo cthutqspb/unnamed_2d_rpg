@@ -117,7 +117,7 @@ function M.get_uid_by_go_id(go_id)
     if not go_id or go_id == hash("") then return nil end
 
     -- 🦾 КAСКAДНЫЙ ПОИСК ИHСТАHСОВ (O(1) Си-тактов процессора):
-    
+
     -- 1. Сначала проверяем, не Живой ли это Юнит (Игрок, Скелет, Дракон)
     if units_state and units_state.instances and units_state.instances[go_id] then
         return units_state.instances[go_id]

@@ -101,8 +101,8 @@ M.items_raw = {
     },
     ["wooden_barrel"] = {
         action_type = "container_item",
-        name_key = "container_barrel_common_name",
-        desc_key = "container_barrel_common_desc",
+        name_key = "container_wooden_barrel_name",
+        desc_key = "container_wooden_barrel_desk",
         animation = "wooden_barrel",
         tile_index = 8,
         texture = "project_utumno",

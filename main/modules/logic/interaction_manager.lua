@@ -1,5 +1,3 @@
-local player_inventory = require("main.modules.player.player_inventory")
-local player_paperdoll = require("main.modules.player.player_paperdoll")
 local character_data = require("main.modules.character.character_data")
 local broadcast = require("main.modules.system.broadcast")
 
@@ -71,19 +69,6 @@ end
 ---@return table|nil
 function M.get_focus()
     return M.current_focus_ds
-end
-
----Получить чистую модель инвентаря игрока
----@return table
--- Этот метод для сундуков: им всегда нужен инвентарь игрока
-function M.get_player_inventory()
-    return player_inventory
-end
-
----Получить чистую модель куклы (снаряжения) игрока
----@return table
-function M.get_player_paperdoll()
-    return player_paperdoll
 end
 
 function M.get_player_action_bar(index)

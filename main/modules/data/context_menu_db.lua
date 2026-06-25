@@ -96,7 +96,7 @@ function M.get_actions(object_type, item_cfg, flags, data)
                 -- Развод кнопок Лута/Продажи/Сброса по source_url
                 local url_str = d.source_url and tostring(d.source_url) or ""
                 if string.find(url_str, "container_window") and v.event == "item_drop" then
-                    table.insert(result, { name_key = "menu_take", event = "item_transfer" })
+                    table.insert(result, { name_key = "menu_take", event = "item_loot" })
                 else
                     table.insert(result, v)
                 end

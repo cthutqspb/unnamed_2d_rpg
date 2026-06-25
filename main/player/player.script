@@ -100,7 +100,7 @@ function update(self, dt)
         self.move_target = nil
         self.pending_item = nil
         self.pending_event = nil
-        msg.post("main:/container_window#gui", "close_window")
+        msg.post("main:/container_window#gui", "close_window", { on_move = true })
     end
 
     -- 1. Собираем вектор направления из клавиатурного буфера
@@ -108,7 +108,7 @@ function update(self, dt)
 
     -- 2. Если есть цель от мышки — пересчитываем move в сторону цели
     if self.move_target then
-        msg.post("main:/container_window#gui", "close_window")
+        msg.post("main:/container_window#gui", "close_window", { on_move = true })
         local d = self.move_target - position
         if vmath.length(d) > 5 then
             move = vmath.normalize(d)

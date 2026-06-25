@@ -1,6 +1,4 @@
 local broadcast = require("main.modules.system.broadcast")
-local player_inventory = require("main.modules.player.player_inventory")
-local player_paperdoll = require("main.modules.player.player_paperdoll")
 local character_data = require("main.modules.character.character_data")
 local game_state = require("main.modules.game_state.game_state")
 
@@ -11,11 +9,21 @@ local M = {}
 ---@type string
 local SAVE_PATH = sys.get_save_file("MyAwesomeRPG", "save_01.json")
 
--- Рекурсивная проверка и конвертация типов Defold в типы JSON
+-- =========================================================================
+-- 🛡️ ААА-АТРИБУТ [JsonIgnore]: ТИТАНОВЫЙ ЧЕРНЫЙ СПИСОК РЕКУРСИЙ
+-- =========================================================================
+-- Сюда мы заносим любые служебные поля, ссылки на Си-объекты или обратные указатели,
+-- которые JSON-устройство обязано НАГЛУХО игнорировать при записи игры на жесткий диск ПК.
+local JSON_IGNORE_FIELDS = {
+    ["owner"] = true,  -- Наша главная обратная ссылка «Рюкзак/Кукла -> Хозяин-Юнит»
+    -- ["current_target"] = true, -- Сюда в будущем можно вписать ИИ-таргет монстра!
+}
+
+-- Рекурсивная проверка и конвертация типов Defold в типы JSON (Твой оригинальный код!)
 ---@param t any Входящие данные любого типа
 ---@return any Очищенная от хэшей таблица или примитив
 local function prepare_for_json(t)
-    -- 🎯 1. ПУЛЕНЕПРОБИВАЕМЫЙ ПЕРЕХВАТ ВЕКТОРОВ DEFOLD (WoW/BG3 канон):
+    -- 🎯 1. ТВОЙ ПУЛЕНЕПРОБИВАЕМЫЙ ПЕРЕХВАТ ВЕКТОРОВ DEFOLD (WoW/BG3 канон):
     -- Если прилетел userdata-вектор, у него тип равен "userdata", но у него ЕСТЬ поля x и y!
     -- Мы проверяем это первой строчкой через pcall (чтобы не крашнулось на голых хэшах).
     -- Если это вектор — мгновенно раскладываем его в стерильную JSON-таблицу чисел {x, y, z}!
@@ -33,12 +41,18 @@ local function prepare_for_json(t)
         return t
     end
 
-    -- 3. РЕКУРСИВНЫЙ ОБХОД ТАБЛИЦ (Твой оригинальный рабочий код)
+    -- 3. РЕКУРСИВНЫЙ ОБХОД ТАБЛИЦ (Твой оригинальный рабочий код!)
     local clean = {}
     for k, v in pairs(t) do
-        -- Ключи JSON могут быть ТОЛЬКО строками. Хэш-ключ — смерть для json.encode
+        -- 🦾 УЛЬТИМАТИВНЫЙ AAA-ПЕРЕХВАТЧИК [JsonIgnore] (ИСПРАВЛЕНО И ЗАФИКСИРОВАНО):
+        -- Мы проверяем, лежит ли текущий ключ в нашем черном списке рекурсий.
+        -- Если чистильщик видит поле "owner" — он СЛЕПО ПРОПУСКАЕТ эту итерацию!
+        -- Мертвая петля рекурсии "маг -> рюкзак -> маг" разрывается посреди кадра на корню!
         local clean_key = type(k) == "userdata" and tostring(k) or k
-        clean[clean_key] = prepare_for_json(v)
+        if not JSON_IGNORE_FIELDS[k] then
+            -- Ключи JSON могут быть ТОЛЬКО строками. Хэш-ключ — смерть для json.encode
+              clean[clean_key] = prepare_for_json(v)
+        end
     end
     return clean
 end
@@ -57,8 +71,7 @@ end
 function M.new_game(creation_package)
     -- 1. Стерильно очищаем все домены данных в оперативной памяти Lua
     game_state.clear_all()
-    player_inventory.clear()
-    player_paperdoll.clear()
+    --player_paperdoll.clear()
 
      -- 🛡️ ВЫТАCКИВАЕМ ДЕФОЛТЫ ИЗ АРХЕТИПА:
     -- Если пакет не прилетел (тест из редактора), ставим жесткий фоллбек,
@@ -89,12 +102,25 @@ function M.new_game(creation_package)
     character_data.bind_to_units_registry()
 
     -- Насыпаем стартовый ААА-эквип магу в рюкзак
-    player_inventory.init()
-    player_inventory.add_item("iron_sword", 1)
-    player_inventory.add_item("lesser_mana_potion", 10)
-    player_inventory.add_item("leather_helmet", 1)
-    player_inventory.add_item("clown_hat", 1)
-    player_inventory.add_item("crystal_sword", 1)
+    local player_data = game_state.get_player_data()
+
+    if player_data and player_data.inventory then
+        -- Очищаем рюкзак мага перед выдачей стартового сета
+        player_data.inventory:clear()
+
+        -- 🎯 НАВАЛИВАЕМ СТАРТОВЫЙ ЛУТ СТРОГО В ОБЪЕКТНЫЙ ИНСТАНС ИЗ ПАСПОРТА!
+        -- Метод :add_item сам сочно раскидает мечи и банки по ячейкам в памяти RAM,
+        -- а GUI-окно при открытии мгновенно и безбажно отрендерит эти иконки на экране!
+        player_data.inventory:add_item("iron_sword", 1)
+        player_data.inventory:add_item("lesser_mana_potion", 10)
+        player_data.inventory:add_item("leather_helmet", 1)
+        player_data.inventory:add_item("clown_hat", 1)
+        player_data.inventory:add_item("crystal_sword", 1)
+
+        print("💾 БЭКЕНД: Стартовый лут Новой Игры успешно засыпан в RAM-паспорт мага!")
+    else
+        print("🚨 БЭКЕНД: Не удалось выдать стартовый шмот, инвентарь игрока не инициализирован!")
+    end
 
     -- Настраиваем дефолтную раскладку экшен-баров на HUD
     character_data.player.action_bars = {
@@ -117,28 +143,36 @@ end
 ---Засейвить игру на жесткий диск ПК (JSON-монолит)
 ---@return boolean
 function M.save_game()
-    -- Безопасно распаковываем позицию игрока, гарантируя, что vector3 не уйдет в JSON
-    local player_position = character_data.player.saved_position
+    local player_unit = game_state.get_player_data()
+    if not player_unit then return false end
+
+    local player_position = player_unit.saved_position
     local serializable_position = { x = player_position.x, y = player_position.y, z = player_position.z or 0 }
 
+    -- Твой чистый, плоский сбор монолита под сохранение
     local data = {
         version = 1,
         time = os.time(),
-        inventory = player_inventory.get_save_data(),
-        paperdoll = player_paperdoll.get_save_data(),
         player = {
-            level = character_data.player.level,
-            experience = character_data.player.experience,
-            health = character_data.player.health,
-            saved_position = serializable_position, -- Сюда ушла чистая таблица
-            action_bars = prepare_for_json(character_data.player.action_bars) -- Чистим экшн-бары от хэшей
+            level = player_unit.level,
+            experience = player_unit.experience,
+            health = player_unit.health,
+            saved_position = serializable_position,
+            action_bars = player_unit.action_bars, -- чистильщик сам сожрет хэши экшен-баров
+
+            -- Вызываем у рюкзака и куклы мага их плоские методы сохранения ячеек!
+            inventory = player_unit.inventory and player_unit.inventory:get_save_data() or {},
+            paperdoll = player_unit.paperdoll and player_unit.paperdoll:get_save_data() or {}
         },
-        world = game_state.get_full_save_data() -- Модуль предметов с земли (там все чисто, только строки)
+        -- Твой красивый старый метод сбора вселенной Meadows из game_state.lua!
+        world = game_state.get_full_save_data()
     }
 
     local file = io.open(SAVE_PATH, "w+")
     if file then
-        -- На всякий случай прогоняем весь монолит через фильтр типов
+        -- 🚀 ЧИСТО КРАСИВЫЙ AAA-ПРОГОН: 
+        -- Наш prepare_for_json сожрёт всю эту гигантскую матрешку мира со всеми 
+        -- скелетами и вещами за один Си-такт, наглухо проигнорировав 'owner'!
         local success, json_string = pcall(json.encode, prepare_for_json(data))
         if not success then
             print("🚨 БЭКЕНД: Критическая ошибка сериализации! В данных остался userdata/hash!")
@@ -151,10 +185,9 @@ function M.save_game()
         print("💾 БЭКЕНД [SaveManager]: Сейв успешно записан на диск ПК (JSON-монолит)")
         return true
     end
-
-    print("🚨 БЭКЕНД [SaveManager]: ОШИБКА! Не удалось открыть файл для записи!")
     return false
 end
+
 
 ---Загрузить игру из файла сохранения JSON
 ---@return boolean
@@ -168,27 +201,40 @@ function M.load_game()
     local data = json.decode(content)
     if not data then return false end
 
-    player_inventory.load_save_data(data.inventory)
-    player_paperdoll.load_save_data(data.paperdoll)
-    -- character_data.player.action_bars = data.player.action_bars
-
     game_state.restore_all(data.world)
 
     local player_unit = game_state.get_player_data()
 
     if player_unit then
+        -- 🦾 НАКАТЫВАЕМ ОБЪЕКТНЫЕ ДАННЫЕ ВНУТРЬ ИНСТАНСОВ ЮНИТА (ИСПРАВЛЕНО):
+        -- Мы вызываем объектные методы :load_save_data через двоеточие строго на тех 
+        -- компонентах, которые нативно принадлежат нашему новому магу!
+        if data.player.inventory and player_unit.inventory then
+            player_unit.inventory:load_save_data(data.player.inventory)
+        end
+        if data.player.paperdoll and player_unit.paperdoll then
+            player_unit.paperdoll:load_save_data(data.player.paperdoll)
+        end
+
         player_unit.action_bars = data.player.action_bars
         player_unit.experience = data.player.experience or 0
         player_unit.level = data.player.level or 1
-        -- (и любые другие статы игрока из секции data.player, если они там разделены)
+        player_unit.health = data.player.health or 100
     end
+
     character_data.bind_to_units_registry()
-    
+
     -- Читаем координаты напрямую из юнита игрока через ссылку-мост
     local saved_position = character_data.player.saved_position
-    
+
     -- Конвертируем обратно в Си-вектор для прокси-лоадера Defold
-    local live_vector_position = vmath.vector3(saved_position.x, saved_position.y, saved_position.z or 1.0)
+    local base_x = saved_position and saved_position.x or 0
+    local base_y = saved_position and saved_position.y or 0
+    local base_z = saved_position and saved_position.z or 1.0
+
+    -- Конвертируем обратно в Си-вектор для прокси-лоадера Defold
+    local live_vector_position = vmath.vector3(base_x, base_y, base_z)
+
     character_data.player.saved_position = live_vector_position
 
     -- Передаем в лоадер

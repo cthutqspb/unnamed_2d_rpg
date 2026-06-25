@@ -2,12 +2,10 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
-local units_db = require("main.modules.data.units_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
 local gui_utils = require("main.gui.gui_utils")
-local interactions = require("main.modules.interactions")
 local camera = require("orthographic.camera")
 local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
@@ -19,39 +17,6 @@ local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 ---@field last_player_x number
 ---@field last_player_y number
 ---@field last_action table|nil
-
--- 🚩 УБРАЛИ НЕИСПОЛЬЗУЕМЫЙ DROP_OFFSETS ДЛЯ ЧИСТОТЫ ПАМЯТИ
-
--- ---Внутренний метод спавна предметов из файла сохранения при загрузке локации
--- ---@private
--- ---@param self WorldScriptInstance
--- local function spawn_saved_items(self)
---     local saved_items = world_items_state.get_all()
---
---     for uid, data in pairs(saved_items) do
---         -- Спавним только ДИНАМИКУ (дроп). Статика сама инициализируется на карте
---         if data.is_dynamic then
---             local pos = vmath.vector3(data.pos.x, data.pos.y, 1)
---             local item_id = data.item_id
---             local item_cfg = items_db.get_item(item_id)
---
---             if item_cfg then
---                 -- 1. Спавним пустую физическую сущность из фабрики
---                 local item_go = factory.create("#drop_factory", pos, nil, { is_from_factory = true })
---
---                 -- 2. 🎯 MVC-ФИКС: Шлем объекту РЕАЛЬНЫЕ ДАННЫЕ.
---                 -- Объект сам прочитает свой конфиг и настроит свой спрайт, имя и масштаб!
---                 msg.post(item_go, "set_item_id", {
---                     item_id = item_id,
---                     amount = data.amount,
---                     uid = uid
---                 })
---
---                 print("WORLD БЭКЕНД: Успешно заспавнен предмет из сейва:", uid)
---             end
---         end
---     end
--- end
 
 ---Внутренний изолированный метод проверки коллизий под курсором (Рейкаст)
 ---@private
@@ -151,8 +116,8 @@ end
 function update(self, dt)
     -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
     local player = character_data.player
-    if not player or not player.stats or not player.current_stats then 
-        return 
+    if not player or not player.stats or not player.current_stats then
+        return
     end
 
     local current_player_pos = character_data.player.saved_position
@@ -229,7 +194,7 @@ function on_message(self, message_id, message, sender)
         })
 
         -- Переменная final_uid (если она нужна ниже по коду) хранит чистокровную строку!
-        local final_uid = item_uid
+        local final_uid = message.item_uid
 
         if world_item then
             world_item.source_type = source_type -- Запекаем тип источника в Душу на будущее
@@ -276,14 +241,10 @@ function on_message(self, message_id, message, sender)
         -- мы просто позволяем твоей бесшовной системе стриминга Meadows материализовать этот мешок.
         -- (Если ты стер ручной factory.create, здесь больше вообще нет Си-кода фабрик!)
 
-        print(string.format("🌍 БЭКЕНД МИРА [spawn_world_item]: Успешно рождена Душа. Источник: %s | ID: %s | UID: %s", 
-            source_type, item_id, uid))
+        print(string.format("🌍 БЭКЕНД МИРА [spawn_world_item]: Успешно рождена Душа. Источник: %s | ID: %s | UID: %s",
+            tostring(source_type), tostring(item_id), tostring(message.item_uid)))
 
     elseif message_id == hash("item_pickup") then
-        -- 🔬 ДЕБАГ ШАГ 1: Смотрим, ЧТО прилетело в сообщение лута
-        print(string.format("🔬 СИ-ТЕСТ [World.Script]: Сигнал лута пойман! item_id: %s | Прилетевший UID: %s | Тип UID: %s",
-            tostring(message.item_id), tostring(message.uid), type(message.uid)))
-
         local container_data = nil
         if message.uid then
             -- 🎯 BG3-КАНОН: Перед тем как стереть вещь из МИРА, забираем её Душу (с лутом, если он уже был)
@@ -291,17 +252,15 @@ function on_message(self, message_id, message, sender)
             world_items_state.remove(message.uid)
         end
 
-        print("WORLD БЭКЕНД: Убираем из мира предмет: " .. tostring(message.item_id))
-        print("LOOT TABLE ID", message.loot_table_id)
         -- Передаем данные в инвентарь игрока
         broadcast.send("inventory_events", {
             message_id = hash("add_item"),
             item_id = message.item_id,
             amount = message.amount,
-            uid = message.uid, -- 🎯 ПРОБРОС ПАСПОРТА!
-            loot_table_id = message.loot_table_id or "empty",
+            uid = message.uid, -- 🎯 ПРОБРОС ПАСПОРТА! 
             items = container_data and container_data.items or nil, -- Если бочку уже обыскивали на земле, её лут поедет в карман!
-            is_looted = container_data and container_data.is_looted or nil
+            is_looted = container_data and container_data.is_looted or nil,
+            loot_table_id = message.loot_table_id or "empty"
         })
         -- Удаляем физический Game Object с карты
         go.delete(sender)
@@ -324,15 +283,21 @@ function on_message(self, message_id, message, sender)
         local db_cfg = items_db.get_item(item_id)
 
         -- Вытаскиваем Душу карманного сундука из ячейки инвентаря игрока
-        local interaction_manager = require("main.modules.logic.interaction_manager")
-        local player_inv = interaction_manager.get_player_inventory()
-        local item_data = player_inv and player_inv:get_item(slot_index)
+        local current_unit_uid = message.unit_uid or "player"
+        local unit_data = game_state.get_entity_by_uid(current_unit_uid)
 
-        if item_data then
+        if not unit_data or not unit_data.inventory then
+            print("🚨 БЭКЕНД: Не удалось найти рюкзак существа для открытия матрёшки! UID:", current_unit_uid)
+            return
+        end
+
+        local player_inv = unit_data.inventory
+        local item_data = player_inv:get_item(slot_index)
+
+         if item_data then
             print('is_looted', item_data.is_looted)
             if not item_data.is_looted then
                 print('ХЕР ЕСЛИ ЛУТАЛИ')
-                -- Если в ячейке инвентаря нет loot_table_id, берем имя самого предмета (chest_common)
                 local final_loot_id = item_data.loot_table_id or item_id or "empty"
                 if final_loot_id == "" or final_loot_id == "unknown" then
                     final_loot_id = item_id or "empty"
@@ -340,32 +305,50 @@ function on_message(self, message_id, message, sender)
 
                 print("БЭКЕНД [Model]: Первая геймплейная генерация лута Матрёшки по таблице:", final_loot_id)
                 local loot_tables = require("main.modules.data.loot_tables")
-                -- Наполняем бочку стартовым дропом из таблицы лута
                 item_data.items = loot_tables.get_loot(hash(final_loot_id)) or {}
-                -- Запечатываем статус обыска: больше генератор сюда не залезет никогда!
                 item_data.is_looted = true
             end
 
-            -- 🧱 АБСОЛЮТНЫЙ ГВАРД ДЛЯ ДРУИДА:
-            -- Если поле .items схлопнулось в nil в памяти, подставляем чистый пустой каркас {}.
-            -- А если там лежат вещи, которые ты туда переложил — они останутся лежать вечно!
             if not item_data.items then
                 item_data.items = {}
             end
 
-            -- Регистрируем внутренности бочки в фокусе для драг-энд-дропа
-            interaction_manager.set_focus(item_data)
-          
-            -- Даем команду GUI-окну на отрисовку
+            -- =========================================================================
+            -- 🦾 ВЫСОКОУРОВНЕВОЕ ОБЕРТЫВАНИЕ ВНУТРЕННОСТЕЙ ДЛЯ ТРАНСФЕР-МЕНЕДЖЕРА
+            -- =========================================================================
+            -- Вспоминаем твой гениальный файл 'inventory_model.lua' (Шаг 1), который мы переписали!
+            -- Нам больше НЕ нужен старый файл-враппер. Мы рождаем полноценный ОБЪЕКТНЫЙ инстанс
+            -- инвентаря для внутренностей бочки прямо на лету через конструктор .new()!
+            -- Мы скармливаем ему пустой owner (так как бочка — это вещь, а не существо) 
+            -- и размер сетки из базы (columns * rows). 
+            -- И намертво заливаем туда восстановленные шмотки!
+            local inventory_model = require("main.modules.models.inventory_model")
+            local total_slots = (db_cfg and db_cfg.columns or 6) * (db_cfg and db_cfg.rows or 4)
+
+            local container_instance = inventory_model.new(nil, total_slots)
+            container_instance.items = item_data.items
+            container_instance.uid = item_data.uid -- прокидываем UID для гварда аннигиляции!
+
+            -- Регистрируем этот живой объектный инстанс внутренностей бочки в фокус интерфейсов!
+            -- Теперь трансфер-менеджер подхватит его по Duck Typing через .get_item / .set_item!
+            local interaction_manager = require("main.modules.logic.interaction_manager")
+            interaction_manager.set_focus(container_instance)
+
+            -- Даем команду GUI-окну на отрисовку, прокидывая саму объектную модель в оверрайд!
             msg.post("main:/container_window#gui", "open_container_window", {
                 container_uid = uid,
                 container_id = hash(item_id),
                 container_name = hash(db_cfg and db_cfg.name_key or "container_common_chest_name"),
-                container_items = item_data.items, -- Улетел чистый готовый массив с манапотами! [🔍]
+                container_items = item_data.items,
                 columns = db_cfg and db_cfg.columns or 6,
                 rows = db_cfg and db_cfg.rows or 4,
                 slot_index = slot_index,
-                from_inventory = true
+                from_inventory = true,
+
+                -- 🎯 ПРОБРОС ЖИВОЙ МОДЕЛИ ДЛЯ ОКНА ЛУТА:
+                -- Мы передаем созданный инстанс контейнера, чтобы окно лута 
+                -- зафиксировало его внутри своего StaticGrid без костылей!
+                container_model_override = container_instance
             })
         else
             print("🚨 БЭКЕНД: Ошибка! Бочка в слоте рюкзака #" .. tostring(slot_index) .. " не найдена!")

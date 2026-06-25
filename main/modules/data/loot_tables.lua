@@ -46,6 +46,7 @@ function M.get_loot(table_id)
     local table_data = HASH_TO_DATA[table_id] or RAW_DATA[table_id]
 
     local items = {}
+    print("TABLE ID:", table_id)
     if not table_data then
         print("LOOT_ERROR: Cannot find table for:", table_id)
         return items

@@ -2,7 +2,6 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 local item_transfer_manager = require("main.modules.item_transfer_manager")
 local combat_manager = require("main.modules.system.combat_manager")
 local items_db = require("main.modules.data.items_db")
-local loot_tables = require("main.modules.data.loot_tables")
 local character_data = require("main.modules.character.character_data")
 local unit_logic = require("main.modules.unit.logic.unit_logic")
 
@@ -24,59 +23,69 @@ M.REDUCERS = {
         local item_cfg = items_db.get_item(data.item_id)
         local source, target
 
-        -- 1. Определяем модели данных источника и цели
+        -- =========================================================================
+        -- 🦾 1. КРИСТАЛЬНО ЗРЯЧЕЕ РАСПРЕДЕЛЕНИЕ МОДЕЛЕЙ (ИСПРАВЛЕНО)
+        -- =========================================================================
+        -- Если GUI-слой (будь то драг или даблклик) ЯВНО передал оверрайды Источника и Цели,
+        -- мы берём ИХ и только их! Никаких угадываний и подмен фокусами сундуков!
         if data.source_model_override and data.target_model_override then
             source = data.source_model_override
             target = data.target_model_override
         else
+            -- Фоллбек-канал для кликов, где один из оверрайдов мог потеряться
             if data.from_paperdoll then
-                source = interaction_manager.get_player_paperdoll()
-                target = interaction_manager.get_player_inventory()
+                source = data.source_model_override
+                target = data.target_model_override
             else
-                source = interaction_manager.get_player_inventory()
-                local target_focus = interaction_manager.get_focus()
-                target = target_focus or interaction_manager.get_player_paperdoll()
+                source = data.source_model_override
+                
+                -- 🛡️ ГВАРД ПЕРЕВЁРТЫША (ЗАЩИТА):
+                -- При луте из сундука в рюкзак, target_focus возвращает СУНДУК.
+                -- Чтобы сундук не перезаписал рюкзак мага, мы берём фокус только в том случае,
+                -- если мы тащим вещь ИЗ инвентаря ВО внешний сундук!
+                -- А если вещь летит ИЗ внешнего сундука, целью обязан стать рюкзак мага!
+                local target_focus = interaction_manager.get_focus and interaction_manager.get_focus()
+                
+                if target_focus and target_focus ~= source then
+                    target = target_focus
+                else
+                    target = data.target_model_override
+                end
+                
+                -- Авто-вычисление куклы по обратной ссылке, если цель пустая
+                if not target and source and source.owner then
+                    target = source.owner.paperdoll
+                end
             end
         end
 
-        -- 2. 🎯 ГЛАВНЫЙ АРХИТЕКТУРНЫЙ ФИКС:
-        -- Если предмет передан напрямую в payload (из drag_manager), мы берем ЕГО! 
-        -- Ведь при сплите на курсоре летит специальный split_item, содержащий метку .source_split_slot.
-        -- А если предмета в payload нет (был даблклик ЛКМ или контекстное меню), 
-        -- тогда честно читаем его из бэкенд-модели по индексу слота.
-        local item = data.item_override or source:get_item(data.slot_index)
+        -- Читаем предмет из прилетевшей бэкенд-модели источника
+        local item = data.item_override or (source and source.get_item and source:get_item(data.slot_index))
 
-        if item and item_cfg then
-            local target_slot = data.target_slot -- куда бросили мышку
+        if item and item_cfg and source and target then
+            local target_slot = data.target_slot -- Куда бросили мышку
+
             -- =========================================================================
-            -- 🛡️ АБСОЛЮТНАЯ ЗАЩИТА ОТ АННИГИЛЯЦИИ (Версия 4.0 — Финал)
+            -- 🛡️ АБСОЛЮТНАЯ ЗАЩИТА ОТ АННИГИЛЯЦИИ (Твой оригинальный код матрешки)
             -- =========================================================================
-            if target and target.items and item then
-                -- Капкан А: Если совпали физические ссылки на массивы предметов (наша RAM-магия)
-                local is_same_array = (item.items and item.items == target.items)
-                
-                -- Капкан Б: Проверяем UID. Если у перетаскиваемого предмета совпал UID 
-                -- с UID целевой модели (если ты прокинул его в gui_script)
+            if target.items and item then
                 local target_uid = target.uid or (target.item_data and target.item_data.uid)
+                local is_same_array = (item.items and item.items == target.items)
                 local is_same_uid = (item.uid and target_uid and item.uid == target_uid)
 
-                -- 💥 ЕСЛИ СРАБОТАЛ ХОТЬ ОДИН КАПКАН — ОТМЕНЯЕМ СИНГУЛЯРНОСТЬ!
                 if is_same_array or is_same_uid then
                     print("🚨 СИНГУЛЯРНОСТЬ [Dispatcher]: Заблокирована попытка засунуть бочку в себя! UID:", item.uid)
-                    item_transfer_manager.finalize() -- Сбрасываем визуал драга, возвращая иконку на место
-                    return -- Наглухо выходим, спасая рантайм
+                    item_transfer_manager.finalize()
+                    return
                 end
 
-                -- Рекурсивный гвард (Матрёшка): проверяем, не суем ли мы родителя в ребенка,
-                -- который лежит у него же в кармане
                 if item.items then
                     for _, sub_item in pairs(item.items) do
                         if sub_item then
                             local sub_same_array = (sub_item.items and sub_item.items == target.items)
                             local sub_same_uid = (sub_item.uid and target_uid and sub_item.uid == target_uid)
-                            
                             if sub_same_array or sub_same_uid then
-                                print("🚨 СИНГУЛЯРНОСТЬ [Dispatcher]: Заблокирована попытка положить родителя во вложенную сумку!")
+                                print("🚨 СИНГУЛЯРНОСТЬ [Dispatcher]: Заблокирована попытка положить родителя во вложенную сумму!")
                                 item_transfer_manager.finalize()
                                 return
                             end
@@ -84,17 +93,32 @@ M.REDUCERS = {
                     end
                 end
             end
-            -- Вычисляем целевой слот для даблкликов, если его нет
+
+            -- =========================================================================
+            -- 🦾 ВЫЧИСЛЕНИЕ СЛОТА ДЛЯ ДАБЛКЛИКОВ ЧЕРЕЗ DUCK TYPING
+            -- =========================================================================
             if not target_slot then
-                if target == interaction_manager.get_player_paperdoll() then
-                    target_slot = item_cfg.equip_slot
-                elseif target == interaction_manager.get_player_inventory() then
+                if target.get_first_empty_slot then
+                    -- 💼 Если у целевой таблицы есть метод поиска ячейки — это ИНВЕНТАРЬ/СУМКА!
                     target_slot = target:get_first_empty_slot()
                     if not target_slot then print("Инвентарь полон!") return end
+                else
+                    -- 🛡️ Если метода нет — это наша универсальная объектная КУКЛА ШМОТА (Paperdoll)!
+                    target_slot = item_cfg.equip_slot
                 end
             end
 
-            -- 3. Передаем в execute_transfer ПРАВИЛЬНЫЙ предмет (со всеми метками сплита)
+            -- 🛡️ ГВАРД ХАРАКТЕРИСТИК ДЛЯ ОБЪЕКТНОЙ КУКЛЫ:
+            if not target.get_first_empty_slot and target.can_equip_item then
+                -- Кукла благодаря owner сама тихо проверит Силу/Интеллект своего хозяина в RAM!
+                if not target:can_equip_item(item, target_slot) then
+                    print("💾 БЭКЕНД: Транзакция отклонена, юнит не подходит по характеристикам!")
+                    item_transfer_manager.finalize()
+                    return
+                end
+            end
+
+            -- 3. Передаем в execute_transfer ПРАВИЛЬНЫЕ объектные модели
             item_transfer_manager.execute_transfer(
                 source, data.slot_index,
                 target, target_slot,
@@ -104,11 +128,31 @@ M.REDUCERS = {
     end,
 
     ["item_drop"] = function(data)
-        local player_position = character_data.player.saved_position
-        local source = data.source_model or interaction_manager.get_player_inventory()
+        -- =========================================================================
+        -- 🦾 АБСОЛЮТНО СЛЕПОЙ ААА-СБРОС ПРЕДМЕТОВ (РОДНОЙ КАНОН CHARACTER_DATA)
+        -- =========================================================================
+        -- Никаких require("game_state")! Диспетчер чист от импортов бэкенд-стейтов.
+        -- Мы зряче берем ЛИБО оверрайд из gui_script, ЛИБО нативное поле из drag_manager
+        local source = data.source_model_override or data.source_model
+        if not source then print("🚨 ДИСПЕТЧЕР [item_drop]: Источник транзакции не найден!") return end
 
-        local calculated_drop_pos = vmath.vector3(player_position.x, player_position.y + 40, 0)
-        print("calculated_drop_pos", calculated_drop_pos)
+        -- 🧱 ТИТАНОВЫЙ КАСКАДНЫЙ ЛОКАТОР КООРДИНАТ ИЗ ТВОЕГО РОДНОГО СИНГЛТОНА (ИСПРАВЛЕНО):
+        -- 1. Если вещь выкидывает Юнит со своим рюкзаком — берем координаты из его паспорта (source.owner).
+        -- 2. Если вещь выкидывают из СУНДУКА (owner == nil) — мы пуленепробиваемо вытаскиваем 
+        --    живую текущую позицию мага на Meadows-карте из твоего вечного модуля character_data!
+        --    Мы проверяем все возможные варианты полей (.saved_position или прямой .position),
+        --    чтобы полностью защитить вектор от падения в nil!
+        local player_ref = character_data and character_data.player
+
+        local base_position = (source.owner and source.owner.saved_position)
+            or (player_ref and player_ref.saved_position)
+            or (player_ref and player_ref.position) -- доп-страховка на случай смены имени поля в мосту
+
+        -- 💥 МАТЕМАТИКА ГЕЙМДИЗАЙНА: Спавним лут строго на +40 пикселей СВЕРХУ НАД НОГАМИ МАГА!
+        local calculated_drop_pos = vmath.vector3(base_position.x, base_position.y + 40, 0)
+        print("🎯 ДИСПЕТЧЕР: Успешный расчет точки сброса шмотки у ног Юнита:", calculated_drop_pos)
+
+        -- Вызываем атомарный сервис спавна физического лута на Meadows-карте
         item_transfer_manager.drop_to_world(
             source,
             data.slot_index,
@@ -117,61 +161,127 @@ M.REDUCERS = {
         )
     end,
 
+
     -- === СЛАЙС 2: ГЛОБАЛЬНЫЕ ДЕЙСТВИЯ В МИРЕ (context_menu_action по объектам) ===
+    -- ["container_open"] = function(data)
+    --     -- ВЕТКА А: Бочка стоит на земле Meadows (Есть физический ID тела)
+    --     if data.target_go_id then
+    --         msg.post(data.target_go_id, "click")
+    --
+    --     -- 🎯 ВЕТКА Б: БОЧКА В КАРМАНЕ (Твой нативный чистый msg.post):
+    --     -- Если физического ID нет, но прилетел slot_index — значит, открываем Матрёшку из рюкзака!
+    --     -- Шлём Си-сигнал напрямую в GUI окна контейнеров, передавая паспорт ячейки.
+    --     elseif data.slot_index then
+    --         msg.post("game_scene:/world#world", "prepare_pocket_container", {
+    --             container_uid = data.target_uid,
+    --             item_id = data.item_id,
+    --             slot_index = data.slot_index,
+    --             unit_uid = data.unit_uid or "player"
+    --         })
+    --         print("КОНТРОЛЛЕР [Dispatcher]: Запрос Бэкенду на генерацию лута в карманной бочке. Слот: " .. data.slot_index)
+    --     end
+    -- end,
+
+    -- ["container_open_world"] = function(data)
+    --  -- =========================================================================
+    --     -- 🦾 1. ТВОЙ РОДНОЙ, ПЛОСКИЙ И КРИСТАЛЬНО ЧИСТЫЙ КОД (БЕЗ ЛАПШИ И ИМПОРТОВ!)
+    --     -- =========================================================================
+    --     -- Мы работаем strictly с тем, что прислал бэкенд в payload. 
+    --     -- Никаких require стейтов и никаких выдуманных регистраторов контейнеров!
+    --     local instance = data.instance_data
+    --     local cfg = data.db_cfg
+    --     if not instance then return end
+    --
+    --     -- Если в персистентной таблице сундука на земле лута еще нет — генерируем один раз!
+    --     if not instance.items then
+    --         local final_loot_id = instance.loot_table_id or "empty"
+    --         if final_loot_id == "" or final_loot_id == "unknown" then
+    --             final_loot_id = "empty"
+    --         end
+    --
+    --         print("🎲 ДИСПЕТЧЕР: Первая ленивая генерация лута по таблице:", final_loot_id)
+    --         -- Импорт loot_tables в диспетчере у тебя был разрешен изначально
+    --         local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
+    --         instance.items = generated_loot
+    --     end
+    --
+    --     -- =========================================================================
+    --     -- 🦾 2. ПРЯМАЯ ОТПРАВКА СЫРЫХ ДАННЫХ В GUI ЧЕРЕЗ MSG.POST
+    --     -- =========================================================================
+    --     -- Диспетчер вообще не создает никаких ООП-моделей! Метатаблицы все равно сотрутся.
+    --     -- Он просто шлет плоский массив предметов сундука прямо в окно лута!
+    --     msg.post("main:/container_window#gui", "open_container_window", {
+    --         container_uid = data.uid,
+    --         container_id = hash(data.id),
+    --         container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
+    --         entity_type = data.entity_type,
+    --         columns = cfg and cfg.columns or 6,
+    --         rows = cfg and cfg.rows or 4,
+    --         position = data.position,
+    --         player_pos = go.get_position("game_scene:/player"),
+    --
+    --         -- 🎯 ПЕРЕДАЕМ ЖИВОЙ МАССИВ ПРЕДМЕТОВ С ЗЕМЛИ:
+    --         -- Окно лута примет этот плоский массив и само обернет его в зрячую модель!
+    --         container_items = instance.items
+    --     })
+    -- end,
+
+        -- Внутри actions_dispatcher.lua в таблице REDUCERS:
+
+    -- =========================================================================
+    -- 🦾 УНИВЕРСАЛЬНЫЙ ААА-РЕДЬЮСЕР ОТКРЫТИЯ ЛЮБЫХ КОНТЕЙНЕРОВ (ЗАФИКСИРОВАНО)
+    -- =========================================================================
+    -- Диспетчер полностью вычищен от логики генерации лута! Гварды переехали в GUI.
+    -- Метод слепо и зряче прокидывает плоские данные напрямую в управляющий gui_script!
     ["container_open"] = function(data)
-        -- ВЕТКА А: Бочка стоит на земле Meadows (Есть физический ID тела)
+        -- ВЕТКА А: Кликнули по физической бочке на земле Meadows (Шлем Си-сигнал телу go)
         if data.target_go_id then
             msg.post(data.target_go_id, "click")
-
-        -- 🎯 ВЕТКА Б: БОЧКА В КАРМАНЕ (Твой нативный чистый msg.post):
-        -- Если физического ID нет, но прилетел slot_index — значит, открываем Матрёшку из рюкзака!
-        -- Шлём Си-сигнал напрямую в GUI окна контейнеров, передавая паспорт ячейки.
-        elseif data.slot_index then
-            msg.post("game_scene:/world#world", "prepare_pocket_container", {
-                container_uid = data.target_uid,
-                item_id = data.item_id,
-                slot_index = data.slot_index
-            })
-            print("КОНТРОЛЛЕР [Dispatcher]: Запрос Бэкенду на генерацию лута в карманной бочке. Слот: " .. data.slot_index)
+            return
         end
-    end,
 
-    ["container_open_world"] = function(data)
-        -- Передаем из скриптов: 
-        -- data.uid (self.uid)
-        -- data.id (self.unit_id или self.item_id)
-        -- data.db_cfg (базовый конфиг из базы существ или предметов)
-        -- data.instance_data (живая Lua-таблица из units_state или world_items_state)
-        -- data.position (go.get_position())
-
+        -- 🧱 1. ЗРЯЧЕЕ ИЗВЛЕЧЕНИЕ ИНСТАНСА ИЗ ОБОИХ КОНТEКСТОВ (Твой оригинальный код!):
         local instance = data.instance_data
-        local cfg = data.db_cfg
-        if not instance then return end
-
-        -- 1. 🎯 ТВОЯ РОДНАЯ ЛЕНИВАЯ ГЕНЕРАЦИЯ (Крутится прямо внутри переданной таблицы по ссылке!)
-        if not instance.items then
-            local final_loot_id = instance.loot_table_id or "empty"
-            if final_loot_id == "" or final_loot_id == "unknown" then
-                final_loot_id = "empty"
-            end
-
-            print("🎲 ДИСПЕТЧЕР: Первая ленивая генерация лута по таблице:", final_loot_id)
-            -- Импорт базы дропа loot_tables в диспетчере ПОЛНОСТЬЮ разрешен!
-            local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
-            instance.items = generated_loot
+        
+        if not instance and data.slot_index then
+            -- ВЕТКА Б: МАТРЁШКА В КАРМАНЕ (Прилетел слот, но нет instance_data)
+            -- Легально через мост character_data лезем в живой рюкзак мага в RAM 
+            -- и вынимаем оттуда «Душу» нашей карманной бочки строго по слоту!
+            local player_inv = character_data and character_data.player and character_data.player.inventory
+            instance = player_inv and player_inv:get_item(data.slot_index)
+        end
+        
+        if not instance then 
+            print("🚨 ДИСПЕТЧЕР [container_open]: Критическая ошибка! Данные инстанса сундука пусты!") 
+            return 
         end
 
-        -- 2. 💥 МОНОЛИТНАЯ ОТПРАВКА В GUI
+        local cfg = data.db_cfg or items_db.get_item(data.id or data.item_id or instance.item_id)
+
+        -- =========================================================================
+        -- 🦾 2. ПРЯМАЯ ОТПРАВКА СЫРЫХ ДАННЫХ В GUI ЧЕРЕЗ MSG.POST
+        -- =========================================================================
+        -- Никаких go.get_position! Берем strictly сохраненную позицию из моста character_data!
         msg.post("main:/container_window#gui", "open_container_window", {
-            container_uid = data.uid,
-            container_id = hash(data.id),
+            container_uid = data.uid or data.target_uid or instance.uid,
+            container_id = hash(data.id or "container"),
             container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
-            entity_type = data.entity_type,
-            columns = cfg and cfg.columns or 6,
-            rows = cfg and cfg.rows or 4,
+            entity_type = data.entity_type or "world_item",
+            columns = cfg and cfg.columns or (data.columns) or 6,
+            rows = cfg and cfg.rows or (data.rows) or 4,
             position = data.position,
-            player_pos = go.get_position("game_scene:/player")
+            player_pos = character_data and character_data.player and character_data.player.saved_position,
+
+            -- ПРОБРОС ФЛАГОВ И ССЫЛОК ИЗ PAYLOAD:
+            container_items = instance.items,
+            slot_index = data.slot_index,
+            
+            -- Сквозной ААА-проброс флага! Если открывали из рюкзака — тут прилетит true, 
+            -- и окно лута Meadows пуленепробиваемо защитит себя от закрытия при беге!
+            from_inventory = (data.from_inventory == true) or (data.slot_index ~= nil)
         })
+        
+        print("КОНТРОЛЛЕР [Dispatcher]: Окно контейнера успешно вызвано напрямую. Контекст from_inventory:", tostring(data.slot_index ~= nil))
     end,
 
     ["item_pickup"] = function(data)

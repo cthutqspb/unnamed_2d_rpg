@@ -3,8 +3,6 @@ local component = require("druid.component")
 local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
-local InventoryModel = require("main.modules.inventory_model")
-local world_items_state = require("main.modules.game_state.world_items_state")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local gui_utils = require("main.gui.gui_utils")
 
@@ -35,7 +33,7 @@ function M:init(template_id, config)
     self.template_id = template_id
     local d = self:get_druid()
 
-    self.render_order = constants_ui.LAYERS.LOOT -- 30
+    self.render_order = constants_ui.LAYERS.LOOT
     self.is_static = false
 
     -- Создаём вложенный грид инвентаря
@@ -106,24 +104,23 @@ end
 ---@param world_pos vector3|nil Координаты контейнера
 ---@param player_pos vector3|nil Координаты игрока
 function M:open(container_model, container_name, world_pos, player_pos)
-    -- 1. Привязываем источник данных
+    -- 1. Привязываем источник данных к нашей вложенной сетке StaticGrid
     self:set_data_source(container_model)
     self.set_title(self, locales.get(container_name))
 
-    -- 2. Вытаскиваем размеры сетки из самой модели (или из её внутренней таблицы)
-    -- Если твоя ООП-модель прокидывает свойства наружу, пишем так:
-    local cols = container_model.columns or 6
-    local rows = container_model.rows or 4
-    
-    -- (Если они лежат глубже, например в container_model.data.columns, подставь свой путь)
+    -- 2. 🦾 ЗРЯЧЕЕ AAA-ВЫЧИСЛЕНИЕ ГЕОМЕТРИИ (ИСПРАВЛЕНО):
+    -- Вместо чтения из «голой» таблицы данных, мы берем размеры колонок и строк,
+    -- которые нам пуленепробиваемо рассчитал world.script на основе типа бочки/сундука!
+    -- Если в модели их нет — каскадный фоллбек нативно выставит стандартную сетку 6x4!
+    local cols = container_model.columns or (self.static_grid and self.static_grid.columns) or 6
+    local rows = container_model.rows or (self.static_grid and self.static_grid.rows) or 4
 
-    -- 3. Вычисляем позицию (твой оригинальный расчет от строк и столбцов)
+    -- 3. Вычисляем позицию на экране HUD (Твой оригинальный расчет)
     local screen_x, screen_y = 640, 360
     if world_pos and player_pos then
         screen_x, screen_y = gui_utils.world_to_screen(world_pos, player_pos)
     end
-    
-    -- Твоя родная математика размеров окна, теперь зависимая от cols и rows модели!
+
     local window_w = cols * (48 + 4) - 4
     local window_h = rows * (48 + 4) - 4
 
@@ -131,7 +128,6 @@ function M:open(container_model, container_name, world_pos, player_pos)
     local final_x = screen_x + offset_x
     local final_y = screen_y + offset_y
 
-    -- Проверка границ экрана (1920x1080)
     if final_x + window_w > 1920 then
         final_x = math.floor(screen_x - window_w - offset_x)
     end
@@ -139,21 +135,33 @@ function M:open(container_model, container_name, world_pos, player_pos)
         final_y = math.floor(screen_y - window_h - offset_y)
     end
 
-    -- 4. Показываем окно
     gui.set_position(self.root, vmath.vector3(final_x, final_y, 0))
 end
 
+-- main/gui/components/container_window/ContainerWindow.lua
+
 function M:take_all()
-    print("Take all logic for:", self.template_id) -- Используем self
+    print("Take all logic for:", self.template_id)
+    
+    -- 🦾 ЗРЯЧИЙ ААА-ПРОБРОС ИСТОЧНИКА ДЛЯ LOOT ALL (ИСПРАВЛЕНО):
+    -- Вытаскиваем живой объектный инстанс модели сундука/бочки из нашей сетки StaticGrid
+    local current_source_model = self.static_grid and self.static_grid:get_data_source()
+
     msg.post(".", "item_action", {
         event = "item_loot_all",
         data = {
             slot_index = nil,
             item_id = nil,
-            all = true
+            all = true,
+            
+            -- 🎯 НАМЕРТВО ИНЖЕКТИРУЕМ МОДEЛЬ СУНДУКА В PAYLOAD:
+            -- Теперь container_window.gui_script при поимке этого сообщения сразу увидит 
+            -- правильный source_model_override, подставит рюкзак мага, и цикл заберет все вещи!
+            source_model_override = current_source_model
         }
     })
 end
+
 
 ---@param data_source table
 function M:set_data_source(data_source)

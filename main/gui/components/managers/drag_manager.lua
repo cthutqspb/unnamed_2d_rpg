@@ -1,5 +1,4 @@
 local item_transfer_manager = require("main.modules.item_transfer_manager")
-local interaction_manager = require("main.modules.logic.interaction_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 
 ---@class DragManager
@@ -58,10 +57,17 @@ function M.abort_drag()
         source_model = source_model:get_data_source()
     end
 
-    -- 🎯 Главное правило: Если источник — это НЕ рюкзак игрока, 
-    -- значит это ЛЮБОЕ внешнее окно (торговец, сундук, банк, алхимия)
-    if source_model ~= interaction_manager.get_player_inventory() then
-        print("DRAG_MANAGER: Внешний фокус потерян. Отменяем перетаскивание!")
+    -- =========================================================================
+    -- 🦾 АБСОЛЮТНО СЛЕПОЙ AAA-ГВАРД ХОЗЯИНА СУМКИ (ИСПРАВЛЕНО ЧЕРЕЗ DUCK TYPING)
+    -- =========================================================================
+    -- Никаких require("game_state") и никаких стёртых синглтонов инвентаря!
+    -- Мы просто зряче проверяем: если у источника есть овнер, и этот овнер — Игрок,
+    -- значит вещь тащат из личного рюкзака мага. Пропускаем отмену!
+    local owner = source_model and source_model.owner
+    local is_player_bag = owner and owner.is_player == true
+
+    if not is_player_bag then
+        print("DRAG_MANAGER: Внешний фокус потерян или это чужой сундук. Отменяем перетаскивание!")
 
         active_drag = nil
         is_over_any_gui = false
@@ -127,24 +133,34 @@ function M.finish(target_component, target_slot)
     -- =========================================================================
     if d.drag_type == "ability" or (d.drag_type == "item" and (is_to_bar or is_from_bar)) then
 
-        -- 1. ЗАЩИТА WoW: Если тащим банку НЕ из личной сумки на панель — гасим драг
+        -- 1. ЗАЩИТА WoW ЧЕРЕЗ DUCK TYPING (ИСПРАВЛЕНО БЕЗ ИМПОРТОВ СТЕЙТА!):
+        -- Если тащим расходник (банку) НА боевую панель быстрых клавиш НЕ из личной сумки игрока
         if d.drag_type == "item" and is_to_bar and not is_from_bar then
-            local player_inv = require("main.modules.player.player_inventory")
-            if d.source:get_data_source() ~= player_inv then
-                print("❌ ГЕЙМДИЗАЙН: Нельзя тащить вещи из чужих сундуков сразу на панель!")
-                if d.source then d.source:request_refresh() end
+            local source_model = d.source
+            if type(source_model) == "table" and source_model.get_data_source then
+                source_model = source_model:get_data_source()
+            end
+
+            -- 🦾 ЗРЯЧИЙ ЮНИТ-ГВАРД: Читаем паспорт хозяина сумки прямо из RAM-ссылки!
+            local owner = source_model and source_model.owner
+            local is_player_bag = owner and owner.is_player == true
+
+            if not is_player_bag then
+                print("❌ ГЕЙМДИЗАЙН: Нельзя тащить вещи из чужих сундуков или трупов сразу на панель!")
+                if d.source and d.source.request_refresh then
+                    d.source:request_refresh()
+                end
                 is_over_any_gui = false
                 return
             end
         end
 
-        -- 2. ВЫЧИСЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ РОКИРОВКИ И ОЧИСТКИ
+        -- 2. ВЫЧИСЛЯЕМ ПЕРЕМЕННЫЕ ДЛЯ РОКИРОВКИ И ОЧИСТКИ (Твой оригинальный безбажный код!)
         local target_bar, target_idx, target_type, target_id
         local old_data = nil
 
         if target_component ~= nil then
-            -- 🟢 КЕЙС А: Бросили НА какую-то сетку интерфейса (target_component ГАРАНТИРОВАННО существует!)
-            -- Проверяем, является ли эта сетка боевым экшен-баром
+            -- 🟢 КЕЙС А: Бросили НА какую-то сетку интерфейса
             if target_component.grid_type == "action_bar" then
                 target_bar  = target_component.bar_index or 1
                 target_idx  = target_slot
@@ -159,8 +175,7 @@ function M.finish(target_component, target_slot)
                 target_id   = nil
             end
         else
-            -- 🔵 КЕЙС Б: Выбросили в пустой мир / мимо интерфейсов (target_component равен nil)
-            -- Очищаем исходный слот экшен-бара, откуда Серёга потянул спелл
+            -- 🔵 КЕЙС Б: Выбросили в пустой мир / мимо интерфейсов
             target_bar  = d.source.bar_index or 1
             target_idx  = d.slot
             target_type = "empty"
@@ -194,8 +209,9 @@ function M.finish(target_component, target_slot)
     if type(source_model) == "table" then
         if source_model.get_data_source then
             source_model = source_model:get_data_source()
-        elseif source_model.template_id == "character_paperdoll" or source_model.paperdoll then
-            source_model = interaction_manager.get_player_paperdoll()
+        -- 🛡️ ИСПРАВЛЕНО: Никаких get_player_paperdoll() и проверок строк!
+        -- Если это наша новая универсальная кукла шмота из RAM — она уже прилетела сюда 
+        -- как готовая таблица напрямую из drag.on_drag_start! Ничего подменять не нужно.
         end
     end
 
@@ -209,19 +225,27 @@ function M.finish(target_component, target_slot)
         item_transfer_manager.finalize()
 
     -- === СЦЕНАРИЙ Б: УСПЕШНЫЙ ПЕРЕНОС (Бросили над ячейкой инвентаря или куклы) ===
-        -- Внутри drag_manager.finish в Сценарии 2 (Перемещение)
     elseif target_component then
         local target_model = target_component
         if type(target_model) == "table" then
             if target_model.get_data_source then
                 target_model = target_model:get_data_source()
-            elseif target_model.template_id == "character_paperdoll" or target_model.paperdoll then
-                target_model = require("main.modules.logic.interaction_manager").get_player_paperdoll()
+            -- 🛡️ ИСПРАВЛЕНО: Никаких get_player_paperdoll()!
+            -- Если бросили вещь на куклу, в target_component уже лежит живая модель куклы 
+            -- из нашего обновленного M:on_drop! Пропускаем подмену.
             end
         end
 
-        local is_from_doll = (source_model == require("main.modules.logic.interaction_manager").get_player_paperdoll())
+        -- 🦾 ЧИСТЫЙ DUCK TYPING (ИСПРАВЛЕНО):
+        -- Проверяем, является ли источник куклой шмота. У куклы есть метод get_item,
+        -- но напрочь отсутствует метод get_first_empty_slot (карманы рюкзака). 
+        -- Никаких сравнений с синглтонами, код на 100% зрячий и автономный!
+        local is_from_doll = (source_model and source_model.get_item and not source_model.get_first_empty_slot)
 
+        -- Вытаскиваем UID существа, шмот которого сейчас таскают (чтобы прокинуть в диспетчер гварду стат)
+        -- Если это игрок — в модели куклы или инвентаря будет лежать "player", иначе возьмет дефолт.
+        local current_unit_uid = (target_model and target_model.uid) or (source_model and source_model.uid) or "player"
+        print("TARGET", target_component, "SOURCE", source_model)
         -- Диспатчим экшен переноса, ПРОБРАСЫВАЯ МЕТКИ СПЛИТА В PAYLOAD
         actions_dispatcher.REDUCERS["item_transfer"]({
             slot_index = source_slot,
@@ -230,13 +254,13 @@ function M.finish(target_component, target_slot)
             target_slot = target_slot,
             source_model_override = source_model,
             target_model_override = target_model,
+            unit_uid = current_unit_uid, -- 🎯 Прокидываем UID сессии для проверки Силы/Интеллекта!
 
             -- 🚩 ПРОБРОС МЕТОК СПЛИТА ДЛЯ РЕДЬЮСЕРА
             item_override = item
         })
 
         item_transfer_manager.finalize()
-
 
     -- === СЦЕНАРИЙ В: ВЫБРОС В МИР (Отпустили мышь за пределами интерфейсов) ===
     else
@@ -251,5 +275,4 @@ function M.finish(target_component, target_slot)
 
     is_over_any_gui = false
 end
-
 return M

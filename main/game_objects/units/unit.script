@@ -257,7 +257,7 @@ function on_message(self, message_id, message, sender)
               local db_cfg = units_db.get_unit(self.unit_id)
 
               -- 🎯 ВЫЗЫВАЕМ ОБЩИЙ ЭКШЕН:
-              actions_dispatcher.REDUCERS["container_open_world"]({
+              actions_dispatcher.REDUCERS["container_open"]({
                   entity_type = "unit",
                   uid = self.uid,
                   id = self.unit_id,

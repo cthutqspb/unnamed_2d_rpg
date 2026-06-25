@@ -111,6 +111,7 @@ end
 
 ---Перестроить фокус ввода Defold на основе Z-слоёв из стека
 function M.reorder_focus()
+    print("🚨 ФOКУС: reorder_focus сработал!")
     -- Идем по стеку [Z5, Z7, Z10]
     for i = 1, #stack do
         local win = stack[i]
@@ -149,6 +150,87 @@ function M.handle_window_click(instance, url)
     M.reorder_focus()
 end
 
+---Универсальный статический перехватчик ввода для абсолютно любого GUI-окна Meadows
+---@param script_self table Контекст self самого .gui_script файла
+---@param action_id hash
+---@param action table
+---@param drag_manager table Проброшенный извне менеджер перетаскивания предметов
+---@param window_instance table Проброшенный извне ООП-объект конкретного инстанса окна
+---@return boolean handled
+function M.handle_window_input(script_self, action_id, action, drag_manager, window_instance)
+    local h_touch = hash("touch")
+
+    -- 🧱 1. ТИТАНОВЫЙ ААА-ГВАРД (Работаем строго с window_instance):
+    if not window_instance or (window_instance.is_visible and not window_instance:is_visible()) then
+        return script_self.druid:on_input(action_id, action)
+    end
+
+    -- 🦾 2. ТИТАНОВЫЙ ААА-ГВАРД ПРОЗРАЧНОСТИ НЕАКТИВНЫХ ОКН:
+    local active_oop_win = M.active_instance
+    local is_mouse_moving = (action_id == nil) or (action_id == h_touch)
+    local is_item_dragging = drag_manager and drag_manager.is_dragging and drag_manager.is_dragging()
+
+    if active_oop_win and (window_instance ~= active_oop_win) and is_mouse_moving and not action.pressed and not is_item_dragging then
+        return false -- Неактивное окно засыпает, пропуская драг соседа сквозь себя!
+    end
+
+    -- 🦾 3. ВЗВОДИМ ГЛОБАЛЬНЫЙ СEМAФOР ДЛЯ СЛOЁВ ТУЛТИПOВ И КУРСOРA:
+    if active_oop_win and (window_instance == active_oop_win) and is_mouse_moving then
+        local is_currently_moving = window_instance.drag and window_instance.drag.is_drag
+        M.is_any_window_moving = (is_currently_moving == true)
+    end
+
+    -- Сдаем ввод Внешнему Друиду Б строго в его родном context скрипта!
+    local handled = script_self.druid:on_input(action_id, action)
+
+    -- 🦾 4. УНИВЕРСАЛЬНАЯ ЛОГИКА ОПЕРАЦИЙ ДРАГА ПРЕДМЕТОВ НА КУРСОРЕ:
+    if is_item_dragging then
+        if not action_id or action_id == h_touch then
+            drag_manager.update(action.x, action.y)
+            if window_instance.root and gui.pick_node(window_instance.root, action.x, action.y) then
+                drag_manager.set_over_gui(true)
+            end
+        end
+
+        -- Фаза отпускания мыши (Дроп предмета в слоты)
+        if action_id == h_touch and action.released then
+            M.is_any_window_moving = false
+            if window_instance.modules then
+                for _, module in ipairs(window_instance.modules) do
+                    if module and module.on_drop then
+                        if module:on_drop(action.x, action.y) then
+                            return true
+                        end
+                    end
+                end
+            end
+
+            -- Честно проверяем коллизию root-ноды через прилетевший window_instance!
+            if window_instance.root and gui.pick_node(window_instance.root, action.x, action.y) then
+                print("🛡️ МЕНЕДЖЕР ОКOН: Дроп мимо слотов. Безопасно тушим драг внутри геометрии окна.")
+                drag_manager.finish(nil, nil)
+                return true
+            end
+        end
+    end
+
+    -- Как только отпустили ЛКМ — гарантированно гасим глобальный семафор
+    if action.released and action_id == h_touch then
+        M.is_any_window_moving = false
+    end
+
+    -- 🧱 5. БЛОКИРОВКА КЛИКОВ СКВОЗЬ ИНТЕРФЕЙС В МИР MEADOWS:
+    if action_id and action.x and action.y then
+        if window_instance.is_over_window and window_instance:is_over_window(action.x, action.y) then
+            if action.pressed and action_id == h_touch then
+                M.handle_window_click(window_instance, msg.url())
+            end
+            return true
+        end
+    end
+
+    return handled
+end
 
 ---Установить статус нахождения мыши над конкретным окном
 ---@param url url
@@ -167,6 +249,7 @@ function M.is_over_ui()
     return false
 end
 
+M.handle_window_input = M.handle_window_input
 
 return M
 

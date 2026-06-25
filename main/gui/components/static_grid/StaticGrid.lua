@@ -200,7 +200,7 @@ function M:get_data_source()
     end
 
     -- Только если это чистокровная сумка инвентаря, возвращаем рюкзак по умолчанию
-    return interaction_manager.get_player_inventory()
+    return nil
 end
 
 ---Универсальный геттер сырых данных ячейки (Инвентарь vs Экшен-бар)

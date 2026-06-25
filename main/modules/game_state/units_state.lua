@@ -1,5 +1,7 @@
 local utils = require("main.modules.utils")
 local units_db = require("main.modules.data.units_db")
+local paperdoll_model = require("main.modules.models.paperdoll_model")
+local inventory_model = require("main.modules.models.inventory_model")
 
 ---@class UnitInstanceData
 ---@field is_player boolean
@@ -30,6 +32,8 @@ local units_db = require("main.modules.data.units_db")
 ---@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
 ---@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
 ---@field ai_target vector3|nil
+---@field paperdoll PaperdollInstance
+---@field inventory InventoryInstance
 
 ---@class UnitStatsTable
 ---@field strength number
@@ -168,7 +172,9 @@ function M.add(uid, props)
             spellcast_range = 0,
             hitbox_size = props.hitbox_size or 64,
             loot_table_id = "empty",
-            ai_profile = "none"
+            ai_profile = "none",
+            paperdoll = paperdoll_model.new(),
+            inventory = inventory_model.new()
         }
     else
         -- 💀 ВЕТКА МОНСТРОВ: Рассчитываем динамическое скалирование ХП от уровня и ранга
@@ -201,8 +207,19 @@ function M.add(uid, props)
             spellcast_range = monster_cfg.spellcast_range or 120,
             hitbox_size = props.hitbox_size or monster_cfg.hitbox_size,
             loot_table_id = props.loot_table_id or monster_cfg.loot_table_id,
-            ai_profile = monster_cfg.ai_profile or "aggressive_patrol"
+            ai_profile = monster_cfg.ai_profile or "aggressive_patrol",
+            paperdoll = paperdoll_model.new(),
+            inventory = inventory_model.new()
         }
+    end
+
+    -- Накат данных сохранения шмота, если они прилетели из файла
+    if props.paperdoll_data and instance_data.paperdoll then
+        instance_data.paperdoll:load_save_data(props.paperdoll)
+    end
+
+    if props.inventory_data and instance_data.inventory then
+        instance_data.inventory:load_save_data(props.inventory)
     end
 
     -- 🦾 ЭТАЛОН 3: СКЛЕЙКА ОБЩИХ СИСТЕМНЫХ ПОЛЕЙ ЮНИТА
@@ -214,6 +231,21 @@ function M.add(uid, props)
     instance_data.stats = clean_stats
     instance_data.current_stats = clean_current_stats
     instance_data.abilities = clean_source_abilities
+
+    -- =========================================================================
+    -- 🧱 ЗАКРЫТИЕ КОНТУРА КУКЛЫ (ДОБАВЛЕНО):
+    -- Связываем рожденную куклу и этот паспорт юнита напрямую в RAM!
+    -- Теперь модель куклы сможет автономно забирать текущую Силу/Ловкость своего 
+    -- хозяина при проверке can_equip_item, полностью спасая игру от крашей 
+    -- и не ломая при этом сигнатуру трансфер-менеджера!
+    -- =========================================================================
+    if instance_data.paperdoll then
+        instance_data.paperdoll.owner = instance_data
+    end
+
+    if instance_data.inventory then -- 🦾 ДОБАВЛЕНО!
+        instance_data.inventory.owner = instance_data
+    end
 
     -- Записываем готовую Душу Юнита в Single Source of Truth реестра RAM
     M.registry[uid] = instance_data
@@ -290,21 +322,57 @@ end
 function M.restore_all(data)
     M.registry = data or {}
     M.is_loaded_from_save = true
-     print("🔬 [units_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
-    -- 🎯 ЧИСТОКРОВНАЯ РЕГЕНЕРАЦИЯ ВЕКТОРОВ ПРИ ЗАГРУЗКЕ СЕЙВА:
-    -- Пробегаем по всем восстановленным паспортам монстров в RAM.
-    -- Кто превратил вектор в плоскую таблицу для сейва — тот сам возвращает его назад!
+    print("🔬 [units_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
+
+    -- 🎯 ЧИСТОКРОВНАЯ РЕГЕНЕРАЦИЯ ВЕКТОРОВ И ООП-МЕТАТАБЛИЦ ПРИ ЗАГРУЗКЕ СЕЙВА:
     for uid, unit_data in pairs(M.registry) do
         local saved_pos = unit_data.saved_position
-         print(string.format("🔬   UID: %s | Жив: %s | Позиция в сейве: X=%s, Y=%s",
+        print(string.format("🔬   UID: %s | Жив: %s | Позиция в сейве: X=%s, Y=%s",
             uid, tostring(not unit_data.is_dead),
             tostring(saved_pos and saved_pos.x), tostring(saved_pos and saved_pos.y)))
-        -- Если позиция прилетела из JSON-файла как плоская таблица {x, y, z}
+
+        -- 1. ВОССТАНОВЛЕНИЕ ВЕКТОРОВ DEFOLD (Твой оригинальный рабочий код!)
         if saved_pos and type(saved_pos) == "table" then
-            -- 💥 МЫ НА ЛЕТУ ВОЗВРАЩАЕМ ЕЙ СТАТУС ВЕКТОРА DEFOLD!
-            -- Мы берём сохранённый .z без всякого хардкода! У трупа там нативно 
-            -- восстановится честный слой 0.9, а у живого моба — слой 1.0!
             unit_data.saved_position = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 1.0)
+        end
+
+        -- =========================================================================
+        -- 🦾 2. AAA-РЕАНИМАЦИЯ ИНВЕНТАРЕЙ ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ДОБАВЛЕНО)
+        -- =========================================================================
+        -- В JSON-монолите сохранения шмот лежит в полях inventory_data / paperdoll_data,
+        -- либо в твоих оригинальных полях inventory / paperdoll.
+        local raw_inventory = unit_data.inventory or unit_data.inventory
+
+        if raw_inventory then
+            -- Вычисляем размер сетки существа. Для мага — 49 слотов, для монстров — дефолт 24
+            local max_slots = (uid == "player") and 49 or 24
+
+            -- Рождаем чистокровный, зрячий инстанс класса со всеми методами!
+            -- Первым аргументом передаем 'unit' (паспорт хозяина), чтобы намертво зашить .owner!
+            local live_inventory = inventory_model.new(unit_data, max_slots)
+
+            -- Вызываем твой роскошный, нетронутый метод наката шмоток из JSON!
+            -- Он сочно пройдется циклом, переведет ID строк в Си-хэши и заполнит ячейки.
+            live_inventory:load_save_data(raw_inventory)
+
+            -- Намертво перезаписываем плоское поле юнита готовым объектным инстансом!
+            unit_data.inventory = live_inventory
+        end
+
+        -- =========================================================================
+        -- 🦾 3. AAA-РЕАНИМАЦИЯ КУКОЛ ШМОТА ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ДОБАВЛЕНО)
+        -- =========================================================================
+        local raw_paperdoll = unit_data.paperdoll or unit_data.paperdoll
+
+        if raw_paperdoll then
+            -- Рождаем зрячий инстанс куклы шмота, привязывая паспорт хозяина в .owner!
+            local live_paperdoll = paperdoll_model.new(unit_data)
+
+            -- Вызываем метод наката экипированных вещей из JSON
+            live_paperdoll:load_save_data(raw_paperdoll)
+
+            -- Перезаписываем плоское поле юнита готовым объектным инстансом!
+            unit_data.paperdoll = live_paperdoll
         end
     end
 
