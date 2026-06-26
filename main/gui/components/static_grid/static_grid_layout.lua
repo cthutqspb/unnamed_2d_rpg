@@ -14,6 +14,7 @@ local abilities_db = require("main.modules.data.abilities_db")
 ---@field icon node
 ---@field amount node
 ---@field bind node|nil
+---@field gcd_overlay node
 
 ---@class StaticGridLayoutModule
 local M = {}
@@ -30,6 +31,7 @@ function M.create_slots(self)
     local path_icon  = hash(base_path .. "/icon")
     local path_amount = hash(base_path .. "/amount")
     local path_bind   = hash(base_path .. "/bind")
+    local path_gcd    = hash(base_path .. "/gcd_overlay")
 
     for i = 1, self.columns * self.rows do
         local nodes = gui.clone_tree(prefab_root)
@@ -42,12 +44,23 @@ function M.create_slots(self)
         -- Регистрируем созданную ячейку во внутреннем статическом гриде Druid
         self.grid:add(slot_root)
 
+        local gcd_node = nodes[path_gcd]
+        if gcd_node then
+            -- 📐 ГАРАНТИРОВАННОЕ ЗАНУЛЕНИЕ: Принудительно гасим высоту шторки в 0 при рождении!
+            -- Чтобы ГКД спало и не мозолило глаза на пустых ячейках!
+            local start_size = gui.get_size(gcd_node)
+            start_size.y = 0
+            gui.set_size(gcd_node, start_size)
+            gui.set_enabled(gcd_node, true) -- Ноду держим включенной, управлять будем строго через size.y!
+        end
+
         ---@type GridSlotNodeCache
         local slot_cache = {
             root   = slot_root,
             icon   = nodes[path_icon],
             amount = nodes[path_amount],
-            bind   = nodes[path_bind]
+            bind   = nodes[path_bind],
+            gcd_overlay = gcd_node
         }
         table.insert(self.slots, slot_cache)
     end
@@ -60,6 +73,16 @@ function M.draw_slot(self, index, data)
     ---@type StaticGridSlotVisual
     local slot = self.slots[index]
     if not slot or not data then return end
+
+    -- 🛡️ СИ-ЗАЩИТА ФАНТОМОВ ГКД: Если данных нет, или это пустой слот — сбрасываем шторку в ноль!
+    if (not data or not data.action_id) and slot.gcd_overlay then
+        gui.cancel_animations(slot.gcd_overlay, "size.y")
+        local sz = gui.get_size(slot.gcd_overlay)
+        sz.y = 0
+        gui.set_size(slot.gcd_overlay, sz)
+    end
+
+    if not data then return end -- Теперь легально выходим для пустых слотов
 
     -- =========================================================================
     -- ВEТКA А: ЭКШEН-БAР (ПАНЕЛЬ СПОСОБНОСТЕЙ)
@@ -150,6 +173,20 @@ function M.clear_slot_visual(self, index)
         gui.set_enabled(slot.icon, false)
         gui.set_enabled(slot.amount, false)
         gui.set_enabled(slot.bind, false)
+
+        -- =========================================================================
+        -- 🛡️ АТОМАРНАЯ СИ-ЗАЧИСТКА ГКД ПРИ ОЧИСТКЕ СЛОТА (ДОБАВЛЕНО НАМЕРТВО):
+        -- =========================================================================
+        -- Если ячейку полностью очищают (вещь выкинули или перенесли), 
+        -- мы обязаны наглухо остановить Си-анимацию шторки ГКД и сжать её высоту в ноль,
+        -- чтобы она не фантомила и не жрала такты процессора на пустом месте!
+        if slot.gcd_overlay then
+            gui.cancel_animations(slot.gcd_overlay, "size.y")
+            local size = gui.get_size(slot.gcd_overlay)
+            size.y = 0
+            gui.set_size(slot.gcd_overlay, size)
+        end
+        -- =========================================================================
     end
 end
 
@@ -172,6 +209,12 @@ function M.set_slot_amount_visual(self, index, amount)
         -- Сейв-гард на случай непредвиденного нуля или nil
         gui.set_enabled(slot.amount, false)
     end
+
+    -- 🧱 ЗРЯЧИЙ ГВАРД СПЛИТА: 
+    -- Мы КАТЕГОРИЧЕСКИ не трогаем ноду slot.gcd_overlay в этом методе!
+    -- Благодаря этому, если игрок отщипывает кусок стака банки маны посреди ГКД,
+    -- цифра количества сочно мутирует, но сама шторка продолжает плавно 
+    -- и непрерывно сползать вниз к полу, не сбивая покадровый тайминг Blizzard-канона!
 end
 
 return M

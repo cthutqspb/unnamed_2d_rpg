@@ -92,6 +92,25 @@ M.REDUCERS = {
                         end
                     end
                 end
+
+                -- =========================================================================
+                -- 🛡️ ТИТАНОВЫЙ ААА-ГВАРД ЗАПРEТA МAТРЁШEК (ИСПРАВЛЕНО НА ТИПЫ ДАННЫХ):
+                -- =========================================================================
+                -- 1. Мы смотрим на чистый геймдизайнерский чертеж шмотки, которую несем.
+                --    Если в items_db у нее написано type = "container", это матрешка, 
+                --    неважно — бочка это, кошелек или труп ["unit_loot_bag"]!
+                local is_incoming_item_a_container = item_cfg and (item_cfg.type == "container")
+
+                -- 2. Проверяем, является ли ЦEЛЬ (target) инвентарем внешнего сундука
+                local is_target_a_sub_chest = target_uid and target_uid ~= "" and target_uid ~= "player"
+
+                if is_incoming_item_a_container and is_target_a_sub_chest then
+                    print("🚨 ДИСПЕТЧЕР: Дроп заблокирован по типу [container]! Нельзя класть сумки в сундуки. Цель UID: " .. tostring(target_uid))
+
+                    item_transfer_manager.finalize()
+                    return
+                end
+                -- =========================================================================
             end
 
             -- =========================================================================
@@ -315,7 +334,6 @@ M.REDUCERS = {
         if data.drag_type == "ability" then
             -- Забираем чистый Си-хэш текущего таргета из твоего геттера
             local target_go_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
-            print("action_id", data.action_id)
             -- Пинаем комбат менеджер выполнить автоатаку или спелл
             combat_manager.execute_ability("player", target_go_id, data.action_id)
         end

@@ -28,12 +28,14 @@ local function send_player_action(index, slot_data)
     -- Шлем Си-команду напрямую в физическое тело игрока! [C]
     -- "." означает текущий игровой объект, где висит HUD, 
     -- оттуда сообщение легально долетит до player.script через менеджеры [C]
+    
     msg.post("game_scene:/player", "player_action", {
         event = "action",
         data = {
             slot_index = index,
             action_type = slot_data.action_type, -- Наш вчерашний ААА-стандарт: "ability" или "item"
-            action_id = slot_data.action_id      -- "melee_attack" / "frostbolt" / "lesser_mana_potion"
+            action_id = slot_data.action_id,      -- "melee_attack" / "frostbolt" / "lesser_mana_potion"
+            triggers_gcd = slot_data.triggers_gcd
         }
     })
 end
@@ -98,6 +100,15 @@ end
 
 function M:refresh()
     self.static_grid:refresh()
+end
+
+---@param duration number Длительность ГКД (1.5 сек)
+function M:trigger_gcd(duration)
+    -- Панель сама зряче знает, что у нее внутри живет static_grid, 
+    -- и делегирует ей эту команду через чистое двоеточие!
+    if self.static_grid and self.static_grid.trigger_gcd then
+        self.static_grid:trigger_gcd(duration)
+    end
 end
 
 ---@param x number

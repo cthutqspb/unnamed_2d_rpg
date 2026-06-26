@@ -1,3 +1,4 @@
+local window_manager = require("main.gui.components.managers.window_manager")
 local settings = require("main.modules.data.settings")
 
 function init(self)
@@ -26,6 +27,10 @@ function fixed_update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
+    if window_manager and window_manager.is_over_ui and window_manager.is_over_ui() then
+        return false -- Полный игнор, Си-сообщение коллизии Meadows-мира гасится на входе
+    end
+
     if message_id == hash("collision_response") and self.pressed then
         print("collision_response:", message.other_id)
 

@@ -20,6 +20,7 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field icon node Узел спрайта иконки предмета
 ---@field amount node Узел текстовой этикетки количества
 ---@field bind node|nil 🎯
+---@field gcd_overlay node
 ---@field button table
 
 ---@class StaticGrid : druid.component
@@ -290,5 +291,32 @@ function M:set_visible(visible)
         self:request_refresh()
     end
 end
+
+---Запустить сочную WoW-анимацию шторок ГКД по всем подходящим ячейкам сетки
+---@param duration number Длительность ГКД (1.5 сек)
+function M:trigger_gcd(duration)
+    if not self.slots then return end
+
+    for index, slot in pairs(self.slots) do
+        local slot_data = self:get_slot_data(index)
+
+        -- Достаем Си-ноду оверлея напрямую из нашего свежего, сочного кэша!
+        local gcd_node = slot.gcd_overlay
+
+        if gcd_node and slot_data then
+            -- 🧠 ЧИТАЕМ СТЕРИЛЬНЫЙ DUCK TYPING (БЕЗ ЛEВЫХ ИМПOРТOВ):
+            -- Модель инвентаря/экшен-бара сама знает, запускает ли эта шмотка ГКД!
+            if slot_data.triggers_gcd then
+                gui.cancel_animations(gcd_node, "size.y")
+                
+                gui.set_fill_angle(gcd_node, 360)
+                print("duration", duration)
+                gui.animate(gcd_node, gui.PROP_FILL_ANGLE, 0, gui.EASING_LINEAR, duration)
+            end
+        end
+    end
+end
+
+
 
 return M

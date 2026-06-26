@@ -1,8 +1,9 @@
 local character_data = require("main.modules.character.character_data")
 local unit_logic = require("main.modules.unit.logic.unit_logic")
 local settings = require("main.modules.data.settings")
-local window_manager = require("main.gui.components.managers.window_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
+local abilities_db = require("main.modules.data.abilities_db")
+local broadcast = require("main.modules.system.broadcast")
 
 ---@class PlayerPressedKeys
 ---@field up number
@@ -95,6 +96,47 @@ function update(self, dt)
     -- Он просто слепо берет готовую, выверенную бэкендом скорость юнита из RAM!
     local current_speed = player.speed or 120
 
+    -- =========================================================================
+    -- 🔮 КAСТБAР МАГА В ЕДИНOM ИСТОЧНИКЕ ПРАВДЫ (ИСПРАВЛЕНО НАМЕРТВО):
+    -- =========================================================================
+    -- 🛡️ ГВАРД СРЫВА КАСТА ПРИ ДВИЖЕНИИ WASD:
+    -- Читаем стейт зряче из глобальной модели RAM-паспорта игрока!
+    if player.cast_spell_id and (self.move_input.x ~= 0 or self.move_input.y ~= 0) then
+        print("❄️ БЭКЕНД [Magic]: Каст ПРЕРВАН из-за движения мага ногами!")
+        player.cast_spell_id = nil
+        player.cast_current = 0
+        player.cast_duration = 0
+        self.cast_payload = nil -- Очищаем боевой пакет, чтобы отмена не выстрелила!
+        msg.post("main:/gui_manager#hud", "hide_castbar", { interrupted = true })
+    end
+
+    -- ПОКАДРОВЫЙ ОТСЧЁТ ТАЙМИНГА КАСТА ИГРОКА:
+    if player.cast_spell_id then
+        player.cast_current = player.cast_current + dt
+        
+        -- Шлем покадровый асинхронный прогресс в hud.gui_script для движения часиков
+        local progress = player.cast_current / player.cast_duration
+        msg.post("main:/gui_manager#hud", "update_castbar", { progress = progress })
+
+        -- ⚡ КАСТ БЕЗУПРЕЧНО ДОПЕЛ ДО КОНЦА!
+        if player.cast_current >= player.cast_duration then
+            print("❄️ БЭКЕНД [Combat]: Каст завершен! Вызываем боевой редьюсер урона.")
+
+            -- Стерильно очищаем глобальный стейт каста внутри character_data
+            -- ИСПРАВЛЕНО: Мусорная переменная finished_spell стёрта к хренам!
+            player.cast_spell_id = nil
+            player.cast_current = 0
+            player.cast_duration = 0
+            msg.post("main:/gui_manager#hud", "hide_castbar")
+
+            -- Вызываем редьюсер диспетчера экшенов, скармливая ему сохраненный payload
+            if self.cast_payload then
+                actions_dispatcher.REDUCERS["action_bar_use"](self.cast_payload)
+                self.cast_payload = nil -- Очищаем кэш после успешной транзакции
+            end
+        end
+    end
+
     -- Если есть ввод с клавиатуры — отменяем движение мышью и сбрасываем лут
     if self.move_input.x ~= 0 or self.move_input.y ~= 0 then
         self.move_target = nil
@@ -138,10 +180,10 @@ function update(self, dt)
 
         -- Если мы зашли в индивидуальный радиус этого действия
         if dist < self.pending_range then
-            if not window_manager.is_over_ui() then
+            -- if not window_manager.is_over_ui() then
                 -- Шлем бочке/луту именно то сообщение, которое взвели при клике!
                 msg.post(self.pending_item, self.pending_event)
-            end
+            -- end
 
             -- Очищаем стейт, чтобы не кликать вечно
             self.pending_item = nil
@@ -188,7 +230,13 @@ function on_input(self, action_id, action)
 
     -- Горячие клавиши
     if action_id == hash("take_damage") and action.pressed then
-        take_damage(self, 10)
+        -- take_damage(self, 10)
+        -- self.move_target = nil -- Гасим автобег мыши, кастуем строго с места
+        -- self.cast_spell_id = "frostbolt"
+        -- self.cast_duration = 2.5
+        -- self.cast_current = 0
+        print("❄️ БЭКЕНД: Маг начал кастовать Фростболт!")
+        msg.post("main:/gui_manager#hud", "show_castbar", { spell_id = "frostbolt" })
     elseif action_id == hash("heal") and action.pressed then
         heal(self, 10)
     elseif action_id == hash("burn_mana") and action.pressed then
@@ -291,16 +339,80 @@ function on_message(self, message_id, message, sender)
 
     -- Кнопки экшен бара
 
-    -- Ловим сигнал от нашего ActionBar.lua
+    -- -- Ловим сигнал от нашего ActionBar.lua
+    -- if message_id == hash("player_action") then
+    --     if message.event == "action" then
+    --
+    --         -- 🎯 ВОТ ЗДЕСЬ ЭТО СДЕЛАТЬ ПРАВИЛЬНО И КРАСИВО!
+    --         -- Скрипт-контроллер переводит Си-пакет в вызов Lua-редьюсера
+    --         actions_dispatcher.REDUCERS["action_bar_use"]({
+    --             slot_index = message.data.slot_index,
+    --             drag_type = message.data.action_type, -- "ability" или "item"
+    --             action_id = message.data.action_id    -- "melee_attack"
+    --         })
+    --     end
+    -- end
+        -- Внутри player.script в on_message() на вехе player_action:
     if message_id == hash("player_action") then
         if message.event == "action" then
+            local player = character_data.player
+            local ability_id = message.data.action_id
+            local ability_cfg = abilities_db.get_ability(ability_id)
 
-            -- 🎯 ВОТ ЗДЕСЬ ЭТО СДЕЛАТЬ ПРАВИЛЬНО И КРАСИВО!
-            -- Скрипт-контроллер переводит Си-пакет в вызов Lua-редьюсера
+            -- =========================================================================
+            -- ВЕТКА А: ЗАКЛИНАНИЯ С ВОСПРОИЗВЕДЕНИЕМ КАСТА (Фростболт)
+            -- =========================================================================
+            if ability_cfg and ability_cfg.cast_time and ability_cfg.cast_time > 0 then
+                -- Читаем глобальный гвард: если маг уже кастует — рубим спам кнопки
+                if player.cast_spell_id then return true end
+
+                -- Гасим движение мага мышкой, кастуем строго с места
+                self.move_target = nil 
+                
+                -- 🦾 ЗАПЕКАЕМ ТТХ КАСТА СТРОГО В GLOBAL RAM (ИСПРАВЛЕНО НАМЕРТВО):
+                player.cast_spell_id = ability_cfg.id   
+                player.cast_duration = ability_cfg.cast_time 
+                player.cast_current = 0
+                
+                -- Кэшируем боевой пакет данных, приводя имена к ААА-стандарту диспетчера
+                self.cast_payload = {
+                    slot_index = message.data.slot_index,
+                    drag_type = message.data.action_type, 
+                    action_id = message.data.action_id,
+                    triggers_gcd = ability_cfg.triggers_gcd
+                }
+                
+                -- Запускаем часики ГКД по всей вселенной Meadows прямо в момент старта каста!
+                if ability_cfg.triggers_gcd then
+                    broadcast.send("combat_events", { 
+                        message_id = hash("global_cooldown_started"), 
+                        duration = 1.5 -- Сюда потом встанет формула уменьшения от статов (Haste)!
+                    })
+                end
+
+                print("LOG [Magic]: Запуск каста из БД. Спелл:", ability_cfg.id, "Время:", ability_cfg.cast_time)
+                msg.post("main:/gui_manager#hud", "show_castbar", { spell_id = ability_cfg.id })
+                return true
+            end
+
+            -- =========================================================================
+            -- ВЕТКА Б: МГНОВЕННЫЕ (INSTANT) СПОСОБНОСТИ ИЛИ ПРЕДМЕТЫ
+            -- =========================================================================
+            -- Если у спелла cast_time == 0 или это банка маны — транзакция летит сразу!
+            if ability_cfg and ability_cfg.triggers_gcd then
+                -- 🚀 WoW КАНОН: Мгновенные заклинания ТОЖЕ обязаны взрывать ГКД на панели!
+                broadcast.send("combat_events", {
+                    message_id = hash("global_cooldown_started"),
+                    duration = 1.5
+                })
+            end
+
+            -- ИСПРАВЛЕНО: Убрали опечатку message.triggers_gcd, передаем чистый triggers_gcd из конфига!
             actions_dispatcher.REDUCERS["action_bar_use"]({
                 slot_index = message.data.slot_index,
-                drag_type = message.data.action_type, -- "ability" или "item"
-                action_id = message.data.action_id    -- "melee_attack"
+                drag_type = message.data.action_type,
+                action_id = message.data.action_id,
+                triggers_gcd = ability_cfg and ability_cfg.triggers_gcd or false
             })
         end
     end

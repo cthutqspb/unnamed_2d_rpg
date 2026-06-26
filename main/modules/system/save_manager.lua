@@ -126,8 +126,8 @@ function M.new_game(creation_package)
     character_data.player.action_bars = {
         [1] = {
             [1] = { action_type = "ability", action_id = "melee_attack" },
-            [2] = { action_type = "ability", action_id = "frostbolt" },
-            [3] = { action_type = "item",    action_id = "lesser_mana_potion" },
+            [2] = { action_type = "ability", action_id = "frostbolt", triggers_gcd = true },
+            [3] = { action_type = "item",    action_id = "lesser_mana_potion", triggers_gcd = true },
             [4] = { action_type = "item",    action_id = "iron_sword" },
         },
         [2] = {},

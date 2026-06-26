@@ -429,6 +429,7 @@ function on_input(self, action_id, action)
         end
 
         local active_id = self.current_hover_id
+
         if active_id then
              msg.post(active_id, "click")
         end

@@ -3,7 +3,8 @@ local broadcast = require("main.modules.system.broadcast")
 local PlayerFrame = require("main.gui.components.player_frame.PlayerFrame")
 local TargetFrame = require("main.gui.components.target_frame.TargetFrame")
 local ActionBar = require("main.gui.components.action_bar.ActionBar")
-local game_state = require("main.modules.game_state.game_state") 
+local CastBar = require("main.gui.components.cast_bar.CastBar")
+local game_state = require("main.modules.game_state.game_state")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
 
@@ -12,6 +13,7 @@ local window_manager = require("main.gui.components.managers.window_manager")
 ---@field player_frame table
 ---@field target_frame table
 ---@field action_bar table
+---@field player_cast_bar CastBar
 ---@field is_shift_pressed boolean Системный флаг зажатия клавиши Shift
 ---@field on_inventory_event function Коллбэк для инвентарных бродкастов
 ---@field on_action_bar_event function
@@ -40,6 +42,8 @@ function init(self)
             spacing = 2
         }
     )
+
+    self.player_cast_bar = CastBar.new("cast_bar")
 
     self.is_shift_pressed = false
 
@@ -119,6 +123,10 @@ function init(self)
         if data.event == "unit_attacked" then
             print("unit_damaged !!!")
             msg.post("main:/gui_manager#hud", "target_update", { update_type = data.type, uid = data.uid })
+
+        elseif data.message_id == hash("global_cooldown_started") then
+            -- Асинхронно шлем месседж в on_message этого же скрипта HUD
+            msg.post("main:/gui_manager#hud", "start_gcd_animation", { duration = data.duration })
         end
     end
 
@@ -174,6 +182,37 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("refresh_action_bars") then
         self.action_bar:refresh()
     end
+
+    if message_id == hash("start_gcd_animation") then
+        print("⚔️ HUD: Получена команда запустить ГКД на панели способностей!")
+        if self.action_bar and self.action_bar.trigger_gcd then
+            -- Пинаем ООП-контроллер панели крутить шторки
+            self.action_bar:trigger_gcd(message.duration)
+        end
+    end
+
+    -- =========================================================================
+    -- ❄️ СТEРИЛЬНЫЙ АCИHХРOHHЫЙ ТРAНЗИТ В КAСТБAР ИГРOКA (ДОБАВЛЕНО):
+    -- =========================================================================
+    -- Ивент А: Маг замер на месте и начал петь Фростболт
+    if message_id == hash("show_castbar") then
+        if self.player_cast_bar then
+            self.player_cast_bar:show(message.spell_id)
+        end
+
+    -- Ивент Б: Покадровый апдейт прогресса полосы из update() игрока
+    elseif message_id == hash("update_castbar") then
+        if self.player_cast_bar then
+            self.player_cast_bar:set_progress(message.progress)
+        end
+
+    -- Ивент В: Каст успешно допел до конца ИЛИ наглухо сорван движением WASD
+    elseif message_id == hash("hide_castbar") then
+        if self.player_cast_bar then
+            self.player_cast_bar:hide()
+        end
+    end
+    -- =========================================================================
 end
 
 ---@param self HudScriptContext
@@ -264,59 +303,6 @@ function on_input(self, action_id, action)
 
     return false
 end
--- function on_input(self, action_id, action)
---     -- 1. Системный Shift
---     if action_id == hash("key_lshift") then
---         if action.pressed then self.is_shift_pressed = true
---         elseif action.released then self.is_shift_pressed = false end
---         return false
---     end
---
---     -- 2. 🎯 ФИКС МИНЫ 3 (Драг мыши без кликов):
---     -- Если игрок просто двигает мышь (action_id == nil), мы НЕ обрываем функцию ретурном!
---     -- Мы даем Друиду обсчитать hover-статусы, а менеджеру драга — плавно двигать иконку!
---     if not action_id and drag_manager.is_dragging() then
---         drag_manager.update(action.x, action.y)
---     end
---
---     -- 3. Пропускаем базовые инпуты через Си-ядро Друида
---     local handled = self.druid:on_input(action_id, action)
---     -- if handled then return true end
---
---     -- 4. Системный ESC (Закрытие окон / Меню)
---     if action_id == hash("key_esc") and action.pressed then
---         handled = window_manager.close_top()
---         if not handled then
---             msg.post("main:/main_menu#gui", "toggle_main_menu")
---         end
---         return true
---     end
---
---     -- 5. Сброс шмотки / способности с курсора мышкой
---     if action_id == hash("touch") and action.released and drag_manager.is_dragging() then
---         print("HUD DROP")
---         -- 🎯 ПРOВEРКA НAД БOEВOЙ ПAНEЛЬЮ (Фикс слепоты драга):
---         -- Просим сетку экшен-бара проверить, легли ли координаты X/Y отпускания мыши над её слотами.
---         -- Если да — метод on_drop внутри StaticGrid сам вызовет правильный drag_manager.finish(self, index)!
---         if self.action_bar and self.action_bar.static_grid then
---             local dropped_on_bar = self.action_bar.static_grid:on_drop(action.x, action.y)
---             
---             if dropped_on_bar then
---                 return true -- Успех! Экшен-бар сожрал драг, в мир ничего не выбрасываем
---             end
---         end
---
---         -- =========================================================================
---         -- ВEТКA ВЫБРOСA В МИР (Сработает ТОЛЬКО если промахнулись мимо всех сумок и панелей!)
---         -- =========================================================================
---         print("HUD: Промахнулись мимо интерфейсов. Выбрасываем предмет в игровой мир...")
---         drag_manager.finish(nil, nil)
---         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
---         return true
---     end
---
---     return false
--- end
 
 ---@param self HudScriptContext
 function final(self)

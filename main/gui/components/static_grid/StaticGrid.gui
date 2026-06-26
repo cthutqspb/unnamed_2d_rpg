@@ -55,6 +55,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "slot_prefab/gcd_overlay_1"
+  parent: "slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_prefab/gcd_overlay"
+  parent: "slot_prefab/root"
+  template_node_child: true
+}
+nodes {
   position {
     z: 10.0
   }

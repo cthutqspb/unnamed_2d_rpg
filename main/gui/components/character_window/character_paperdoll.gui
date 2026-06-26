@@ -44,6 +44,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "slot_head/gcd_overlay_1"
+  parent: "slot_head/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_head/gcd_overlay"
+  parent: "slot_head/root"
+  template_node_child: true
+}
+nodes {
   position {
     y: 50.0
   }
@@ -78,6 +90,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "slot_chest/gcd_overlay_1"
+  parent: "slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_chest/gcd_overlay"
+  parent: "slot_chest/root"
+  template_node_child: true
+}
+nodes {
   position {
     y: -25.0
   }
@@ -108,6 +132,18 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "slot_legs/bind"
+  parent: "slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_legs/gcd_overlay_1"
+  parent: "slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_legs/gcd_overlay"
   parent: "slot_legs/root"
   template_node_child: true
 }
@@ -147,6 +183,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "slot_main_hand/gcd_overlay_1"
+  parent: "slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_main_hand/gcd_overlay"
+  parent: "slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
   position {
     x: 100.0
     y: 50.0
@@ -178,6 +226,18 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "slot_off_hand/bind"
+  parent: "slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "slot_off_hand/gcd_overlay_1"
+  parent: "slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "slot_off_hand/gcd_overlay"
   parent: "slot_off_hand/root"
   template_node_child: true
 }

@@ -377,6 +377,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "character_paperdoll/slot_head/gcd_overlay_1"
+  parent: "character_paperdoll/slot_head/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "character_paperdoll/slot_head/gcd_overlay"
+  parent: "character_paperdoll/slot_head/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll/slot_chest"
   parent: "character_paperdoll/root"
@@ -403,6 +415,18 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "character_paperdoll/slot_chest/bind"
+  parent: "character_paperdoll/slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_paperdoll/slot_chest/gcd_overlay_1"
+  parent: "character_paperdoll/slot_chest/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "character_paperdoll/slot_chest/gcd_overlay"
   parent: "character_paperdoll/slot_chest/root"
   template_node_child: true
 }
@@ -437,6 +461,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "character_paperdoll/slot_legs/gcd_overlay_1"
+  parent: "character_paperdoll/slot_legs/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "character_paperdoll/slot_legs/gcd_overlay"
+  parent: "character_paperdoll/slot_legs/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll/slot_main_hand"
   parent: "character_paperdoll/root"
@@ -467,6 +503,18 @@ nodes {
   template_node_child: true
 }
 nodes {
+  type: TYPE_BOX
+  id: "character_paperdoll/slot_main_hand/gcd_overlay_1"
+  parent: "character_paperdoll/slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "character_paperdoll/slot_main_hand/gcd_overlay"
+  parent: "character_paperdoll/slot_main_hand/root"
+  template_node_child: true
+}
+nodes {
   type: TYPE_TEMPLATE
   id: "character_paperdoll/slot_off_hand"
   parent: "character_paperdoll/root"
@@ -493,6 +541,18 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "character_paperdoll/slot_off_hand/bind"
+  parent: "character_paperdoll/slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "character_paperdoll/slot_off_hand/gcd_overlay_1"
+  parent: "character_paperdoll/slot_off_hand/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "character_paperdoll/slot_off_hand/gcd_overlay"
   parent: "character_paperdoll/slot_off_hand/root"
   template_node_child: true
 }
@@ -565,6 +625,18 @@ nodes {
 nodes {
   type: TYPE_TEXT
   id: "static_grid/slot_prefab/bind"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "static_grid/slot_prefab/gcd_overlay_1"
+  parent: "static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "static_grid/slot_prefab/gcd_overlay"
   parent: "static_grid/slot_prefab/root"
   template_node_child: true
 }

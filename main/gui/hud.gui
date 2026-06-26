@@ -304,8 +304,55 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
+  id: "action_bar/static_grid/slot_prefab/gcd_overlay_1"
+  parent: "action_bar/static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_PIE
+  id: "action_bar/static_grid/slot_prefab/gcd_overlay"
+  parent: "action_bar/static_grid/slot_prefab/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
   id: "action_bar/static_grid/drag_icon"
   parent: "action_bar/static_grid"
+  template_node_child: true
+}
+nodes {
+  position {
+    x: 960.0
+    y: 175.0
+  }
+  type: TYPE_TEMPLATE
+  id: "cast_bar"
+  parent: "root"
+  inherit_alpha: true
+  template: "/main/gui/components/cast_bar/cast_bar.gui"
+}
+nodes {
+  type: TYPE_BOX
+  id: "cast_bar/root"
+  parent: "cast_bar"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "cast_bar/background"
+  parent: "cast_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_BOX
+  id: "cast_bar/fill"
+  parent: "cast_bar/root"
+  template_node_child: true
+}
+nodes {
+  type: TYPE_TEXT
+  id: "cast_bar/title"
+  parent: "cast_bar/root"
   template_node_child: true
 }
 material: "/builtins/materials/gui.material"

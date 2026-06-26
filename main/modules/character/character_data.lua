@@ -20,7 +20,13 @@ function M.bind_to_units_registry()
             type = "humanoid",
             rank = "common",
             loot_table_id = "empty",
-            saved_position = vmath.vector3(0, 0, 1.0) -- 🛡️ Единое каноничное имя saved_position!
+            saved_position = vmath.vector3(0, 0, 1.0), -- 🛡️ Единое каноничное имя saved_position!
+            cast_spell_id = nil,
+            cast_duration = 0,
+            cast_current = 0,
+            gcd_current = 0,
+            -- Буфер инвентаря...
+            inventory = nil,
         })
 
         -- Доливаем специфичные для плеера дефолты в созданную ячейку RAM

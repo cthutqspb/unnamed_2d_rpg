@@ -7,7 +7,7 @@ local M = component.create("HealthBar")
 ---Инициализация компонента полоски здоровья персонажа
 ---@param fill_node_or_id string|node Строковый ID шаблона ИЛИ уже готовая нода fill
 function M:init(fill_node_or_id)
-    
+
     if type(fill_node_or_id) == "string" then
         -- Старый вариант (для обратной совместимости, если где-то остался статичный UI)
         self.fill = gui.get_node(fill_node_or_id .. "/fill")

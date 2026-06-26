@@ -67,6 +67,11 @@ M.abilites_raw = {
         tile_index = 1650,
         projectile_id = "frostbolt_projectile",
         range = 350,
+        cast_time = 2.5,
+        cost = {
+            resource = "mana",
+            value = 4
+        },
         cooldown = 0, -- нет КД, но будет время каста
         requires_target = true,
         required = {

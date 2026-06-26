@@ -33,9 +33,9 @@ local OFFSET = 10
 ---@param callback function Функция, которая выполнится, если игрок стоит вплотную
 function M.handle_click(self, interaction_range, callback)
     -- 1. Если мышь над интерфейсом, клик в мир не проходит
-    if window_manager.is_over_ui() then
-        return
-    end
+    -- if window_manager.is_over_ui() then
+    --     return
+    -- end
 
     -- 🚩 ФИКС АДРЕСАЦИИ: Ищем игрока через относительный путь, без привязки к game_scene
     local player_pos = go.get_position("game_scene:/player")

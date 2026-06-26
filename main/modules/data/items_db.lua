@@ -60,6 +60,8 @@
 ---@field loot_table_id string|nil
 ---@field columns number|nil
 ---@field rows number|nil
+---@field triggers_gcd boolean|nil
+---@field cooldwon number|nil
 ---@field id? string Строковый ID ("iron_sword"), пропишем при инициализации для редьюсеров
 local M = {}
 
@@ -280,6 +282,7 @@ M.items_raw = {
         stackable = true,
         max_stack = 20,
         quality = "common",
+        cooldown = 25,
         required = {
             level = 1,
             resource = "mana"
@@ -294,6 +297,7 @@ M.items_raw = {
                 cooldown = 1
             }
         },
+        triggers_gcd = true,
         price = 5,
         weight = 0.1 -- нужно учитывать при стаках
     }

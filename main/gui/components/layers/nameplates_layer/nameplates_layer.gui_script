@@ -20,29 +20,7 @@ function init(self)
             })
         end
     end
-    -- msg.post(".", "")
-    -- if units_state and units_state.instances
-    --     for go_id, uid in pairs(units_state.instances) do
-    --         if
-    --         plate.instance:update_state(unit_instance_data)
-    --     end
-    -- end
-    -- for go_id, uid in pairs(units_state.instances) do
-    --     if units_state and units_state.exists(uid) then
-    --         self.created_plates[uid].instance:update_state(units_state.get(uid))
-    --     end
-    -- end
 
-    -- if units_state and units_state.instances then
-    --     for go_id, uid in pairs(units_state.instances) do
-    --       print("UID!", uid )
-    --           --msg.post(current_gui_url, "plate_update", {uid = uid})
-    --     end
-    -- end
-    -- for k, v in pairs(units_state.instances) do
-    --     print("UID!", k,v )
-    -- end
-    -- print('PLATES', self.created_plates)
     self.on_ui_event = function(data)
         if data.message_id == hash("clear_world_ui") then
             msg.post(current_gui_url, "clear_all_nameplates")
