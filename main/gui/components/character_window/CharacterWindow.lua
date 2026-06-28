@@ -2,6 +2,7 @@ local component = require("druid.component")
 local locales = require("main.modules.data.locales.locale_manager")
 
 -- Компоненты вкладок
+local game_state = require("main.modules.game_state.game_state")
 local constants_ui = require("main.gui.constants_ui")
 local BaseWindow = require("main.gui.components.base_window.base_window")
 local CharacterStats = require("main.gui.components.character_window.CharacterStats")
@@ -225,25 +226,21 @@ function M:get_slot_at_position(x, y)
     return nil
 end
 
--- Внутри CharacterWindow.lua в самом низу, перед return M
-
 ---Динамически переключить ВСЁ окно и его подкомпоненты на инспекцию ЛЮБОГО Юнита (WoW/BG3 канон)
 ---@param unit_uid string Уникальный строковый UID цели ("player", "c_skeleton_42")
----@param unit_inventory table|nil Бэкенд-модель инвентаря/карманов этой цели
----@param unit_paperdoll table|nil Бэкенд-модель куклы экипировки этой цели
-function M:bind_unit(unit_uid, unit_inventory, unit_paperdoll)
+function M:bind_unit(unit_uid)
     -- Ленивый Фасад для проверки флага игрока
-    local game_state = require("main.modules.game_state.game_state")
-    local unit_data = game_state.get_entity_by_uid(unit_uid)
-    if not unit_data then return end
+    local unit = game_state.get_entity_by_uid(unit_uid)
+    if not unit then return end
 
+    self.current_unit = unit
     -- =========================================================================
     -- 🛡️ ФИЛЬТРАЦИЯ ДОСТУПНОСТИ ВКЛАДОК (Feature Detection)
     -- =========================================================================
     -- Если мы инспектируем МОНСТРА — Журнал квестов и Таланты ему не положены по лору!
     -- Мы просто гасим Си-ноды кнопок переключения этих вкладок на верхней панели!
-    local is_player = unit_data.is_player
-    
+    local is_player = unit.is_player
+
     if self.tabs.journal then gui.set_enabled(self.tabs.journal.btn, is_player) end
     if self.tabs.talents then gui.set_enabled(self.tabs.talents.btn, is_player) end
 
@@ -255,30 +252,22 @@ function M:bind_unit(unit_uid, unit_inventory, unit_paperdoll)
     -- =========================================================================
     -- 🦾 ПОЛИМОРФНЫЙ СДВИГ ИСТОЧНИКОВ ДАННЫХ ВНУТРИ ПОДКОМПОНЕНТОВ
     -- =========================================================================
-    -- 1. Переключаем Универсальный виджет характеристик на UID нового существа
+    -- 1. Переключаем виджет характеристик...
     if self.character_stats and self.character_stats.set_inspect_target then
-        self.character_stats:set_inspect_target(unit_uid)
+        self.character_stats:set_inspect_target(unit)
     end
 
-    -- 2. Переключаем модель сетки инвентаря/карманов на новую таблицу данных
-    -- Мы вытаскиваем инстанс созданного Друидом дочернего компонента инвентаря.
-    -- (В твоей иерархии Друида он лежит либо в self.components, либо под именем self.static_grid)
-    local inventory_grid_component = self.static_grid or (self.components and self.components["static_grid"])
-    
-    if inventory_grid_component and inventory_grid_component.set_data_source then
-        -- 🎯 ПРЯМАЯ ИНЪЕКЦИЯ: Скармливаем универсальной сетке живой инстанс нового рюкзака!
-        -- Метод set_data_source внутри себя сам вызовет рефреш и обновит ячейки
-        inventory_grid_component:set_data_source(unit_inventory)
+    -- 2. Переключаем модель сетки инвентаря/карманов (ИСПРАВЛЕНО НАМЕРТВО):
+    -- Никаких self.components и угадываний! Читаем из нашей прямой ссылки, 
+    -- которую мы честно запекли в init()! Чистота и 100% зеленый шёлк!
+    if self.static_grid and self.static_grid.set_data_source then
+        -- 🎯 ПРЯМАЯ ИНЪЕКЦИЯ: Скармливаем универсальной сетке живой инстанс рюкзака!
+        self.static_grid:set_data_source(unit.inventory)
     end
 
-    -- 3. Переключаем модель куклы шмота на куклу этого конкретного монстра
-    -- Точно так же вытаскиваем инстанс созданной Друидом куклы
-    local paperdoll_component = self.paperdoll or (self.components and self.components["character_paperdoll"])
-    
-    if paperdoll_component and paperdoll_component.set_inspect_target then
-        -- 🦾 БУДУЩЕЕ НАСТУПИЛО: Говорим виджету куклы шмота переключить свою сессию 
-        -- на RAM-паспорт этого конкретного существа (мага, компаньона или скелета)!
-        paperdoll_component:set_inspect_target(unit_uid)
+    -- 3. Переключаем модель куклы шмота...
+    if self.paperdoll and self.paperdoll.set_inspect_target then
+        self.paperdoll:set_inspect_target(unit)
     end
 
     -- Полностью обновляем визуал всех вкладок под новые прилетевшие данные!

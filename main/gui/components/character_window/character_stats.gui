@@ -34,7 +34,7 @@ nodes {
     y: 30.0
   }
   type: TYPE_BOX
-  id: "player_health"
+  id: "unit_health"
   parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -46,8 +46,8 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_health_value"
-  parent: "player_health"
+  id: "unit_health_value"
+  parent: "unit_health"
 }
 nodes {
   position {
@@ -59,7 +59,7 @@ nodes {
     y: 40.0
   }
   type: TYPE_BOX
-  id: "player_name"
+  id: "unit_name"
   parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -73,8 +73,8 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_name_value"
-  parent: "player_name"
+  id: "unit_name_value"
+  parent: "unit_name"
 }
 nodes {
   position {
@@ -85,7 +85,7 @@ nodes {
     y: 32.0
   }
   type: TYPE_BOX
-  id: "player_race"
+  id: "unit_race"
   parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -97,8 +97,8 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_race_value"
-  parent: "player_race"
+  id: "unit_race_value"
+  parent: "unit_race"
 }
 nodes {
   position {
@@ -109,7 +109,7 @@ nodes {
     y: 32.0
   }
   type: TYPE_BOX
-  id: "player_class"
+  id: "unit_class"
   parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -121,8 +121,8 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_class_value"
-  parent: "player_class"
+  id: "unit_class_value"
+  parent: "unit_class"
 }
 nodes {
   position {
@@ -134,7 +134,7 @@ nodes {
     y: 40.0
   }
   type: TYPE_BOX
-  id: "player_level"
+  id: "unit_level"
   parent: "background"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -146,8 +146,8 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_level_value"
-  parent: "player_level"
+  id: "unit_level_value"
+  parent: "unit_level"
 }
 nodes {
   size {
@@ -180,7 +180,7 @@ nodes {
     y: 30.0
   }
   type: TYPE_BOX
-  id: "player_agility"
+  id: "unit_agility"
   parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -197,9 +197,9 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_agility_value"
+  id: "unit_agility_value"
   pivot: PIVOT_E
-  parent: "player_agility"
+  parent: "unit_agility"
 }
 nodes {
   position {
@@ -213,9 +213,9 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_agility_title"
+  id: "unit_agility_title"
   pivot: PIVOT_W
-  parent: "player_agility"
+  parent: "unit_agility"
 }
 nodes {
   position {
@@ -226,7 +226,7 @@ nodes {
     y: 30.0
   }
   type: TYPE_BOX
-  id: "player_stamina"
+  id: "unit_stamina"
   parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -243,9 +243,9 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_stamina_value"
+  id: "unit_stamina_value"
   pivot: PIVOT_E
-  parent: "player_stamina"
+  parent: "unit_stamina"
 }
 nodes {
   position {
@@ -257,9 +257,9 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_stamina_title"
+  id: "unit_stamina_title"
   pivot: PIVOT_W
-  parent: "player_stamina"
+  parent: "unit_stamina"
 }
 nodes {
   position {
@@ -270,7 +270,7 @@ nodes {
     y: 30.0
   }
   type: TYPE_BOX
-  id: "player_strength"
+  id: "unit_strength"
   parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -287,9 +287,9 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_strength_value"
+  id: "unit_strength_value"
   pivot: PIVOT_E
-  parent: "player_strength"
+  parent: "unit_strength"
 }
 nodes {
   position {
@@ -302,9 +302,9 @@ nodes {
   type: TYPE_TEXT
   text: "<text>"
   font: "iosevka_main"
-  id: "player_strength_title"
+  id: "unit_strength_title"
   pivot: PIVOT_W
-  parent: "player_strength"
+  parent: "unit_strength"
 }
 nodes {
   position {
@@ -315,7 +315,7 @@ nodes {
     y: 30.0
   }
   type: TYPE_BOX
-  id: "player_intellect"
+  id: "unit_intellect"
   parent: "attributes"
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
@@ -332,9 +332,9 @@ nodes {
   text: "\n"
   ""
   font: "iosevka_main"
-  id: "player_intellect_value"
+  id: "unit_intellect_value"
   pivot: PIVOT_E
-  parent: "player_intellect"
+  parent: "unit_intellect"
 }
 nodes {
   position {
@@ -346,9 +346,9 @@ nodes {
   }
   type: TYPE_TEXT
   font: "iosevka_main"
-  id: "player_intellect_title"
+  id: "unit_intellect_title"
   pivot: PIVOT_W
-  parent: "player_intellect"
+  parent: "unit_intellect"
 }
 nodes {
   position {

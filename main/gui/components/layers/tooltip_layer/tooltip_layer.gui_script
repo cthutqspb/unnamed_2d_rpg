@@ -2,30 +2,11 @@ local locales = require("main.modules.data.locales.locale_manager")
 local constants_ui = require("main.gui.constants_ui")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
-local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
+local unit_logic = require("main.modules.unit.logic.unit_logic")
 local items_db = require("main.modules.data.items_db")
 local units_db = require("main.modules.data.units_db")
 local character_data = require("main.modules.character.character_data")
-
-local QUALITY_COLORS = {
-    common    = vmath.vector4(1, 1, 1, 1),
-    uncommon  = vmath.vector4(0.12, 1, 0, 1),
-    rare      = vmath.vector4(0, 0.44, 1, 1),
-    epic      = vmath.vector4(0.64, 0.21, 0.93, 1),
-    legendary = vmath.vector4(1, 0.5, 0, 1),
-}
-
--- 🎯 ПАЛИТРА РАНГОВ МОНСТРОВ ДЛЯ REFRESH / TARGET_FRAME / NAMEPLATES
-local CREATURE_RANK_COLORS = {
-    pure      = vmath.vector4(0.12, 1, 0.5, 1),   -- Лаймово-зелёный (мирный/союзник)
-    common    = vmath.vector4(1, 1, 1, 1),         -- Чистый белый (обычный моб)
-    uncommon  = vmath.vector4(0.2, 0.8, 0.2, 1),   -- Плотный зелёный (крепкий моб)
-    rare      = vmath.vector4(0, 0.44, 1, 1),      -- Яркий синий (редкий именной)
-    elite     = vmath.vector4(0.64, 0.21, 0.93, 1),-- Пурпурный/Фиолетовый (элита)
-    boss      = vmath.vector4(1, 0.2, 0.2, 1),     -- Кроваво-красный (босс)
-}
-
-local STATS_COLOR = vmath.vector4(0.7, 0.7, 0.7, 1)
+local colors_db = require("main.modules.data.colors_db")
 
 function init(self)
     self.root = gui.get_node("root")
@@ -123,7 +104,7 @@ local function render_item(self, item_context, context)
 
     -- [БЛОК 1: ШАПКА]
     local name = locales.get(cfg.name_key)
-    local name_color = QUALITY_COLORS[cfg.quality] or QUALITY_COLORS.common
+    local name_color = colors_db.QUALITY_COLORS[cfg.quality] or colors_db.QUALITY_COLORS.common
     if cfg.stackable and amount > 1 then
         name = name .. " (x" .. amount .. ")"
     end
@@ -131,17 +112,17 @@ local function render_item(self, item_context, context)
 
     local type_key = cfg.weapon_type or cfg.armor_type or cfg.type
     local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.equip_slot) .. ")"
-    add_line(self, sub_header, nil, STATS_COLOR)
+    add_line(self, sub_header, nil, colors_db.STATS_COLOR)
 
     if cfg.required then
         -- Заголовок "Требования"
         add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
   
-        local check = item_requirements_manager.check(cfg, character_data.player)
+        local check_result = unit_logic.check_item_requirements(cfg, character_data.player)
 
         for req_id, req_val in pairs(cfg.required) do
 
-            local is_fail = check.errors[req_id]
+            local is_fail = check_result.errors[req_id]
 
             -- Цвет: белый если ок, красный если нет
             local color = is_fail and vmath.vector4(1, 0.2, 0.2, 1) or vmath.vector4(1, 1, 1, 1)
@@ -181,7 +162,7 @@ local function render_item(self, item_context, context)
         for id, val in pairs(cfg.stats) do
             local sign = val > 0 and "+" or ""
             local stat_text = sign .. val .. " " .. locales.get("stat_" .. id)
-            add_line(self, stat_text, nil, STATS_COLOR)
+            add_line(self, stat_text, nil, colors_db.STATS_COLOR)
         end
     end
 
@@ -244,7 +225,7 @@ end
 -- Выносим отрисовку объектов мира
 local function render_world_object(self, info, context)
     if not info then return end
-      
+
     local display_name = "Unknown"
 
     -- 1. Если это ПРЕДМЕТ (item_loot)
@@ -255,7 +236,7 @@ local function render_world_object(self, info, context)
         if cfg then
             display_name = locales.get(cfg.name_key)
         end
-        local name_color = QUALITY_COLORS[cfg.quality] or QUALITY_COLORS.common
+        local name_color = colors_db.QUALITY_COLORS[cfg.quality] or colors_db.QUALITY_COLORS.common
         -- Рисуем название предмета (например, Белым)
         add_line(self, display_name, nil, name_color)
         --self:add_text(display_name, self.colors.WHITE)
@@ -271,7 +252,7 @@ local function render_world_object(self, info, context)
             display_name = locales.get(info.name)
         end
         -- print('display_name', display_name)
-        add_line(self, display_name, nil, QUALITY_COLORS.common)
+        add_line(self, display_name, nil, colors_db.QUALITY_COLORS.common)
         --local color = info.item_count > 0 and vmath.vector4(0.4, 1, 0.4, 1) or vmath.vector4(0.6, 0.6, 0.6, 1)
         --local txt = info.item_count > 0 and ("Предметов: " .. info.item_count) or "Пусто"
         --add_line(self, txt, nil, color)
@@ -285,7 +266,7 @@ local function render_world_object(self, info, context)
             display_name = "Unknown Unit"
         end
 
-        local rank_color = CREATURE_RANK_COLORS[info.rank] or CREATURE_RANK_COLORS.common
+        local rank_color = colors_db.UNIT_RANK_COLORS[info.rank] or colors_db.UNIT_RANK_COLORS.common
 
         add_line(self, display_name, nil, rank_color)
     end

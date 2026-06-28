@@ -307,13 +307,34 @@ function M:trigger_gcd(duration)
             -- 🧠 ЧИТАЕМ СТЕРИЛЬНЫЙ DUCK TYPING (БЕЗ ЛEВЫХ ИМПOРТOВ):
             -- Модель инвентаря/экшен-бара сама знает, запускает ли эта шмотка ГКД!
             if slot_data.triggers_gcd then
-                gui.cancel_animations(gcd_node, "size.y")
-                
+                --gui.cancel_animations(gcd_node, "size.y")
+
                 gui.set_fill_angle(gcd_node, 360)
-                print("duration", duration)
                 gui.animate(gcd_node, gui.PROP_FILL_ANGLE, 0, gui.EASING_LINEAR, duration)
             end
         end
+    end
+end
+
+---Принудительно изменить цвет иконки и текста хоткея для конкретного слота
+---@param index number Числовой индекс ячейки панели (1..12)
+---@param icon_color vector4|nil Цвет для иконки (или nil, если не менять)
+---@param bind_color vector4|nil Цвет для текста хоткея (или nil, если не менять)
+function M:set_slot_colors(index, icon_color, bind_color)
+    if not self.slots then return end
+    
+    -- Вытаскиваем закэшированные Си-ноды конкретной ячейки из структуры
+    local slot = self.slots[index]
+    if not slot then return end
+
+    -- Красим иконку на уровне видеокарты
+    if icon_color and slot.icon then
+        gui.set_color(slot.icon, icon_color)
+    end
+
+    -- Красим текст хоткея (1..12) на уровне видеокарты
+    if bind_color and slot.bind then
+        gui.set_color(slot.bind, bind_color)
     end
 end
 

@@ -158,6 +158,23 @@ instances {
     }
   }
 }
+instances {
+  id: "world_item4"
+  prototype: "/main/game_objects/world_item/world_item.go"
+  position {
+    x: 4834.3623
+    y: 2563.239
+    z: 1.0
+  }
+  component_properties {
+    id: "world_item"
+    properties {
+      id: "item_id"
+      value: "iron_sword"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
@@ -170,6 +187,7 @@ embedded_instances {
   children: "world_item1"
   children: "world_item2"
   children: "world_item3"
+  children: "world_item4"
   data: "components {\n"
   "  id: \"chunk_meadows\"\n"
   "  component: \"/main/tilemaps/meadow.tilemap\"\n"

@@ -15,12 +15,14 @@ local LOCALES = {
     ru = {
         ui = require("main.modules.data.locales.ru.ui"),
         items = require("main.modules.data.locales.ru.items"),
-        units = require("main.modules.data.locales.ru.units")
+        units = require("main.modules.data.locales.ru.units"),
+        abilities = require("main.modules.data.locales.ru.abilities")
     },
     en = {
         ui = require("main.modules.data.locales.en.ui"),
         items = require("main.modules.data.locales.en.items"),
-        units = require("main.modules.data.locales.en.units")
+        units = require("main.modules.data.locales.en.units"),
+        abilities = require("main.modules.data.locales.en.abilities")
     }
 }
 
@@ -54,6 +56,7 @@ function M.load_language(lang)
     merge_tables(M.data, lang_data.ui)
     merge_tables(M.data, lang_data.items)
     merge_tables(M.data, lang_data.units)
+    merge_tables(M.data, lang_data.abilities)
 
     current_lang = lang
     rebuild_hash_map() -- ОБЯЗАТЕЛЬНО обновляем карту после загрузки данных

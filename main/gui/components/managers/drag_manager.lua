@@ -23,7 +23,7 @@ local active_drag = nil
 local is_over_any_gui = false
 
 ---Начать процесс перетаскивания предмета
----@param source table @Компонент-источник (StaticGrid или кукла)
+---@param source InventoryInstance|PaperdollInstance|table @Модель-источник, откуда забираем вещь
 ---@param slot number|string @Индекс слота или тип слота куклы
 ---@param item table @Данные предмета
 ---@param item_cfg table @Конфиг предмета из БД

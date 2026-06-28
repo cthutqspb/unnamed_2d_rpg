@@ -111,7 +111,7 @@ end
 
 ---Перестроить фокус ввода Defold на основе Z-слоёв из стека
 function M.reorder_focus()
-    print("🚨 ФOКУС: reorder_focus сработал!")
+    -- print("🚨 ФOКУС: reorder_focus сработал!")
     -- Идем по стеку [Z5, Z7, Z10]
     for i = 1, #stack do
         local win = stack[i]

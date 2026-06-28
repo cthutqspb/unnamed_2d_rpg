@@ -197,7 +197,7 @@ function on_message(self, message_id, message, sender)
     -- Ивент А: Маг замер на месте и начал петь Фростболт
     if message_id == hash("show_castbar") then
         if self.player_cast_bar then
-            self.player_cast_bar:show(message.spell_id)
+            self.player_cast_bar:show(message.ability_id)
         end
 
     -- Ивент Б: Покадровый апдейт прогресса полосы из update() игрока
@@ -213,6 +213,12 @@ function on_message(self, message_id, message, sender)
         end
     end
     -- =========================================================================
+end
+
+function update(self, dt)
+    if self.action_bar and self.action_bar.update then
+        self.action_bar:update(dt)
+    end
 end
 
 ---@param self HudScriptContext

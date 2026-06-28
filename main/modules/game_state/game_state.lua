@@ -158,6 +158,11 @@ function M.set_combat(uid, is_combat)
     end
 end
 
+function M.update_all_timers(dt)
+    if units_state and units_state.update_all_timers then
+        units_state.update_all_timers(dt)
+    end
+end
 
 ---Принудительно создать чистокровный Unit-паспорт для игрока в RAM при Новой Игра (ИСПРАВЛЕНО)
 ---@param default_props table Дефолтные характеристики (unit_id, stats и т.д.)

@@ -167,62 +167,62 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_health"
+  id: "character_stats/unit_health"
   parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_health_value"
-  parent: "character_stats/player_health"
+  id: "character_stats/unit_health_value"
+  parent: "character_stats/unit_health"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_name"
+  id: "character_stats/unit_name"
   parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_name_value"
-  parent: "character_stats/player_name"
+  id: "character_stats/unit_name_value"
+  parent: "character_stats/unit_name"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_race"
+  id: "character_stats/unit_race"
   parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_race_value"
-  parent: "character_stats/player_race"
+  id: "character_stats/unit_race_value"
+  parent: "character_stats/unit_race"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_class"
+  id: "character_stats/unit_class"
   parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_class_value"
-  parent: "character_stats/player_class"
+  id: "character_stats/unit_class_value"
+  parent: "character_stats/unit_class"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_level"
+  id: "character_stats/unit_level"
   parent: "character_stats/background"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_level_value"
-  parent: "character_stats/player_level"
+  id: "character_stats/unit_level_value"
+  parent: "character_stats/unit_level"
   template_node_child: true
 }
 nodes {
@@ -239,74 +239,74 @@ nodes {
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_agility"
+  id: "character_stats/unit_agility"
   parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_agility_value"
-  parent: "character_stats/player_agility"
+  id: "character_stats/unit_agility_value"
+  parent: "character_stats/unit_agility"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_agility_title"
-  parent: "character_stats/player_agility"
+  id: "character_stats/unit_agility_title"
+  parent: "character_stats/unit_agility"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_stamina"
+  id: "character_stats/unit_stamina"
   parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_stamina_value"
-  parent: "character_stats/player_stamina"
+  id: "character_stats/unit_stamina_value"
+  parent: "character_stats/unit_stamina"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_stamina_title"
-  parent: "character_stats/player_stamina"
+  id: "character_stats/unit_stamina_title"
+  parent: "character_stats/unit_stamina"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_strength"
+  id: "character_stats/unit_strength"
   parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_strength_value"
-  parent: "character_stats/player_strength"
+  id: "character_stats/unit_strength_value"
+  parent: "character_stats/unit_strength"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_strength_title"
-  parent: "character_stats/player_strength"
+  id: "character_stats/unit_strength_title"
+  parent: "character_stats/unit_strength"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "character_stats/player_intellect"
+  id: "character_stats/unit_intellect"
   parent: "character_stats/attributes"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_intellect_value"
-  parent: "character_stats/player_intellect"
+  id: "character_stats/unit_intellect_value"
+  parent: "character_stats/unit_intellect"
   template_node_child: true
 }
 nodes {
   type: TYPE_TEXT
-  id: "character_stats/player_intellect_title"
-  parent: "character_stats/player_intellect"
+  id: "character_stats/unit_intellect_title"
+  parent: "character_stats/unit_intellect"
   template_node_child: true
 }
 nodes {
@@ -806,3 +806,4 @@ nodes {
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 2048

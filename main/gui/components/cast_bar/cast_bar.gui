@@ -5,7 +5,7 @@ fonts {
 nodes {
   size {
     x: 320.0
-    y: 24.0
+    y: 16.0
   }
   type: TYPE_BOX
   id: "root"
@@ -16,12 +16,12 @@ nodes {
 nodes {
   size {
     x: 320.0
-    y: 24.0
+    y: 16.0
   }
   color {
-    x: 0.3019608
-    y: 0.3019608
-    z: 0.3019608
+    x: 0.2
+    y: 0.2
+    z: 0.2
   }
   type: TYPE_BOX
   id: "background"
@@ -35,12 +35,12 @@ nodes {
   }
   size {
     x: 320.0
-    y: 24.0
+    y: 16.0
   }
   color {
-    x: 0.2
-    y: 0.3019608
-    z: 0.7019608
+    x: 0.4
+    y: 0.5019608
+    z: 0.9019608
   }
   type: TYPE_BOX
   id: "fill"
@@ -52,13 +52,12 @@ nodes {
 nodes {
   size {
     x: 320.0
-    y: 24.0
+    y: 16.0
   }
   type: TYPE_TEXT
   font: "font_regular_16"
   id: "title"
   parent: "root"
-  inherit_alpha: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

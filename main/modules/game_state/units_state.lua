@@ -5,7 +5,10 @@ local inventory_model = require("main.modules.models.inventory_model")
 
 ---@class UnitInstanceData
 ---@field is_player boolean
----@field name_key string
+---@field name string|nil Конкретное имя
+---@field name_key string Имя типа юнита: скелет, кабан, росянка
+---@field race string|nil
+---@field class string|nil
 ---@field unit_id string Строковый ID вида ("skeleton")
 ---@field uid string Уникальный строковый UID конкретного монстра
 ---@field level number Текущий уровень существа
@@ -31,6 +34,10 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field is_dead boolean|nil
 ---@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
 ---@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
+---@field current_cast_ability_id string|nil Строковый ID кастуемой способности из БД ("frostbolt")
+---@field current_cast_duration number|nil Полное эталонное время каста из базы (2.5)
+---@field current_cast_time number|nil Текущее покадрово тикающее время каста в секундах
+---@field gcd_current number|nil Текущий таймер глобального кулдауна в RAM
 ---@field ai_target vector3|nil
 ---@field paperdoll PaperdollInstance
 ---@field inventory InventoryInstance
@@ -113,8 +120,6 @@ end
 -- СИСТЕМНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ РЕЕСТРОМ (Зеркало world_items_state)
 -- =========================================================================
 
--- main/modules/game_state/units_state.lua
-
 ---Добавить юнита/игрока в глобальный реестр RAM (Стерильный WoW-канон)
 ---@param uid string Уникальный строковый UID ("player", "c_X_Y")
 ---@param props table Параметры спавна из Tiled или файла сохранения JSON
@@ -127,7 +132,7 @@ function M.add(uid, props)
     local is_player_unit = (uid == "player" or props.is_player == true)
 
     -- 🦾 ЭТАЛОН 1: СБОРКА ИСХОДНЫХ ХАРАКТЕРИСТИК (БЕЗ ДУБЛИРОВАНИЯ)
-    local source_stats = props.stats
+    local source_stats = props.base_stats
     local source_abilities = props.abilities
     local monster_cfg = nil
 
@@ -228,7 +233,7 @@ function M.add(uid, props)
     instance_data.saved_position = props.saved_position or vmath.vector3(0, 0, 1.0)
     instance_data.action_bars = props.action_bars or {}
     -- Привязываем наши изолированные таблицы статов DeepCopy
-    instance_data.stats = clean_stats
+    instance_data.base_stats = clean_stats
     instance_data.current_stats = clean_current_stats
     instance_data.abilities = clean_source_abilities
 
@@ -455,6 +460,30 @@ function M.is_unit_in_combat(uid)
     -- Вся логика флагов ИИ и агро спрятана внутри синглтона стейта!
     -- Прямое, моментальное чтение полей без создания ООП-геттеров и метатаблиц!
     return unit_state.is_in_combat == true or unit_state.ai_target ~= nil
+end
+
+---⏳ ЦЕНТРАЛЬНЫЕ ЧАСЫ Meadows: Покадрово тикаем ГКД и касты ВСЕХ существ в RAM-реестре!
+---Этот метод вызывается ровно ОДИН РАЗ внутри update(self, dt) твоего world.script!
+---@param dt number Покадровая дельта времени
+function M.update_all_timers(dt)
+    -- Проверяем твою центральную рантайм-таблицу живых сущностей на карте.
+    -- Так как игрок при создании тоже регистрируется в ней под своим UID,
+    -- этот один-единственный цикл будет автоматически тикать время ВСЕМ разом!
+    local registry = M.registry
+    if not registry then return end
+
+    for uid, unit in pairs(registry) do
+        -- 1. Покадрово гасим глобальный кулдаун (ГКД) для этого существа
+        if unit.gcd_current and unit.gcd_current > 0 then
+            unit.gcd_current = unit.gcd_current - dt
+            if unit.gcd_current < 0 then unit.gcd_current = 0 end
+        end
+
+        -- 2. Покадрово тикаем время активного кастбара заклинания
+        if unit.current_cast_ability_id and unit.current_cast_time then
+            unit.current_cast_time = unit.current_cast_time + dt
+        end
+    end
 end
 
 -- =========================================================================

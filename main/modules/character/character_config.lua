@@ -51,11 +51,11 @@ M.classes = {
     rogue = { name_key = "class_rogue" }
 }
 
-M.stats = {
-    strength = { name_key = "stat_strength", base = 10 },
-    agility = { name_key = "stat_agility", base = 10 },
-    intellect = { name_key = "stat_intellect", base = 10 },
-    stamina = { name_key = "stat_stamina", base = 10 }
+M.base_stats = {
+    strength = { name_key = "stat_strength", default = 10 },
+    agility = { name_key = "stat_agility", default = 10 },
+    intellect = { name_key = "stat_intellect", default = 10 },
+    stamina = { name_key = "stat_stamina", default = 10 }
 }
 
 return M

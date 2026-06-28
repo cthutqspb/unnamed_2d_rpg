@@ -9,6 +9,7 @@ local gui_utils = require("main.gui.gui_utils")
 local camera = require("orthographic.camera")
 local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 
 ---@class WorldScriptInstance
 ---@field player_direction number Направление взгляда игрока (-1 или 1)
@@ -116,7 +117,7 @@ end
 function update(self, dt)
     -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
     local player = character_data.player
-    if not player or not player.stats or not player.current_stats then
+    if not player or not player.base_stats or not player.current_stats then
         return
     end
 
@@ -140,6 +141,10 @@ function update(self, dt)
         -- Запоминаем новую позицию игрока
         self.last_player_x = current_player_pos.x
         self.last_player_y = current_player_pos.y
+    end
+
+    if game_state and game_state.update_all_timers then
+        game_state.update_all_timers(dt)
     end
 end
 
@@ -265,6 +270,12 @@ function on_message(self, message_id, message, sender)
         -- Удаляем физический Game Object с карты
         go.delete(sender)
 
+        broadcast.send("log_events", {
+            message_id = hash("log_message"),
+            channel = "loot",
+            text = "Залутан" .. message.item_id .. " (" .. message.amount .. ")"
+        })
+
     -- Перехват хоткея Alt: включаем/выключаем подсветку имен интерактивных объектов
     elseif message_id == hash("toggle_interactable_highlight") then
         print("WORLD КОНТРОЛЛЕР: Рассылаем бродкаст подсветки имен объектов: " .. tostring(message.show))
@@ -331,7 +342,7 @@ function on_message(self, message_id, message, sender)
 
             -- Регистрируем этот живой объектный инстанс внутренностей бочки в фокус интерфейсов!
             -- Теперь трансфер-менеджер подхватит его по Duck Typing через .get_item / .set_item!
-            local interaction_manager = require("main.modules.logic.interaction_manager")
+            
             interaction_manager.set_focus(container_instance)
 
             -- Даем команду GUI-окну на отрисовку, прокидывая саму объектную модель в оверрайд!

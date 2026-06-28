@@ -199,10 +199,6 @@ function M.set_visible(self, visible)
     -- Если окно скрывается, оно ДОЛЖНО обнулить свой статус ховера
     if not visible then
         window_manager.set_hover_status(msg.url(), false)
-
-        if tooltip_manager.get_current_type() == "item" then
-            tooltip_manager.hide_gui_tooltips()
-        end
     end
 
     if visible and self.callbacks.on_show then
@@ -210,6 +206,8 @@ function M.set_visible(self, visible)
     elseif not visible and self.callbacks.on_hide then
         self.callbacks.on_hide()
     end
+    tooltip_manager.hide_gui_tooltips()
+    tooltip_manager.hide_world_tooltips()
 end
 
 ---@param self table|any

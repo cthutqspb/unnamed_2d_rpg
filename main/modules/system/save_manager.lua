@@ -70,6 +70,7 @@ end
 ---Инициализировать стейт Памяти под Новую Игру (Канон WoW)
 function M.new_game(creation_package)
     -- 1. Стерильно очищаем все домены данных в оперативной памяти Lua
+    --character_data.player = nil
     game_state.clear_all()
     --player_paperdoll.clear()
 
@@ -93,8 +94,8 @@ function M.new_game(creation_package)
         max_health = 100,
         mana = 50,
         max_mana = 50,
-        stats = character.stats,
-        current_stats = character.stats,
+        base_stats = character.base_stats,
+        current_stats = character.current_stats,
         saved_position = vmath.vector3(1126, 725, 1.0)
     })
 

@@ -1,18 +1,11 @@
 -- main/modules/unit/logic/unit_logic.lua
-local game_state = require("main.modules.game_state.game_state")
 local broadcast = require("main.modules.system.broadcast")
 local items_db = require("main.modules.data.items_db")
+local abilities_db = require("main.modules.data.abilities_db")
+--local character_data = require("main.modules.character.character_data")
 
 ---@class UnitLogicModule
 local M = {}
-
--- =========================================================================
--- 🛡️ ВНУТРЕННИЕ СИСТЕМНЫЕ ХЕЛПЕРЫ ОБРАТНОЙ СОВМЕСТИМОСТИ
--- =========================================================================
-
-local function resolve_unit(optional_unit)
-    return optional_unit or game_state.get_player_data()
-end
 
 -- =========================================================================
 -- 🦾 ГЕЙМПЛЕЙНЫЕ ПОЛИМОРФНЫЕ МЕТОДЫ (ИТЕРАЦИЯ 1)
@@ -20,23 +13,30 @@ end
 
 ---Посчитать итоговое значение базовой характеристики для ЛЮБОГО юнита в игре
 ---@param stat_name string Имя характеристики ("strength", "agility", "intellect", "stamina")
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Живой паспорт существа из RAM реестра
----@return number total Итоговое суммарное значение стата с учетом надетого шмота
-function M.get_total_stat(stat_name, unit_data)
-    local unit = resolve_unit(unit_data)
-    if not unit or not unit.stats then return 0 end
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Живой паспорт существа из RAM реестра
+---@return number total Итоговое суммарное значение сгтата с учетом надетого шмота
+function M.get_total_stat(stat_name, unit)
+    if not unit or not unit.base_stats then return 0 end
 
     -- Читаем генетическую базу стата
-    local total = unit.stats[stat_name] or 0
-
+    local total = unit.base_stats[stat_name] or 0
+    
     -- 🦾 УЛЬТИМАТИВНЫЙ ПОЛИМОРФИЗМ (ИСПРАВЛЕНО):
     -- Больше никаких require("player_paperdoll") и разделений на игрока/мобов!
     -- Код просто лезет в .paperdoll.slots объекта, который сейчас обсчитывается.
     -- Если это маг — посчитает мага. Если это скелет — посчитает скелета!
+    print("⬅️ КАЛЬКУЛЯТОР: unit.paperdoll.slots адрес =", unit.paperdoll.slots)
     if unit.paperdoll and unit.paperdoll.slots then
-        for _, item_data in pairs(unit.paperdoll.slots) do
+        
+        for i, item_data in pairs(unit.paperdoll.slots) do
+            --print("TOTAL 2",i, item_data.item_id)
+            -- for k,v in pairs(item_data) do
+            --    print("AAA", k,v)
+            -- end
             if item_data and item_data.item_id then
                 local item_cfg = items_db.get_item(item_data.item_id)
+                
+
                 if item_cfg and item_cfg.stats and item_cfg.stats[stat_name] then
                     total = total + item_cfg.stats[stat_name]
                 end
@@ -48,10 +48,9 @@ function M.get_total_stat(stat_name, unit_data)
 end
 
 ---Вычислить максимальный запас здоровья на основе текущей выносливости (Stamina)
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
 ---@return number max_health
-function M.calculate_max_health(unit_data)
-    local unit = resolve_unit(unit_data)
+function M.calculate_max_health(unit)
     if not unit then return 100 end
 
     -- WoW-канон: Базовое ХП игрока 100, монстров — из их базы units_db
@@ -68,10 +67,9 @@ function M.calculate_max_health(unit_data)
 end
 
 ---Вычислить максимальный запас маны на основе текущего интеллекта (Intellect)
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
 ---@return number max_mana
-function M.calculate_max_mana(unit_data)
-    local unit = resolve_unit(unit_data)
+function M.calculate_max_mana(unit)
     if not unit or unit.mana == nil then return 0 end
 
     local base_mana = unit.is_player and 50 or 20
@@ -82,17 +80,16 @@ function M.calculate_max_mana(unit_data)
 end
 
 ---Пересчитать все производные характеристики ЛЮБОГО существа (ХП, Ману, текущие статы)
----@param unit_data table|nil
-function M.update_derived_stats(unit_data)
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil
+function M.update_derived_stats(unit)
     if not unit or not unit.current_stats then return end
-
+    
     -- На ходу перезаписываем текущие статы (current_stats) на основе базовых (stats) + шмот
     unit.current_stats.strength = M.get_total_stat("strength", unit)
     unit.current_stats.agility = M.get_total_stat("agility", unit)
     unit.current_stats.intellect = M.get_total_stat("intellect", unit)
     unit.current_stats.stamina = M.get_total_stat("stamina", unit)
-
+    print("current_stats strength!!!", unit.current_stats.strength)
     -- 🛡️ ИСПРАВЛЕНО: Прокидываем 'unit' в калькуляторы ресурсов, закрывая дыру дюпа!
     unit.max_health = M.calculate_max_health(unit)
     if unit.max_mana ~= nil then
@@ -127,10 +124,8 @@ end
 ---@param slot_index number Порядковый номер ячейки (от 1 до 12)
 ---@param action_type "ability"|"item"|"empty" Тип действия
 ---@param action_id string|nil Идентификатор из базы абилок или предметов
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита (nil для фоллбека на игрока)
-function M.set_action_bar_slot(bar_index, slot_index, action_type, action_id, unit_data)
-    -- Хелпер resolve_unit автоматически подставит игрока, если вызвано из диспетчера!
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита (nil для фоллбека на игрока)
+function M.set_action_bar_slot(bar_index, slot_index, action_type, action_id, unit)
     if not unit or not unit.action_bars then return end
 
     -- 1. Страховка: если таблицы конкретной панели в памяти юнита ещё нет — инициализируем её
@@ -168,11 +163,9 @@ end
 
 ---Проверить магические щиты Юнита и поглотить входящий урон (Универсальный WoW-канон)
 ---@param incoming_damage number Входящий сырой урон
----@param unit_data table|nil ОПЦИОНАЛЬНО: Паспорт юнита
+---@param unit UnitInstanceData|nil ОПЦИОНАЛЬНО: Паспорт юнита
 ---@return number remaining_damage Остаток урона, который должен пойти в ХП
-function M.consume_absorb_shield(incoming_damage, unit_data)
-    local unit = resolve_unit(unit_data)
-
+function M.consume_absorb_shield(incoming_damage, unit)
     -- 🛡️ ГВАРД ОТСУТСТВИЯ ЩИТА: Если щита нет вообще или он пустой — весь урон летит в ХП без изменений
     if not unit or not unit.absorb_shield or unit.absorb_shield <= 0 then
         return incoming_damage -- 🚩 ГАРАНТИРОВАННО ВОЗВРАЩАЕМ ЧИСЛО!
@@ -202,9 +195,8 @@ end
 
 ---Применить получение ОЧИЩЕННОГО урона ЛЮБЫМ существом во вселенной (WoW/Pathfinder канон)
 ---@param final_amount number Количество дамага, который уже пробил все щиты и спасалки
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт цели, получающей урон
-function M.take_damage(final_amount, unit_data)
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт цели, получающей урон
+function M.take_damage(final_amount, unit)
     if not unit or unit.is_dead then return end
 
     unit.health = unit.health - final_amount
@@ -249,9 +241,8 @@ end
 --- Остальные методы
 ---Применить исцеление ЛЮБОМУ существе во вселенной (Универсальный WoW-канон)
 ---@param amount number Количество восстанавливаемого здоровья
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита (nil для фоллбека на игрока)
-function M.heal(amount, unit_data)
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита (nil для фоллбека на игрока)
+function M.heal(amount, unit)
     if not unit or unit.is_dead then return end
 
     unit.health = math.min(unit.max_health, unit.health + amount)
@@ -281,9 +272,8 @@ end
 
 ---Потратить ману Юнита (Только если у него есть манапул)
 ---@param amount number Количество сжигаемой маны
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
-function M.burn_mana(amount, unit_data)
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
+function M.burn_mana(amount, unit)
     if not unit or unit.mana == nil then return end
 
     unit.mana = math.max(0, unit.mana - amount)
@@ -298,9 +288,8 @@ end
 
 ---Восстановить ману Юнита
 ---@param amount number Количество восстанавливаемой маны
----@param unit_data table|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
-function M.restore_mana(amount, unit_data)
-    local unit = resolve_unit(unit_data)
+---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита
+function M.restore_mana(amount, unit)
     if not unit or unit.mana == nil then return end
 
     unit.mana = math.min(unit.max_mana, unit.mana + amount)
@@ -312,6 +301,181 @@ function M.restore_mana(amount, unit_data)
         })
     end
 end
+
+---@class RequirementResult
+---@field is_ok boolean
+---@field errors table<string, boolean>
+---@field reason string|nil
+
+---Универсальный ААА-Валидатор требований предметов для любых существ (Игрока и Мобoв)
+---@param item_cfg table Конфиг предмета из items_db
+---@param unit UnitInstanceData|nil RAM-паспорт существа (UnitInstanceData / карточка из реестра)
+---@return RequirementResult
+function M.check_item_requirements(item_cfg, unit)
+    if not unit then
+        return { is_ok = false, errors = {}, reason = "NO_UNIT_PASSED" }
+    end
+
+    ---@type RequirementResult
+    local results = {
+        is_ok = true,
+        errors = {},
+        reason = nil
+    }
+
+    -- Если у шмотки в базе вообще нет блока required = { level = X } — она доступна сразу!
+    if not item_cfg.required then
+        return results
+    end
+
+    --🦾 Всеядный цикл: Сверяем ТТХ шмотки с RAM-паспортом любого существа
+    for req_id, req_val in pairs(item_cfg.required) do
+        local unit_val = 0
+        local stat_ok = true
+        --print("REQ ID", req_id, req_val)
+        if req_id == "level" then
+            print("LEVEL", unit.level, req_val)
+            -- ИСПРАВЛЕНО: Читаем уровень любого юнита во вселенной!
+            unit_val = unit.level or 1
+            stat_ok = (unit_val >= req_val)
+            if not stat_ok then results.reason = "low_level" end
+
+        elseif req_id == "resource" then
+            if req_val == "mana" then
+                --Проверяем мана-ресурс у любого существа
+                stat_ok = (unit.max_mana and unit.max_mana > 0) or false
+                if not stat_ok then results.reason = "no_mana_resource" end
+            end
+
+        else
+            -- Если у моба нет статов (мало ли, голый волк), фоллбэк в 0 защитит от крэша
+            local stats_table = unit.current_stats or unit.base_stats
+            unit_val = (stats_table and stats_table[req_id]) or 0
+            stat_ok = (unit_val >= req_val)
+            if not stat_ok then results.reason = "low_stats" end
+        end
+
+        if not stat_ok then
+            results.is_ok = false
+            results.errors[req_id] = true
+        end
+    end
+
+    return results
+end
+
+-- Внутри unit_logic.lua (require "game_state" СНOСИМ ИЗ ЭТOГO ФAЙЛA НАВСEГДA!):
+
+---Титановый ААА-Валидатор Способностей (Полная изоляция от циклических зависимостей)
+---@param caster UnitInstanceData|nil table RAM-паспорт того, кто кастует (UnitInstanceData / карточка существа)
+---@param ability_id string ID способности ("frostbolt")
+---@param target UnitInstanceData|nil RAM-паспорт цели (UnitInstanceData / карточка моба)
+---@return boolean is_possible Можно ли применить?
+---@return string|nil error_reason Строковый ключ ошибки ("OUT_OF_RANGE", "NO_TARGET", "NO_MANA")
+function M.check_cast_possibility(caster, ability_id, target)
+    -- 1. Вытаскиваем статический чертеж способности из твоей базы абилок
+    local cfg = abilities_db.get_ability(ability_id)
+    if not cfg then return false, "UNKNOWN_ABILITY" end
+
+    -- 2. СИ-ЗАЩИТА: Если паспорт кастера потерялся по дороге
+    if not caster then return false, "NO_CASTER" end
+
+    -- 3. ГВАРД РЕСУРСОВ: Хладнокровно проверяем ману персонажа
+    if cfg.cost and cfg.cost.resource == "mana" then
+        if (caster.mana or 0) < (cfg.cost.value or 0) then
+            return false, "NO_MANA" -- НЕДОСТАТОЧНО МАНЫ!
+        end
+    end
+
+    -- 4. ГВАРД НАЛИЧИЯ ЦЕЛИ И RANGE ДАЛЬНОСТИ ПО ТВОЕМУ КАНОНУ:
+    if cfg.requires_target then
+        -- КЕЙС А: Способность требует цель, а в руках пусто -> Нужна цель!
+        if not target then
+            return false, "NO_TARGET"
+        end
+
+        -- КЕЙС Б: Цель есть -> Считаем расстояние в RAM-мире по сохраненным координатам
+        local player_pos = caster.saved_position
+        local target_pos = target.saved_position
+
+        if player_pos and target_pos then
+            -- Считаем чистую Meadows-дистанцию в пикселях между центрами в RAM
+            local dist = vmath.length(target_pos - player_pos)
+
+            -- 📐 ТВОЙ СВЯТОЙ ОБМАН ХИТБОКСА:
+            -- Вытаскиваем hitbox_size из твоего конфига монстра (например, 64)
+            -- Делим пополам (32 пикселя радиуса) и легально расширяем дальность!
+            local target_radius = (target.hitbox_size or 0) / 2
+            local max_allowed_range = (cfg.range or 0) + target_radius
+
+            -- Если скелет убежал дальше допустимого радиуса от центра
+            if dist > max_allowed_range then
+                return false, "OUT_OF_RANGE" -- СЛИШКОМ ДАЛЕКО!
+            end
+        end
+    end
+
+    -- Способность полностью легальна, Meadows-конвейер чист!
+    return true, nil
+end
+
+
+-- ---Титановый ААА-Валидатор Способностей (WoW-канон Spell::CheckCast)
+-- ---@param caster_uid string UID того, кто кастует ("player" или UID моба)
+-- ---@param ability_id string ID способности ("frostbolt")
+-- ---@param target_uid string|nil UID цели
+-- ---@return boolean is_possible Можно ли применить?
+-- ---@return string|nil error_reason Строковый ключ ошибки ("OUT_OF_RANGE", "NO_TARGET", "NO_MANA")
+-- function M.check_cast_possibility(caster_uid, ability_id, target_uid)
+--     -- 1. Вытаскиваем статический чертеж способности из твоей базы абилок
+--     local cfg = abilities_db.get_ability(ability_id)
+--     if not cfg then return false, "UNKNOWN_ABILITY" end
+--
+--     -- 2. Находим RAM-паспорт кастера во вселенной Meadows
+--     local caster = game_state.get_entity_by_uid(caster_uid)
+--     if not caster then return false, "NO_CASTER" end
+--
+--     -- 3. ГВАРД РЕСУРСОВ: Проверяем ману персонажа
+--     if cfg.cost and cfg.cost.resource == "mana" then
+--         if (caster.mana or 0) < (cfg.cost.value or 0) then
+--             return false, "NO_MANA" -- НЕДОСТАТОЧНО МАНЫ!
+--         end
+--     end
+--
+--     -- 4. ГВАРД НАЛИЧИЯ ЦЕЛИ И RANGE ДАЛЬНОСТИ ПО ТВОЕМУ КАНОНУ (ИСПРАВЛЕНО НАМЕРТВО):
+--     if cfg.requires_target then
+--         -- КЕЙС А: Способность требует цель, а в руках пусто -> Нужна цель!
+--         if not target_uid or target_uid == "" then
+--             return false, "NO_TARGET"
+--         end
+--
+--         -- КЕЙС Б: Цель есть -> Считаем расстояние в RAM-мире
+--         local target_unit = game_state.get_entity_by_uid(target_uid)
+--         if not target_unit then return false, "INVALID_TARGET" end
+--
+--         local player_pos = caster.saved_position
+--         local target_pos = target_unit.saved_position
+--
+--         if player_pos and target_pos then
+--             -- Считаем чистую Meadows-дистанцию в пикселях между центрами в RAM
+--             local dist = vmath.length(target_pos - player_pos)
+--
+--             -- 📐 ТВОЙ СВЯТОЙ ОБМАН ХИТБОКСА:
+--             -- Вытаскиваем hitbox_size из твоего конфига монстра (например, 64)
+--             -- Делим пополам (32 пикселя радиуса) и легально расширяем дальность!
+--             local target_radius = (target_unit.hitbox_size or 0) / 2
+--             local max_allowed_range = (cfg.range or 0) + target_radius
+--
+--             -- Если скелет убежал дальше допустимого радиуса от центра
+--             if dist > max_allowed_range then
+--                 return false, "OUT_OF_RANGE" -- СЛИШКОМ ДАЛЕКО!
+--             end
+--         end
+--     end
+--
+--     -- Способность полностью легальна, Meadows-конвейер чист!
+--     return true, nil
+-- end
 
 return M
 

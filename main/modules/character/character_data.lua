@@ -21,10 +21,6 @@ function M.bind_to_units_registry()
             rank = "common",
             loot_table_id = "empty",
             saved_position = vmath.vector3(0, 0, 1.0), -- 🛡️ Единое каноничное имя saved_position!
-            cast_spell_id = nil,
-            cast_duration = 0,
-            cast_current = 0,
-            gcd_current = 0,
             -- Буфер инвентаря...
             inventory = nil,
         })
@@ -56,6 +52,23 @@ end
 
 function M.update_from_config()
     -- Твоя логика...
+end
+
+---Проверить, активен ли ГКД у игрока (проброс для player.script)
+---@return boolean
+function M.is_gcd_active()
+    -- Вежливо проверяем поле прямо у нашей локальной ссылки M.player
+    local p = M.player
+    return (p and p.gcd_current and p.gcd_current > 0) or false
+end
+
+---Запустить ГКД для игрока на бэкенде
+---@param duration number Время в секундах (1.5)
+function M.start_gcd(duration)
+    local p = M.player
+    if p then
+        p.gcd_current = duration
+    end
 end
 
 return M

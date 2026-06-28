@@ -34,6 +34,11 @@ function M.get_current_target()
     return M.current_target_go_id
 end
 
+---Получить движковый ID текущей цели для работы с миром и векторами
+function M.get_current_target_uid()
+    return M.current_target_uid
+end
+
 ---Сбросить текущую боевую цель
 function M.clear_target()
     if not M.current_target_go_id then return end

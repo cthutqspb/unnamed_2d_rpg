@@ -6,6 +6,7 @@ local interactions = require("main.modules.interactions")
 ---@field is_looted boolean|nil       🎯 ДИНАМИЧЕСКИЙ ФЛАГ: Был ли контейнер уже обчищен игроком
 ---@field items table<number, Item>|nil 💥 РЕКУРСИВНАЯ МАТРЕШКА: Внутри ячейки этого предмета (бочки) может лежать массив точно таких же предметов Item!
 ---@field loot_table_id string|nil
+---@field action_type string|nil
 
 ---@class InventoryInstance
 ---@field uid string|nil

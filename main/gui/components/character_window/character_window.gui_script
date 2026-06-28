@@ -8,7 +8,7 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
-local game_state = require("main.modules.game_state.game_state")
+local character_data = require("main.modules.character.character_data")
 
 ---@class CharacterWindowScript
 ---@field druid druid.instance
@@ -20,25 +20,21 @@ function init(self)
     msg.post(".", "acquire_input_focus")
     self.druid = druid.new(self)
 
-    -- 🎯 ВЫНИМАЕМ НОВУЮ ОБЪЕКТНУЮ МОДEЛЬ РЮКЗАКА ИГРОКА ИЗ RAM ПАСПОРТА:
-    local player_data = game_state.get_player_data()
-    if not player_data then
-        print("🚨 GUI_SCRIPT: Критическая ошибка, паспорт мага не найден в RAM при старте окон!")
-        return
-    end
-
-    local player_live_inventory = player_data.inventory
-
     -- Инициализируем компонент окна, ЯВНО передавая этот живой инвентарь в конструктор!
     -- Никакого хардкода файлов, чистокровный ААА-проброс данных (Data Injection)!
     ---@type CharacterWindow
-    self.character_window = self.druid:new(CharacterWindow, "", player_live_inventory)
+    self.character_window = self.druid:new(CharacterWindow, "", nil, nil)
 
     self.broadcast_handler = function(data)
         if data.message_id == hash("inventory_changed") then
             -- 1. Считаем цифры мгновенно
-            unit_logic.update_derived_stats()
+            -- unit_logic.update_derived_stats(player)
+            local live_unit = self.character_window and self.character_window.current_unit
 
+            if live_unit then
+                -- Считаем цифры по стопроцентно правильной, мутировавшей RAM-таблице!
+                unit_logic.update_derived_stats(live_unit)
+            end
             -- 2. Включаем Dirty Flag для отрисовки в следующем кадре (защита от Wrong Scene)
             if self.character_window and self.character_window.request_refresh then
                 self.character_window:request_refresh()
@@ -97,27 +93,26 @@ end
 ---@param message table
 ---@param sender url
 function on_message(self, message_id, message, sender)
+     -- =========================================================================
+    -- 🦾 ПОЛИМОРФНЫЙ ИНТЕРЦЕПТОР КОНТЕКСТА (WoW / BG3 КАНОН):
     -- =========================================================================
-    -- 🦾 ИНТЕРЦЕПТОР КОНТЕКСТА: ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ ДЛЯ ВСЕХ СООБЩЕНИЙ СЦЕНЫ
-    -- =========================================================================
-    -- Мы вынимаем актуальный паспорт мага и его живой инвентарь ОДИН РАЗ на входе!
-    -- Линтер Neovim замолчит, а ветки if-else избавятся от 80% дублирующего кода.
-    local player_data = game_state.get_player_data()
-    if not player_data or not player_data.inventory or not player_data.paperdoll then
-        -- Мягко пропускаем только системные сообщения фокуса, остальное гвардим
-        if message_id ~= hash("set_focus_visual") and message_id ~= hash("close_window") then
+    -- Мы берем ТОГО юнита, который ПРЯМО СЕЙЧАС открыт в нашем визуальном окне!
+    -- Если окно закрыто или только инициализируется — мягко падаем в player по дефолту.
+    -- Если внутри окна сидит Компаньон или Скелет - код зряче выберет ИХ!
+    local current_unit = (self.character_window and self.character_window.current_unit) or character_data.player
+
+    if not current_unit or not current_unit.inventory or not current_unit.paperdoll then
+        -- Мягко пропускаем системные сообщения, остальное гвардим на входе
+        if message_id ~= hash("set_focus_visual") and message_id ~= hash("close_window") and message_id ~= hash("toggle_character_window") then
             return
         end
     end
 
-    -- Локальные алиасы теперь доступны абсолютно для любой ветки ниже по кадру!
-    local player_live_inventory = player_data and player_data.inventory
-    local player_live_paperdoll = player_data and player_data.paperdoll
-
+    local unit_inventory = current_unit and current_unit.inventory
+    local unit_paperdoll = current_unit and current_unit.paperdoll
     -- =========================================================================
     -- 🦾 СТЕРИЛЬНЫЙ ДИСПЕТЧЕР СООБЩЕНИЙ UI
     -- =========================================================================
-
     if message_id == hash("close_window") then
         if self.character_window:is_visible() then
             self.character_window:close()
@@ -129,10 +124,12 @@ function on_message(self, message_id, message, sender)
         end
 
     elseif message_id == hash("split_confirmed") then
+        if not unit_inventory then return end
+
         local slot_index, current_amount = message.slot_index, message.current_amount
 
         -- Кристально чистый вызов без повторных проверок стейта!
-        local item = player_live_inventory:get_item(slot_index)
+        local item = unit_inventory:get_item(slot_index)
 
         if item and item.item_id then
             local remaining = item.amount - current_amount
@@ -154,31 +151,33 @@ function on_message(self, message_id, message, sender)
                     is_split = true
                 }
 
-                drag_manager.start(player_live_inventory, slot_index, split_item, item_cfg)
+                drag_manager.start(unit_inventory, slot_index, split_item, item_cfg)
             end
         end
 
     elseif message_id == hash("context_menu_action") or message_id == hash("item_action") then
+        if not current_unit then return end
+
         local action_name = message.event
         local reducer = actions_dispatcher.REDUCERS[action_name]
 
         if reducer then
             -- 🦾 ЗРЯЧИЙ ААА-ПЕРЕХВАТ НАПРАВЛЕНИЯ ТРАНЗАКЦИИ:
             if action_name == "item_transfer" and message.data then
-                message.data.unit_uid = "player"
+                message.data.unit_uid = current_unit.uid
 
                 if message.data.from_paperdoll then
                     -- 🛡️ КЕЙС СНЯТИЯ (Из куклы в рюкзак): Поменяли сорсы зеркально!
-                    message.data.source_model_override = player_live_paperdoll
-                    message.data.target_model_override = player_live_inventory
+                    message.data.source_model_override = unit_paperdoll
+                    message.data.target_model_override = unit_inventory
                 else
                     -- ⚔️ КЕЙС НАДЕВАНИЯ (Из рюкзака на куклу): Базовый налив шмота!
-                    message.data.source_model_override = player_live_inventory
-                    message.data.target_model_override = player_live_paperdoll
+                    message.data.source_model_override = unit_inventory
+                    message.data.target_model_override = unit_paperdoll
                 end
             elseif action_name == "item_drop" then
                 -- 🦾 На лету инжектируем живую модель рюкзака мага прямо перед вызовом редьюсера!
-                message.data.source_model_override = player_live_inventory
+                message.data.source_model_override = unit_inventory
             end
 
             reducer(message.data)
@@ -188,15 +187,13 @@ function on_message(self, message_id, message, sender)
 
     elseif message_id == hash("toggle_character_window") then
         -- Никаких дублирующих проверок! Просто делаем Data Injection актуальных моделей в окно!
-        self.character_window:bind_unit("player", player_live_inventory, player_live_paperdoll)
+        self.character_window:bind_unit("player")
         self.character_window:toggle()
 
     elseif message_id == hash("refresh") then
         self.character_window:request_refresh()
     end
 end
-
--- Внутри container_window.gui_script (ЧИСТЫЙ ААА-ТРАНЗИТ БЕЗ РЕКВАЙРОВ):
 
 function on_input(self, action_id, action)
     return window_manager.handle_window_input(self, action_id, action, drag_manager, self.character_window)

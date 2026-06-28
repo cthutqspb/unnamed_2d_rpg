@@ -1,5 +1,5 @@
 local items_db = require("main.modules.data.items_db")
-local item_requirements_manager = require("main.modules.logic.item_requirements_manager")
+local unit_logic = require("main.modules.unit.logic.unit_logic")
 
 ---@class Item
 ---@field item_id hash|string|nil
@@ -42,7 +42,9 @@ end
 ---@param slot_type string
 ---@param item_data Item|nil
 function M:set_item(slot_type, item_data)
+    print("➡️ МУТАЦИЯ: self.slots адрес =", self.slots)
     if not item_data or not item_data.item_id then
+        print("⚠️ БЭКЕНД: Кто-то принудительно ОБНУЛИЛ слот куклы:", slot_type)
         self.slots[slot_type] = { item_id = nil, amount = 0, uid = nil }
     else
         self.slots[slot_type] = {
@@ -51,6 +53,7 @@ function M:set_item(slot_type, item_data)
             uid = item_data.uid
         }
     end
+    print("SLOT", slot_type, self.slots[slot_type].item_id)
 end
 
 ---@param item Item Требуемый предмет
@@ -71,10 +74,11 @@ function M:can_equip_item(item, slot_type) -- 🛡️ ИСПРАВЛЕНО: УБ
     if not unit_data then return false end
 
     ---@type RequirementResult
-    local check = item_requirements_manager.check(cfg, unit_data, item)
-    if not check.is_ok then
+    local check_result = unit_logic.check_item_requirements(cfg, unit_data)
+    print('RES', check_result, check_result.is_ok)
+    if not check_result.is_ok then
         if unit_data.is_player then
-            print("CANNOT EQUIP: " .. (check.reason or "low stats"))
+            print("CANNOT EQUIP: " .. (check_result.reason or "low stats"))
         end
         return false
     end

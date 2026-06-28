@@ -47,6 +47,9 @@
 ---@field stackable boolean Можно ли складывать в один стак
 ---@field max_stack number Максимальный размер стака предметов
 ---@field quality string Качество вещи ("common", "rare", "epic")
+---@field armor_type string|nil
+---@field armor_rating number|nil
+---@field resists table|nil
 ---@field weapon_type string|nil Подтип оружия ("one_hand_sword", "staff")
 ---@field required ItemRequiredStats Структура требований к характеристикам
 ---@field stats ItemBonusStats Структура добавляемых статов при экипировке

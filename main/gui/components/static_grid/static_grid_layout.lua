@@ -46,12 +46,9 @@ function M.create_slots(self)
 
         local gcd_node = nodes[path_gcd]
         if gcd_node then
-            -- 📐 ГАРАНТИРОВАННОЕ ЗАНУЛЕНИЕ: Принудительно гасим высоту шторки в 0 при рождении!
-            -- Чтобы ГКД спало и не мозолило глаза на пустых ячейках!
-            local start_size = gui.get_size(gcd_node)
-            start_size.y = 0
-            gui.set_size(gcd_node, start_size)
-            gui.set_enabled(gcd_node, true) -- Ноду держим включенной, управлять будем строго через size.y!
+            -- 📐 ГАРАНТИРОВАННЫЙ СБРОС: Сжимаем угол круга в ноль градусов,
+            -- чтобы ГКД спало и не мозолило глаза на пустых ячейках со старта!
+            gui.set_fill_angle(gcd_node, 0)
         end
 
         ---@type GridSlotNodeCache
@@ -74,12 +71,11 @@ function M.draw_slot(self, index, data)
     local slot = self.slots[index]
     if not slot or not data then return end
 
-    -- 🛡️ СИ-ЗАЩИТА ФАНТОМОВ ГКД: Если данных нет, или это пустой слот — сбрасываем шторку в ноль!
+    -- 🛡️ АТОМАРНЫЙ СБРОС ФАНТОМОВ ГКД: Если в ячейку прилетел пустой пакет (data = nil),
+    -- или там ничего не лежит — мы обязаны намертво сбросить угол Pie-ноды в 0!
     if (not data or not data.action_id) and slot.gcd_overlay then
-        gui.cancel_animations(slot.gcd_overlay, "size.y")
-        local sz = gui.get_size(slot.gcd_overlay)
-        sz.y = 0
-        gui.set_size(slot.gcd_overlay, sz)
+        gui.cancel_animations(slot.gcd_overlay, gui.PROP_FILL_ANGLE)
+        gui.set_fill_angle(slot.gcd_overlay, 0)
     end
 
     if not data then return end -- Теперь легально выходим для пустых слотов
@@ -174,19 +170,11 @@ function M.clear_slot_visual(self, index)
         gui.set_enabled(slot.amount, false)
         gui.set_enabled(slot.bind, false)
 
-        -- =========================================================================
-        -- 🛡️ АТОМАРНАЯ СИ-ЗАЧИСТКА ГКД ПРИ ОЧИСТКЕ СЛОТА (ДОБАВЛЕНО НАМЕРТВО):
-        -- =========================================================================
-        -- Если ячейку полностью очищают (вещь выкинули или перенесли), 
-        -- мы обязаны наглухо остановить Си-анимацию шторки ГКД и сжать её высоту в ноль,
-        -- чтобы она не фантомила и не жрала такты процессора на пустом месте!
+        -- 🛡️ АТОМАРНАЯ ЗАЧИСТКА ПРИ ДРАГЕ: Стираем круг в 0, если шмотку унесли мышкои!
         if slot.gcd_overlay then
-            gui.cancel_animations(slot.gcd_overlay, "size.y")
-            local size = gui.get_size(slot.gcd_overlay)
-            size.y = 0
-            gui.set_size(slot.gcd_overlay, size)
+            gui.cancel_animations(slot.gcd_overlay, gui.PROP_FILL_ANGLE)
+            gui.set_fill_angle(slot.gcd_overlay, 0)
         end
-        -- =========================================================================
     end
 end
 
