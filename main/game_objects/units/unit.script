@@ -25,8 +25,7 @@ local map_config = require("main.modules.data.map_config")
 ---@field loot_table_id string
 ---@field is_from_factory boolean
 ---@field speed number                 -- Наша рабочая скорость для ИИ
----@field hitbox_size number           
----@field attack_range_melee number    
+---@field hitbox_size number  
 ---@field ai_profile string            -- Профиль ИИ из базы данных
 ---@field spawn_position vector3            -- Точка дома для патруля
 ---@field saved_position vector3
@@ -111,7 +110,7 @@ function init(self)
         return
     end
 
-        -- =========================================================================
+    -- =========================================================================
     -- ⚔️ ФAЗA 2: БОЕВОЙ КОНТУР (Сработает ТОЛЬКО для монстров из Фабрики)
     -- =========================================================================
     -- Легально вызываем инкапсулированный метод связи! Никакой ручной лапши с таблицами!
@@ -121,7 +120,7 @@ function init(self)
     local unit_instance_data = units_state.get_unit_by_uid(string_uid)
 
     -- 🛡️ 1. UNIT-КАНОН СИНХРОНИЗАЦИИ СТРОК (ДОБАВЛЕНО):
-    -- Мы берем чистокровную строку unit_id ("skeleton_warrior") НАПРЯМУЮ из RAM-паспорта!
+    -- берем чистокровную строку unit_id ("skeleton_warrior") НАПРЯМУЮ из RAM-паспорта!
     -- Перезаписываем string_id, полностью уничтожая мутацию в драконов!
     if unit_instance_data and unit_instance_data.unit_id then
         string_id = unit_instance_data.unit_id
@@ -157,8 +156,8 @@ function init(self)
                 print("PAIRS", k,v)
             end
             -- Моб заспавнился из сейва мертвым! 
-            -- Нам ЗАПРЕЩЕНО жестко дергать go.set в init на первом микрокадре!
-            -- Мы шлем асинхронный Си-пакет самому себе ("."), чтобы движок уложил 
+            -- ЗАПРЕЩЕНО жестко дергать go.set в init на первом микрокадре!
+            -- шлем асинхронный Си-пакет самому себе ("."), чтобы движок уложил 
             -- труп набок на следующем тике кадра, когда все компоненты на 100% запекутся!
             msg.post(".", "apply_dead_state_after_spawn")
 
@@ -170,7 +169,6 @@ function init(self)
         -- Читаем сочные, уже посчитанные от уровня и ранга статы из возвращенной структуры сейва!
         self.speed = unit_instance_data.speed or 90
         self.hitbox_size = unit_instance_data.hitbox_size or 64
-        self.attack_range_melee = unit_instance_data.attack_range_melee or 8
         self.ai_profile = unit_instance_data.ai_profile or "aggressive_patrol"
         self.loot_table_id = unit_instance_data.loot_table_id
 
@@ -179,7 +177,6 @@ function init(self)
         -- Экстренный фоллбек, если бэкенд почему-то выдал nil
         self.speed = db_cfg and db_cfg.base_speed or 90
         self.hitbox_size = db_cfg and db_cfg.hitbox_size or 64
-        self.attack_range_melee = db_cfg and db_cfg.attack_range_melee or 8
         self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
         self.loot_table_id = string_loot_table_id
 

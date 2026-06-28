@@ -4,6 +4,7 @@ local paperdoll_model = require("main.modules.models.paperdoll_model")
 local inventory_model = require("main.modules.models.inventory_model")
 
 ---@class UnitInstanceData
+---@field go_id hash идентификатор движка
 ---@field is_player boolean
 ---@field name string|nil Конкретное имя
 ---@field name_key string Имя типа юнита: скелет, кабан, росянка
@@ -30,7 +31,6 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field spellcast_range number
 ---@field ai_profile string
 ---@field saved_position vector3|nil
----@field is_in_combat boolean|nil
 ---@field is_dead boolean|nil
 ---@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
 ---@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
@@ -41,6 +41,9 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field ai_target vector3|nil
 ---@field paperdoll PaperdollInstance
 ---@field inventory InventoryInstance
+---@field is_in_combat boolean Флаг нахождения в бою (активирует боевой реген маны/ХП)
+---@field combat_target_uid string|nil UID текущей боевой жертвы (кого юнит покадрово лупит)
+---@field combat_start_time number|nil Таймстамп старта комбата в секундах
 
 ---@class UnitStatsTable
 ---@field strength number
@@ -161,6 +164,7 @@ function M.add(uid, props)
     if is_player_unit then
         -- 🌟 ВЕТКА ИГРОКА: Кристально плоские и понятные дефолты мага
         instance_data = {
+            go_id = hash("/player"),
             uid = "player",
             unit_id = props.unit_id or "player_mage",
             name_key = props.name_key or "class_mage",
@@ -179,7 +183,8 @@ function M.add(uid, props)
             loot_table_id = "empty",
             ai_profile = "none",
             paperdoll = paperdoll_model.new(),
-            inventory = inventory_model.new()
+            inventory = inventory_model.new(),
+            is_in_combat = false
         }
     else
         -- 💀 ВЕТКА МОНСТРОВ: Рассчитываем динамическое скалирование ХП от уровня и ранга
@@ -194,6 +199,7 @@ function M.add(uid, props)
         end
 
         instance_data = {
+            go_id = props.go_id or msg.url().path, -- 🚀 безопасный фоллбэк на текущий путь скрипта
             uid = uid,
             unit_id = props.unit_id,
             name_key = props.name_key or monster_cfg.name_key,
@@ -214,7 +220,8 @@ function M.add(uid, props)
             loot_table_id = props.loot_table_id or monster_cfg.loot_table_id,
             ai_profile = monster_cfg.ai_profile or "aggressive_patrol",
             paperdoll = paperdoll_model.new(),
-            inventory = inventory_model.new()
+            inventory = inventory_model.new(),
+            is_in_combat = false
         }
     end
 
@@ -262,6 +269,13 @@ end
 ---@param uid string Чистая строковая переменная UID
 function M.register(go_id, uid)
     M.instances[go_id] = uid
+
+    local unit = M.registry[uid]
+    if unit then
+        unit.go_id = go_id
+
+        --print(string.format("🔗 БЭКЕНД [Register]: Си-адрес %s пуленепробиваемо вшит в RAM-паспорт юнита [%s]!", tostring(go_id), uid))
+    end
 end
 
 ---Разорвать связь между физическим объектом и реестром инстансов
@@ -434,18 +448,50 @@ function M.update_data(uid, current_data)
     end
 end
 
----Установить или снять боевой режим для существа (Инкапсулированный WoW-канон)
----@param uid string Уникальный строковый UID моба
----@param is_in_combat boolean Флаг входа/выхода из боя
-function M.set_combat(uid, is_in_combat)
-    if M.registry and M.registry[uid] then
-        M.registry[uid].is_in_combat = is_in_combat
+---Централизованный ААА-Мутатор боевого стейта существ в RAM
+---@param unit_uid string UID существа ("skeleton_mage_4")
+---@param victim_uid string|nil UID жертвы ("player") или nil для сброса боя
+function M.set_combat_state(unit_uid, victim_uid)
+    local unit = M.registry and M.registry[unit_uid]
+    if not unit then return end
 
-        -- Задел на будущее: тут можно кидать бродкаст "моб_вошел_в_бой" для HUD
-        if is_in_combat then
-            print("💾 БЭКЕНД: Душа [" .. uid .. "] официально перешла в БОЕВОЙ РЕЖИМ!")
-        else
-            print("💾 БЭКЕНД: Душа [" .. uid .. "] вышла из боя, покой восстановлен.")
+    if victim_uid then
+        -- ⚔️ ВЕТКА ВХОДА В БОЙ (АГРО):
+        unit.is_in_combat = true
+        unit.combat_target_uid = victim_uid
+        -- Запекаем тактовый миг старта комбата через нативное Си-время Defold
+        unit.combat_start_time = socket.gettime()
+
+        -- ЭТАЛОН 1: Если моб сагрился на игрока — маг ТОЖЕ мгновенно входит в комбат!
+        -- Это сразу вешает комбат на HUD игрока, закрывает сумки и включает боевой реген.
+        if victim_uid == "player" and M.registry["player"] then
+            M.registry["player"].is_in_combat = true
+        end
+    else
+        -- 🏃‍♂️ ВЕТКА ВЫХОДА ИЗ БОЯ (ЭВЕЙД / СМЕРТЬ ИГРОКА):
+        unit.is_in_combat = false
+        unit.combat_target_uid = nil
+        unit.combat_start_time = nil
+
+        -- ЭТАЛОН 2: Умный автоматический сброс комбата у Игрока-Мага!
+        -- Если кастер, который только что сбросил бой — это моб, напавший на игрока,
+        -- мы проверяем: а остался ли в Meadows ЕЩЁ ХОТЬ КТО-ТО, кто покадрово бьёт мага?
+        if unit_uid ~= "player" then
+            local player_is_still_threatened = false
+
+            for other_uid, other_unit in pairs(M.registry) do
+                if other_unit.is_in_combat and other_unit.combat_target_uid == "player" then
+                    player_is_still_threatened = true
+                    break
+                end
+            end
+
+            -- Если Meadows-вселенная вокруг мага очистилась, и его больше никто не трогает —
+            -- мага сочно и автоматически выпускает из режима боя!
+            if not player_is_still_threatened and M.registry["player"] then
+                M.registry["player"].is_in_combat = false
+                print("🛡️ БЭКЕНД: Все враги повержены или отстали. Игрок вышел из боя!")
+            end
         end
     end
 end

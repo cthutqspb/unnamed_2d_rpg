@@ -65,6 +65,18 @@ function M.get_player_data()
     return nil
 end
 
+---@param unit_uid string UID существа ("player" или "companion_1")
+---@param bar_index number Индекс панели (1, 2, 3)
+---@return table|nil Массив слотов панели способностей
+function M.get_unit_action_bar(unit_uid, bar_index)
+    local unit = M.get_entity_by_uid(unit_uid)
+    if not unit or not unit.action_bars then
+        return {}
+    end
+
+    return unit.action_bars[bar_index] or {}
+end
+
 ---Покадрово зафиксировать координаты игрока во внутреннем стейте юнитов (WoW-Фасад)
 ---@param position vector3 Си-вектор координат из player.script
 function M.update_player_position(position)
@@ -148,13 +160,13 @@ function M.get_active_unit_instances()
 end
 
 ---Взвести или сбросить флаг боя для юнита в реестре RAM (ИСПРАВЛЕНО)
----@param uid string Уникальный строковый UID монстра ("c_X_Y")
----@param is_combat boolean true, если моб вступает в бой, false — если выходит
-function M.set_combat(uid, is_combat)
+---@param unit_uid string UID того, кто агрится ("skeleton_42" или "player")
+---@param victim_uid string|nil UID жертвы ("player"), или nil — если юнит выходит из боя
+function M.set_combat_state(unit_uid, victim_uid)
     -- Мы легально и безопасно прокидываем вызов во внутренний units_state,
     -- полностью избавляя внешние скрипты ИИ от этой лапши!
-    if units_state and units_state.set_combat then
-        units_state.set_combat(uid, is_combat)
+    if units_state and units_state.set_combat_state then
+        units_state.set_combat_state(unit_uid, victim_uid)
     end
 end
 

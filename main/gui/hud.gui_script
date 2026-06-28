@@ -7,6 +7,7 @@ local CastBar = require("main.gui.components.cast_bar.CastBar")
 local game_state = require("main.modules.game_state.game_state")
 local drag_manager = require("main.gui.components.managers.drag_manager")
 local window_manager = require("main.gui.components.managers.window_manager")
+local character_data = require("main.modules.character.character_data")
 
 ---@class HudScriptContext
 ---@field druid druid.instance Инстанс Друида для этого GUI-экрана
@@ -36,8 +37,6 @@ function init(self)
         ActionBar,
         "action_bar",
         {   bar_index = 1,
-            columns = 12,
-            rows = 1,
             item_size = 40,
             spacing = 2
         }
@@ -216,8 +215,14 @@ function on_message(self, message_id, message, sender)
 end
 
 function update(self, dt)
+    local player = character_data.player
+
+    local target_uid = player and player.combat_target_uid
+    local target = target_uid and game_state.get_entity_by_uid(target_uid)
+
     if self.action_bar and self.action_bar.update then
-        self.action_bar:update(dt)
+        -- Скармливаем пиксельному рендереру чистые таблицы данных
+        self.action_bar:update(dt, player, target)
     end
 end
 

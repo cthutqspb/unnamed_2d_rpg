@@ -1,9 +1,5 @@
 local component = require("druid.component")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
-local abilities_db = require("main.modules.data.abilities_db")
-local interaction_manager = require("main.modules.logic.interaction_manager")
-local character_data = require("main.modules.character.character_data")
-local game_state = require("main.modules.game_state.game_state")
 local unit_logic = require("main.modules.unit.logic.unit_logic")
 
 ---@class ActionBar : druid.component
@@ -65,16 +61,6 @@ function M:init(template_id, config)
     -- gui.set_visible(self.static_grid)
 end
 
--- ---@param index number Числовой индекс ячейки панели
--- function M:on_slot_click(index)
---     if not self.static_grid then return end
---
---     -- Вежливо просим наш глупый StaticGrid выдать сырые данные из памяти сорса
---     local slot_data = self.static_grid:get_slot_data(index)
---     -- Скармливаем данные в тот же самый Си-конвейер отправки месседжа!
---     send_player_action(index, slot_data)
--- end
-
 ---🎯 ИНПУТ КЛAВИAТУРЫ: Вызвать принудительное прожатие слота по хоткею 1..12 (Вариант А)
 ---@param index number Числовой индекс ячейки панели
 function M:on_slot_click(index)
@@ -124,11 +110,12 @@ function M:get_slot_at_position(x, y)
     end
 end
 
-function M:update(dt)
+---Покадрово перекрасить кнопки и бинды панели на основе живого контекста боя
+---@param dt number Дельта времени кадра
+---@param player UnitInstanceData|nil Живой RAM-паспорт мага
+---@param target UnitInstanceData|nil Живой RAM-паспорт его текущей боевой жертвы
+function M:update(dt, player, target)
     if not self.static_grid or not self.static_grid.slots then return end
-    -- 1. Забираем чистый Си-хэш текущего таргета мага из твоего interaction_manager
-    local current_target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
-    local current_target_unit = game_state.get_entity_by_uid(current_target_uid)
 
     -- Готовим дефолтные векторы цветов
     local color_normal = vmath.vector4(1, 1, 1, 1)
@@ -140,9 +127,8 @@ function M:update(dt)
         local slot_data = self.static_grid:get_slot_data(index)
 
         if slot_data and slot_data.action_id and slot_data.action_type == "ability" then
-            -- 🦾 ДЁРГАЕМ ЦЕНТРАЛЬНОГО СУДЬЮ:
-            local player = character_data.player
-            local is_possible, error_reason = unit_logic.check_cast_possibility(player, slot_data.action_id, current_target_unit)
+            -- 🦾 ДЁРГАЕМ ЦЕНТРАЛЬНОГО СУДЬЮ НАПРЯМУЮ ЧЕРЕЗ ПРИЛЕТЕВШИЕ ОБЪЕКТЫ (БЕЗ ПРОСЛОЕК):
+            local is_possible, error_reason = unit_logic.check_cast_possibility(player, slot_data.action_id, target)
 
             local final_icon_color = color_normal
             local final_bind_color = color_bind_normal
@@ -159,46 +145,6 @@ function M:update(dt)
             self.static_grid:set_slot_colors(index, final_icon_color, final_bind_color)
         end
     end
-
-    -- -- 🦾 Покадрово пробегаемся по всем 12 ячейкам нашей слепой панели!
-    -- for index = 1, #self.static_grid.slots do
-    --     local slot_data = self.static_grid:get_slot_data(index)
-    --
-    --     if slot_data and slot_data.action_id and slot_data.action_type == "ability" then
-    --         local cfg = abilities_db.get_ability(slot_data.action_id)
-    --
-    --         if cfg then
-    --             local final_icon_color = color_normal
-    --             local final_bind_color = color_bind_normal
-    --
-    --             if cfg.requires_target then
-    --                 if not current_target_id then
-    --                     -- КЕЙС А: Цели нет вообще -> Насильно ТЕМНИМ иконку в серый!
-    --                     final_icon_color = color_dimmed
-    --                 else
-    --                     -- КЕЙС Б: Цель есть -> Считаем расстояние в мире
-    --                     local target_unit = game_state.get_entity_by_uid(current_target_id)
-    --                     local player = character_data.player
-    --                     if target_unit and player then
-    --                         local player_pos = player.saved_position
-    --                         local target_pos = target_unit.saved_position
-    --                         local dist = vmath.length(target_pos - player_pos)
-    --
-    --                         -- Если скелет убежал дальше range из базы (350 пикселей)
-    --                         if dist > (cfg.range or 0) then
-    --                             -- Иконка горит цветом, но БИНД СТАНОВИТСЯ КРАСНЫМ!
-    --                             final_bind_color = color_bind_red
-    --                         end
-    --                     end
-    --                 end
-    --             end
-    --
-    --             -- 🚀 ВЕЖЛИВО ПИНАЕМ НАШУ ГЛУПУЮ СЕТКУ ОБНОВИТЬ ПИКСЕЛИ!
-    --             -- Чистый проброс цветов без нарушения инкапсуляции!
-    --             self.static_grid:set_slot_colors(index, final_icon_color, final_bind_color)
-    --         end
-    --     end
-    -- end
 end
 
 return M

@@ -20,14 +20,13 @@ function M.get_total_stat(stat_name, unit)
 
     -- Читаем генетическую базу стата
     local total = unit.base_stats[stat_name] or 0
-    
+
     -- 🦾 УЛЬТИМАТИВНЫЙ ПОЛИМОРФИЗМ (ИСПРАВЛЕНО):
     -- Больше никаких require("player_paperdoll") и разделений на игрока/мобов!
     -- Код просто лезет в .paperdoll.slots объекта, который сейчас обсчитывается.
     -- Если это маг — посчитает мага. Если это скелет — посчитает скелета!
-    print("⬅️ КАЛЬКУЛЯТОР: unit.paperdoll.slots адрес =", unit.paperdoll.slots)
     if unit.paperdoll and unit.paperdoll.slots then
-        
+
         for i, item_data in pairs(unit.paperdoll.slots) do
             --print("TOTAL 2",i, item_data.item_id)
             -- for k,v in pairs(item_data) do
@@ -35,7 +34,6 @@ function M.get_total_stat(stat_name, unit)
             -- end
             if item_data and item_data.item_id then
                 local item_cfg = items_db.get_item(item_data.item_id)
-                
 
                 if item_cfg and item_cfg.stats and item_cfg.stats[stat_name] then
                     total = total + item_cfg.stats[stat_name]
@@ -83,7 +81,7 @@ end
 ---@param unit UnitInstanceData|nil
 function M.update_derived_stats(unit)
     if not unit or not unit.current_stats then return end
-    
+
     -- На ходу перезаписываем текущие статы (current_stats) на основе базовых (stats) + шмот
     unit.current_stats.strength = M.get_total_stat("strength", unit)
     unit.current_stats.agility = M.get_total_stat("agility", unit)
@@ -160,7 +158,6 @@ end
 
 
 --- Боевые методы
-
 ---Проверить магические щиты Юнита и поглотить входящий урон (Универсальный WoW-канон)
 ---@param incoming_damage number Входящий сырой урон
 ---@param unit UnitInstanceData|nil ОПЦИОНАЛЬНО: Паспорт юнита
@@ -363,8 +360,6 @@ function M.check_item_requirements(item_cfg, unit)
 
     return results
 end
-
--- Внутри unit_logic.lua (require "game_state" СНOСИМ ИЗ ЭТOГO ФAЙЛA НАВСEГДA!):
 
 ---Титановый ААА-Валидатор Способностей (Полная изоляция от циклических зависимостей)
 ---@param caster UnitInstanceData|nil table RAM-паспорт того, кто кастует (UnitInstanceData / карточка существа)

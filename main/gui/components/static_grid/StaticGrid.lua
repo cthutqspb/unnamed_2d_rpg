@@ -196,9 +196,9 @@ function M:get_data_source()
         return interaction_manager.get_player_action_bar(self.bar_index)
     end
 
-    if self.grid_type == "action_bar" then
-        return nil
-    end
+    -- if self.grid_type == "action_bar" then
+    --     return nil
+    -- end
 
     -- Только если это чистокровная сумка инвентаря, возвращаем рюкзак по умолчанию
     return nil

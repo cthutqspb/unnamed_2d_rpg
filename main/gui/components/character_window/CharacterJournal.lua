@@ -1,7 +1,5 @@
 local component = require("druid.component")
 local locales = require("main.modules.data.locales.locale_manager")
-local character_data = require("main.modules.character.character_data")
-local config = require("main.modules.character.character_config")
 
 ---@class CharacterJournal : druid.component
 ---@field template_id string

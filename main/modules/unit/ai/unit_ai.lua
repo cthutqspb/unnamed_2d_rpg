@@ -122,8 +122,7 @@ PROFILES["aggressive_patrol"] = {
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil
 
-                -- Вызываем твой новый units_state вместо старого creatures_state!
-                game_state.set_combat(ctx.uid, false)
+                game_state.set_combat_state(ctx.uid, nil)
             end
             return return_to_spawn(ctx, position)
         end
@@ -166,7 +165,10 @@ PROFILES["aggressive_patrol"] = {
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil
 
-                game_state.set_combat(ctx.uid, false)
+                game_state.set_combat_state(ctx.uid, nil)
+
+                -- (Проверка: если мага больше никто на карте не бьет - в будущем сбросим комбат и магу)
+
                 return return_to_spawn(ctx, position)
 
             elseif distance_to_player <= ctx.attack_range then
@@ -187,7 +189,9 @@ PROFILES["aggressive_patrol"] = {
                 ctx.ai_state = "CHASE"
                 msg.post("main:/context_menu_layer#gui", "hide_menu")
 
-                game_state.set_combat(ctx.uid, true)
+                -- 🦾 ВХУЯРИВАЕМ БОЕВОЙ СТEЙТ МОНСТРУ И МАГУ ПО WoW-КАНОНУ:
+                game_state.set_combat_state(ctx.uid, "player")
+
                 move_direction = vmath.normalize(player_position - position)
             elseif ctx.ai_state == "IDLE" then
                 ctx.ai_timer = ctx.ai_timer - dt
@@ -321,6 +325,10 @@ function M.disable(ctx)
     ctx.ai_timer = 0
     ctx.ai_target = nil
     ctx.ai_is_patrolling = false
+
+    if game_state and game_state.set_combat_state then
+        game_state.set_combat_state(ctx.uid, nil)
+    end
 
     print(string.format("🤖 ИИ [disable]: Стейт ИИ для [%s] переведен в DEAD. Коллизии ИИ очищены.", tostring(ctx.uid)))
 end

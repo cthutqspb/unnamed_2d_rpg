@@ -38,20 +38,20 @@ M.REDUCERS = {
                 target = data.target_model_override
             else
                 source = data.source_model_override
-                
+
                 -- 🛡️ ГВАРД ПЕРЕВЁРТЫША (ЗАЩИТА):
                 -- При луте из сундука в рюкзак, target_focus возвращает СУНДУК.
                 -- Чтобы сундук не перезаписал рюкзак мага, мы берём фокус только в том случае,
                 -- если мы тащим вещь ИЗ инвентаря ВО внешний сундук!
                 -- А если вещь летит ИЗ внешнего сундука, целью обязан стать рюкзак мага!
                 local target_focus = interaction_manager.get_focus and interaction_manager.get_focus()
-                
+
                 if target_focus and target_focus ~= source then
                     target = target_focus
                 else
                     target = data.target_model_override
                 end
-                
+
                 -- Авто-вычисление куклы по обратной ссылке, если цель пустая
                 if not target and source and source.owner then
                     target = source.owner.paperdoll
@@ -261,7 +261,7 @@ M.REDUCERS = {
 
         -- 🧱 1. ЗРЯЧЕЕ ИЗВЛЕЧЕНИЕ ИНСТАНСА ИЗ ОБОИХ КОНТEКСТОВ (Твой оригинальный код!):
         local instance = data.instance_data
-        
+
         if not instance and data.slot_index then
             -- ВЕТКА Б: МАТРЁШКА В КАРМАНЕ (Прилетел слот, но нет instance_data)
             -- Легально через мост character_data лезем в живой рюкзак мага в RAM 
@@ -269,10 +269,10 @@ M.REDUCERS = {
             local player_inv = character_data and character_data.player and character_data.player.inventory
             instance = player_inv and player_inv:get_item(data.slot_index)
         end
-        
-        if not instance then 
+
+        if not instance then
             print("🚨 ДИСПЕТЧЕР [container_open]: Критическая ошибка! Данные инстанса сундука пусты!") 
-            return 
+            return
         end
 
         local cfg = data.db_cfg or items_db.get_item(data.id or data.item_id or instance.item_id)
@@ -294,12 +294,12 @@ M.REDUCERS = {
             -- ПРОБРОС ФЛАГОВ И ССЫЛОК ИЗ PAYLOAD:
             container_items = instance.items,
             slot_index = data.slot_index,
-            
+
             -- Сквозной ААА-проброс флага! Если открывали из рюкзака — тут прилетит true, 
             -- и окно лута Meadows пуленепробиваемо защитит себя от закрытия при беге!
             from_inventory = (data.from_inventory == true) or (data.slot_index ~= nil)
         })
-        
+
         print("КОНТРОЛЛЕР [Dispatcher]: Окно контейнера успешно вызвано напрямую. Контекст from_inventory:", tostring(data.slot_index ~= nil))
     end,
 
@@ -312,13 +312,15 @@ M.REDUCERS = {
 
     -- === СЛАЙС 3: БОЕВОЙ ТАРГЕТИНГ И ПАНЕЛИ СПОСОБНОСТЕЙ ===
     ["action_bar_assign"] = function(data)
+        local target_unit = character_data.player
+
         -- Перенаправляем чистый payload в метод мутации памяти
         unit_logic.set_action_bar_slot(
             data.target_bar_index,
             data.target_slot_index,
             data.drag_type, -- "ablity / "item" / "empty"
             data.action_id,  -- "melee_attack" / "frostbolt" / nil
-            nil
+            target_unit
         )
     end,
 
