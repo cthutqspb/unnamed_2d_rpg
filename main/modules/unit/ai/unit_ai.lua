@@ -102,53 +102,82 @@ PROFILES["aggressive_patrol"] = {
             return nil
         end
 
-        -- 🎯 ЧИСТЫЙ ААА-ВЫЗОВ ЧЕРЕЗ ФАСАД (Unit-канон):
-        -- Мы вытаскиваем живой Unit-паспорт игрока из RAM без единого require("character_data")!
-        local player_data = game_state.get_player_data()
-
-        -- Гвард: если паспорт игрока еще не инициализировался на первом микрокадре — плавно ждем
-        if not player_data or not player_data.saved_position then
-            return nil
-        end
-
-        -- Вытаскиваем координаты напрямую из зрячего Unit-вектора!
-        local player_position_data = player_data.saved_position
+        -- Физические координаты самого монстра со сцены
         local position = go.get_position(ctx.go_id)
 
-        -- Проверяем смерть игрока через его общий Unit-паспорт
-        if player_data.is_dead then
-            if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
-                print(string.format("💀 ИИ: [%s] Жертва мертва, расходимся по домам.", ctx.unit_id))
-                ctx.ai_state = "IDLE"
-                ctx.ai_target = nil
-
-                game_state.set_combat_state(ctx.uid, nil)
+        -- 🦾 СИНХРОНИЗАЦИЯ СТЕЙТА С БЭКЕНДОМ (Канон BG3):
+    -- Из Фасада забираем RAM-паспорт этого конкретного моба по его ctx.uid
+        local unit = game_state.get_entity_by_uid(ctx.uid)
+        -- Если перцепция секундой ранее всадила нам цель в паспорт — мозг на лету подхватывает её!
+        if unit and unit.combat_target_uid then
+            -- Проверяем: если мы ещё чиллили, а цель появилась — взводим погоню
+            if ctx.ai_state == "IDLE" or ctx.ai_state == "PATROL" then
+                ctx.ai_state = "CHASE"
+                msg.post("main:/context_menu_layer#gui", "hide_menu")
             end
-            return return_to_spawn(ctx, position)
+            ctx.ai_target_uid = unit.combat_target_uid -- Намертво привязали "player" в прицел ИИ!
+        else
+            -- Если в паспорте пусто (эвейд/сброс боя перцепцией) — гасим погоню
+            if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
+                ctx.ai_state = "IDLE"
+                ctx.ai_target_uid = nil
+                ctx.ai_target_pos = nil
+            end
+        end
+        -- =========================================================================
+        -- 🚀 СЛЕПОЙ ААА-ЗАХВАТ ЦЕЛИ (ВЫЖЖЕНО ИЗ КИШЕК CHARACTER_DATA):
+        -- =========================================================================
+        -- Мы просим Фасад game_state выдать нам живой паспорт Души строго по UID цели,
+        -- который perception_manager запишет в поле ctx.ai_target_uid!
+        local target_unit = ctx.ai_target_uid and game_state.get_entity_by_uid(ctx.ai_target_uid)
+
+        -- Дефолтные буферы-заглушки для фазы пассивного покоя (IDLE/PATROL)
+        local target_position = vmath.vector3(0, 0, 0)
+        local distance_to_target = 999999 -- цель бесконечно далеко, пока мы спим
+
+        -- 🎯 ДЕБАГ-СНАЙПЕР №1: Проверяем, видит ли ИИ моба прописанную менеджером цель!
+        if ctx.ai_target_uid then
+            print(string.format("🔍 [Debug AI Target Tick]: Моб [%s] в стейте [%s] видит цель-UID: [%s] | Паспорт в RAM найден = %s", 
+                ctx.uid, ctx.ai_state, tostring(ctx.ai_target_uid), tostring(target_unit ~= nil)))
         end
 
-        -- Нативный вектор цели мага (оси Z зануляем/ставим 1 по твоему канону)
-        local player_position = vmath.vector3(player_position_data.x, player_position_data.y, 1)
-        local distance_to_player = vmath.length(player_position - position)
+        -- Если боевая цель реально существует в оперативной памяти RAM
+        if target_unit and target_unit.saved_position then
+            target_position = vmath.vector3(target_unit.saved_position.x, target_unit.saved_position.y, 1)
+            distance_to_target = vmath.length(target_position - position)
 
-        -- 🎯 СИ-ЛОКАЛЬНЫЙ ВЕКТОР НАПРАВЛЕНИЯ
+            -- Проверяем смерть ЛЮБОЙ цели (игрока или другого моба) через её карточку
+            if target_unit.is_dead then
+                if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
+                    print(string.format("💀 ИИ: [%s] Жертва [%s] мертва, расходимся по домам.", ctx.unit_id, ctx.ai_target_uid))
+                    ctx.ai_state = "IDLE"
+                    ctx.ai_target_uid = nil -- Очищаем боевой прицел
+                    ctx.ai_target_pos = nil -- Очищаем векторную точку ходьбы
+
+                    game_state.set_combat_state(ctx.uid, nil)
+                end
+                return return_to_spawn(ctx, position)
+            end
+        end
+
+        -- Вектор направления движения на этот кадр
         local move_direction = nil
 
         -- =========================================================================
         -- СТEЙТ 1: ATTACK (ФАЗА БЛИЖНEГО БОЯ)
         -- =========================================================================
         if ctx.ai_state == "ATTACK" then
-            if distance_to_player > ctx.attack_range + 12 then
+            if distance_to_target > ctx.attack_range + 12 then
                 print(string.format("💥 ИИ: [%s] потерял дистанцию боя, возобновляю погоню!", ctx.unit_id))
                 ctx.ai_state = "CHASE"
-                move_direction = vmath.normalize(player_position - position)
+                move_direction = vmath.normalize(target_position - position)
             else
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
                     -- Пинаем боевой менеджер по оригинальным рельсам
                     combat_manager.execute_ability(
-                        ctx.go_id,
-                        hash("/player"),
+                        ctx.uid,
+                        ctx.ai_target_uid,
                         ctx.primary_ability
                     )
                     ctx.ai_timer = (ctx.unit_id == "elder_green_dragon") and 2.0 or 1.5
@@ -160,7 +189,7 @@ PROFILES["aggressive_patrol"] = {
         -- СТEЙТ 2: CHASE (АГРЕССИВНАЯ ПОГОНЯ)
         -- =========================================================================
         elseif ctx.ai_state == "CHASE" then
-            if distance_to_player > ctx.loose_range then
+            if distance_to_target > ctx.loose_range then
                 print(string.format("🏃‍♂️ ИИ: [%s] потерял цель, возвращаюсь домой...", ctx.unit_id))
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil
@@ -171,46 +200,49 @@ PROFILES["aggressive_patrol"] = {
 
                 return return_to_spawn(ctx, position)
 
-            elseif distance_to_player <= ctx.attack_range then
+            elseif distance_to_target <= ctx.attack_range then
                 print(string.format("⚔️ ИИ: [%s] догнал мага! Остановка для автоатаки!", ctx.unit_id))
                 ctx.ai_state = "ATTACK"
                 ctx.ai_timer = 0.3
                 move_direction = nil
             else
-                move_direction = vmath.normalize(player_position - position)
+                move_direction = vmath.normalize(target_position - position)
             end
 
         -- =========================================================================
         -- СТEЙТЫ ПОКОЯ: IDLE И PATROL
         -- =========================================================================
         else
-            if distance_to_player < ctx.agro_range then
-                print(string.format("💀 ИИ: [%s] обнаружил нарушителя в Meadows! АГРO!", ctx.unit_id))
-                ctx.ai_state = "CHASE"
-                msg.post("main:/context_menu_layer#gui", "hide_menu")
-
-                -- 🦾 ВХУЯРИВАЕМ БОЕВОЙ СТEЙТ МОНСТРУ И МАГУ ПО WoW-КАНОНУ:
-                game_state.set_combat_state(ctx.uid, "player")
-
-                move_direction = vmath.normalize(player_position - position)
+            -- 🎯 ДЕБАГ-СНАЙПЕР №2: Проверяем, переключил ли perception_manager стейт моба из IDLE
+            if ctx.ai_target_uid and (ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK") then
+                print(string.format("⚡ [Debug AI Aggro Trigger]: Моб %s УСПЕШНО ЗААГРИЛСЯ! Стейт=%s | Цель=%s", 
+                    ctx.uid, ctx.ai_state, ctx.ai_target_uid))
+                
+                -- Синхронизируем покадровый вектор погони на первом же тике агро!
+                move_direction = vmath.normalize(target_position - position)
+            
             elseif ctx.ai_state == "IDLE" then
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
                     local rx = ctx.spawn_position.x + math.random(-70, 70)
                     local ry = ctx.spawn_position.y + math.random(-70, 70)
-                    ctx.ai_target = vmath.vector3(rx, ry, 0)
+                    
+                    -- 🦾 ИСПОЛЬЗУЕМ AI_TARGET_POS КАК ЧИСТЫЙ ВЕКТОР ДЛЯ ПАТРУЛИРОВАНИЯ!
+                    ctx.ai_target_pos = vmath.vector3(rx, ry, 0)
                     ctx.ai_state = "PATROL"
                 end
                 move_direction = nil
-            elseif ctx.ai_state == "PATROL" and ctx.ai_target then
-                local d = ctx.ai_target - position
+                
+            elseif ctx.ai_state == "PATROL" and ctx.ai_target_pos then
+                -- Считаем вектор до точки патрулирования strictly по ai_target_pos
+                local d = ctx.ai_target_pos - position
                 if vmath.length(d) > 4 then
                     ctx.ai_is_patrolling = true
                     move_direction = vmath.normalize(d)
                 else
                     ctx.ai_state = "IDLE"
                     ctx.ai_timer = math.random(10, 30) / 10
-                    ctx.ai_target = nil
+                    ctx.ai_target_pos = nil
                     ctx.ai_is_patrolling = false
                     move_direction = nil
                 end

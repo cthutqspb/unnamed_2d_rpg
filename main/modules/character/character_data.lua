@@ -1,39 +1,54 @@
 local game_state = require("main.modules.game_state.game_state")
+local units_state = require("main.modules.game_state.units_state")
 
 ---@class CharacterDataModule
 ---@field player UnitInstanceData|table|nil Наш гибридный указатель-мост
 local M = {}
 
+M.PLAYER_UID = "player"
 M.player = nil
 
----Инициализировать или принудительно связать игрока с единым Фасадом стейта
 function M.bind_to_units_registry()
     -- Проверяем через Фасад, существует ли уже Юнит игрока в памяти RAM
-    local current_player = game_state.get_player_data()
+    local current_player = game_state.get_entity_by_uid(M.PLAYER_UID)
 
     if not current_player then
-        -- 🌟 ВЕТКА НОВОЙ ИГРЫ: Игрока в памяти нет. Создаем его ЧЕРЕЗ ФАСАД game_state!
-        -- Никаких прямых вызовов units_state! Поля выровнены под saved_position!
-        current_player = game_state.create_player_unit({
+        -- 🌟 ВЕТКА ТЕСТА ИЗ РЕДАКТОРА (До нажатия кнопки "Новая Игра"):
+        -- Игрока в памяти нет. Рожаем его Душу ПОЛНОЦЕННО и сочно, 
+        -- вызывая наш единый бэкенд-конструктор юнитов units_state.add!
+        -- Теперь у мага АВТОМАТИЧЕСКИ создадутся и рабочая кукла шмота, и пуленепробиваемый инвентарь!        
+        current_player = units_state.add(M.PLAYER_UID, {
             unit_id = "player_mage",
+            name_key = "class_mage",
+            is_player = true,
             level = 1,
+            experience = 0,
             type = "humanoid",
             rank = "common",
             loot_table_id = "empty",
-            saved_position = vmath.vector3(0, 0, 1.0), -- 🛡️ Единое каноничное имя saved_position!
-            -- Буфер инвентаря...
-            inventory = nil,
+            ai_profile = "none",
+            base_aggro_range = 0,
+            faction = "neutral_humanoid",
+            -- Выставляем ХП и Ману, а units_state.add() сам шёлково упакует их в паспорт!
+            health = 100,
+            max_health = 100,
+            mana = 50,
+            max_mana = 50,
+            speed = 220,
+            hitbox_size = 64,
+            saved_position = vmath.vector3(1126, 725, 1.0), -- Твоя стартовая точка Meadows
+            base_stats = { strength = 10, agility = 10, intellect = 10, stamina = 10 },
+            action_bars = {
+                [1] = {
+                    [1] = { action_type = "ability", action_id = "melee_attack" },
+                    [2] = { action_type = "ability", action_id = "frostbolt", triggers_gcd = true },
+                    [3] = { action_type = "item",    action_id = "lesser_mana_potion", triggers_gcd = true },
+                    [4] = { action_type = "item",    action_id = "iron_sword" },
+                },
+                [2] = {},
+                [3] = {}
+            }
         })
-
-        -- Доливаем специфичные для плеера дефолты в созданную ячейку RAM
-        if current_player then
-            current_player.name_key = "class_mage"
-            current_player.is_player = true
-            current_player.experience = 0
-            current_player.action_bars = {}
-            current_player.base_stats = { strength = 10, agility = 10, intellect = 10, stamina = 10 }
-            current_player.current_stats = { strength = 10, agility = 10, intellect = 10, stamina = 10 }
-        end
     end
 
     -- НАМЕРТВО СВЯЗЫВАЕМ ССЫЛКУ-МОСТ

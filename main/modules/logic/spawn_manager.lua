@@ -1,4 +1,5 @@
 local map_config = require("main.modules.data.map_config")
+local character_data = require("main.modules.character.character_data")
 local units_state = require("main.modules.game_state.units_state")
 local world_items_state = require("main.modules.game_state.world_items_state")
 
@@ -70,12 +71,12 @@ function M.spawn_zone(zone_name)
     -- 🛡️ ИНВЕРСИЯ СПАВНА: Если игра загружена из сейва, мы ВООБЩЕ игнорируем map_config!
     -- Мы спавним мир по чистокровным паспортам RAM, полностью исключая гонку потоков.
     if units_state.is_loaded_from_save then
-        for uid, unit_instance_data in pairs(units_state.get_all()) do
-            if uid == "player" or unit_instance_data.is_player == true then
+        for uid, unit_instance in pairs(units_state.get_all()) do
+            if uid == character_data.PLAYER_UID or unit_instance.is_player == true then
                -- Просто пропускаем шаг и идем к следующему юниту в реестре
             else
             -- Вызываем наш единый вынесенный метод материализации
-                materialize_unit(uid, unit_instance_data)
+                materialize_unit(uid, unit_instance)
             end
         end
         return
@@ -148,7 +149,7 @@ function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
                             world_items_state.register(item_go, uid)
 
                             msg.post(item_go, "set_item_id", {
-                                item_id = data.item_id, 
+                                item_id = data.item_id,
                                 amount = data.amount,
                                 uid = uid
                             })
@@ -186,91 +187,6 @@ function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
     end
     active_items = survivors
 end
-
-
--- ---МЕТОД Б (BG3 Монолит): Двухсторонний стриминг ПРЕДМЕТОВ по площади экрана
--- ---@param current_zone string Текущая активная локация мага ("overworld", "necropolis")
--- ---@param x_min number Левая граница экрана
--- ---@param x_max number Правая граница экрана
--- ---@param y_min number Нижняя граница экрана
--- ---@param y_max number Верхняя граница экрана
--- function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
---     if not world_items_state or not world_items_state.get_all then return end
---
---     local registry = world_items_state.get_all()
---     local factory_url = "game_scene:/world_controller#item_factory"
---
---     -- 🦾 ПОТОК 1: СПАВН ИЗ ОБЛАСТИ ВИДИМОСТИ
---     for uid, data in pairs(registry) do
---         if not data.is_collected then
---             -- 🎯 СИ-ЗАМОК ДАНЖЕЙ: Меч спавнится, только если его зона совпадает с комнатой мага!
---             local item_zone = data.zone_id or "overworld"
---
---             if item_zone == current_zone then
---                 local item_x = data.saved_position.x
---                 local item_y = data.saved_position.y
---
---                 local is_inside_view = item_x >= x_min and item_x <= x_max and
---                                        item_y >= y_min and item_y <= y_max
---
---                 if is_inside_view then
---                     local already_spawned = false
---                     for registered_go_id, registered_uid in pairs(active_items) do
---                         if registered_uid == uid and go.exists(registered_go_id) then
---                             already_spawned = true
---                             break
---                         end
---                     end
---
---                     -- 🦾 УЛЬТИМАТИВНЫЙ БЕЗБАЖНЫЙ СПАВН:
---                     -- Мы полностью убрали отсюда зависимость от items_db! Фабрика штампует 
---                     -- прехаб world_item.go СЛЕПО, потому что он сам внутри своего on_message
---                     -- натянет визуал по своей внутренней логике хэшей!
---                     if not already_spawned then
---                         local position = vmath.vector3(item_x, item_y, data.saved_position.z or 1.0)
---                         local item_go = factory.create(factory_url, position, nil, { is_from_factory = true })
---
---                         if item_go then
---                             active_items[item_go] = uid
---                             world_items_state.register(item_go, uid)
---
---                             msg.post(item_go, "set_item_id", {
---                                 item_id = data.item_id, -- Шлем строку/хэш "as is"
---                                 amount = data.amount,
---                                 uid = uid
---                             })
---                         end
---                     end
---                 end
---             end
---         end
---     end
---
---     -- 🦾 ПОТОК 2: АВТО-КЛИНИНГ ЗА ЭКРАНОМ
---     local survivors = {}
---     for item_go, item_uid in pairs(active_items) do
---         if go.exists(item_go) then
---             local item_data = world_items_state.get_item_by_uid(item_uid)
---             if item_data then
---                 local item_x = item_data.saved_position.x
---                 local item_y = item_data.saved_position.y
---                 local item_zone = item_data.zone_id or "overworld"
---
---                 local is_inside_view = item_x >= x_min and item_x <= x_max and
---                                        item_y >= y_min and item_y <= y_max
---
---                 if item_zone == current_zone and is_inside_view and not item_data.is_collected then
---                     survivors[item_go] = item_uid
---                 else
---                     go.delete(item_go)
---                 end
---             else
---                 go.delete(item_go)
---             end
---         end
---     end
---     active_items = survivors
--- end
 
 ---Умная выгрузка тел существ при уходе игрока из чанка земли
 ---@param zone_name string Имя покидаемого чанка

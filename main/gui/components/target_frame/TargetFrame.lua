@@ -45,9 +45,6 @@ function M:on_target_event(message_id, message)
             gui.set_enabled(self.root, true)
 
             -- Выплескиваем паспортные данные в текстовые ноды
-            for key,value in pairs(unit_instance_data) do
-                print('KEY', key, "VALUE", value)
-            end
             gui.set_text(self.target_name, locales.get(unit_instance_data.name_key)) -- в будущем locales.get()
             gui.set_text(self.target_level, string.format("Ур. %d", unit_instance_data.level))
 
@@ -62,7 +59,7 @@ function M:on_target_event(message_id, message)
 
     -- Б) ПОТЕРЯ ЦЕЛИ (Моб умер / кликнули в пустоту)
     elseif message_id == hash("target_lost") then
-        -- Мгновенно тушим плашку таргета с экрана, освобождая Meadows-обзор
+        self.uid = nil
         gui.set_enabled(self.root, false)
 
     -- Б) ЛЕГКИЙ БОЕВОЙ АПДЕЙТ ФРЕЙМА (Канон WoW)

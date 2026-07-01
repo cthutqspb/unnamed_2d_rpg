@@ -78,6 +78,7 @@ function M.new_game(creation_package)
     -- Если пакет не прилетел (тест из редактора), ставим жесткий фоллбек,
     -- но если пакет есть — игра запустится с тем именем и классом, что выбрал игрок!
     local character = creation_package or {
+        uid = "player",
         unit_id = "player_mage",
         name_key = "class_mage",
         stats = { strength = 10, agility = 10, intellect = 10, stamina = 10 }
@@ -95,15 +96,18 @@ function M.new_game(creation_package)
         mana = 50,
         max_mana = 50,
         base_stats = character.base_stats,
+        faction = "neutral_humanoid",
         current_stats = character.current_stats,
         saved_position = vmath.vector3(1126, 725, 1.0)
     })
 
     -- Намертво привязываем мост
+    character_data.PLAYER_UID = character.uid
+
     character_data.bind_to_units_registry()
 
     -- Насыпаем стартовый ААА-эквип магу в рюкзак
-    local player_data = game_state.get_player_data()
+    local player_data = game_state.get_entity_by_uid(character_data.PLAYER_UID)
 
     if player_data and player_data.inventory then
         -- Очищаем рюкзак мага перед выдачей стартового сета
@@ -144,51 +148,56 @@ end
 ---Засейвить игру на жесткий диск ПК (JSON-монолит)
 ---@return boolean
 function M.save_game()
-    local player_unit = game_state.get_player_data()
+    local player_unit = game_state.get_entity_by_uid(character_data.PLAYER_UID)
     if not player_unit then return false end
 
     local player_position = player_unit.saved_position
     local serializable_position = { x = player_position.x, y = player_position.y, z = player_position.z or 0 }
 
-    -- Твой чистый, плоский сбор монолита под сохранение
+    -- 🦾 1. СБОРКА ТИТАНОВОГО ПОЛИМОРФНОГО ПАКЕТА ПЕРСОНАЖА:
+    local character_payload = {
+        level = player_unit.level,
+        experience = player_unit.experience,
+        health = player_unit.health,
+        mana = player_unit.mana, -- Сохраняем ману/ресурс, если они есть
+        saved_position = serializable_position,
+        action_bars = player_unit.action_bars,
+
+        -- Объектные методы сохранения сумок и куклы шмота
+        inventory = player_unit.inventory and player_unit.inventory:get_save_data() or {},
+        paperdoll = player_unit.paperdoll and player_unit.paperdoll:get_save_data() or {}
+    }
+
+    -- 🦾 2. ДИНАМИЧЕСКИЙ СБОР КОРНЯ JSON (Канон WoW / BG3):
     local data = {
         version = 1,
         time = os.time(),
-        player = {
-            level = player_unit.level,
-            experience = player_unit.experience,
-            health = player_unit.health,
-            saved_position = serializable_position,
-            action_bars = player_unit.action_bars, -- чистильщик сам сожрет хэши экшен-баров
 
-            -- Вызываем у рюкзака и куклы мага их плоские методы сохранения ячеек!
-            inventory = player_unit.inventory and player_unit.inventory:get_save_data() or {},
-            paperdoll = player_unit.paperdoll and player_unit.paperdoll:get_save_data() or {}
-        },
-        -- Твой красивый старый метод сбора вселенной Meadows из game_state.lua!
+        -- СТЕРТО НАФИГ СЛЕПОЕ ЗАПЕКАНИЕ КЛЮЧА player = { ... }!
+        -- Мы динамически вшиваем мешок данных персонажа под его ИСТИННЫМ UID сессии!
+        -- Если мы играем за Артаса, в файле создастся ключ "Arthas": { ... }!
+        [character_data.PLAYER_UID] = character_payload,
+        -- Сбор динамической вселенной Meadows (монстры, сундуки, трава чанков)
         world = game_state.get_full_save_data()
     }
 
     local file = io.open(SAVE_PATH, "w+")
     if file then
-        -- 🚀 ЧИСТО КРАСИВЫЙ AAA-ПРОГОН: 
-        -- Наш prepare_for_json сожрёт всю эту гигантскую матрешку мира со всеми 
-        -- скелетами и вещами за один Си-такт, наглухо проигнорировав 'owner'!
+        -- Наш prepare_for_json сжирает матрешку мира за 1 Си-такт, убирая owner ссылки
         local success, json_string = pcall(json.encode, prepare_for_json(data))
         if not success then
-            print("🚨 БЭКЕНД: Критическая ошибка сериализации! В данных остался userdata/hash!")
+            print("🚨 БЭКЕНД [Save Error]: Критическая ошибка сериализации! В данных остался userdata/hash!")
             file:close()
             return false
         end
 
         file:write(json_string)
         file:close()
-        print("💾 БЭКЕНД [SaveManager]: Сейв успешно записан на диск ПК (JSON-монолит)")
+        print(string.format("💾 БЭКЕНД [SaveManager]: Сейв персонажа [%s] успешно записан на диск ПК (JSON-монолит)", character_data.PLAYER_UID))
         return true
     end
     return false
 end
-
 
 ---Загрузить игру из файла сохранения JSON
 ---@return boolean
@@ -202,53 +211,78 @@ function M.load_game()
     local data = json.decode(content)
     if not data then return false end
 
+    -- 1. Сначала реанимируем в RAM динамические чанки мира
     game_state.restore_all(data.world)
 
-    local player_unit = game_state.get_player_data()
-
-    if player_unit then
-        -- 🦾 НАКАТЫВАЕМ ОБЪЕКТНЫЕ ДАННЫЕ ВНУТРЬ ИНСТАНСОВ ЮНИТА (ИСПРАВЛЕНО):
-        -- Мы вызываем объектные методы :load_save_data через двоеточие строго на тех 
-        -- компонентах, которые нативно принадлежат нашему новому магу!
-        if data.player.inventory and player_unit.inventory then
-            player_unit.inventory:load_save_data(data.player.inventory)
-        end
-        if data.player.paperdoll and player_unit.paperdoll then
-            player_unit.paperdoll:load_save_data(data.player.paperdoll)
-        end
-
-        player_unit.action_bars = data.player.action_bars
-        player_unit.experience = data.player.experience or 0
-        player_unit.level = data.player.level or 1
-        player_unit.health = data.player.health or 100
-    end
-
+    -- =========================================================================
+    -- 🦾 ФАЗА 1: ОДУШЕВЛЕНИЕ И ЗАПЕКАНИЕ МОСТА (ПЕРЕНЕСЕНО НАМЕРТВО НАВЕРХ):
+    -- =========================================================================
+    -- Вызываем принудительный биндинг! Теперь в RAM гарантированно создана ячейка 
+    -- мага, и character_data.player пуленепробиваемо держит прямую ссылку на неё!
     character_data.bind_to_units_registry()
 
-    -- Читаем координаты напрямую из юнита игрока через ссылку-мост
-    local saved_position = character_data.player.saved_position
+    -- Вытаскиваем зрячий RAM-паспорт нашего героя из Фасада вселенной по токену сессии!
+    local player_unit = game_state.get_entity_by_uid(character_data.PLAYER_UID)
 
-    -- Конвертируем обратно в Си-вектор для прокси-лоадера Defold
-    local base_x = saved_position and saved_position.x or 0
-    local base_y = saved_position and saved_position.y or 0
+    -- 🚀 ПОЛИМОРФНЫЙ ВЫКАЧ PAYLOAD ИЗ JSON-ФАЙЛА:
+    -- Нам глубоко насрать на хардкод поля data.player. Мы читаем блок данных 
+    -- персонажа динамически по его токену сессии (character_data.PLAYER_UID)!
+    local saved_character_payload = data and (data[character_data.PLAYER_UID] or data.player)
+
+    -- =========================================================================
+    -- 🧱 ФАЗА 2: НАКАТКА ПРОГРЕССА СЕЙВА В ОПЕРАТИВНУЮ ПАМЯТЬ RAM:
+    -- =========================================================================
+    if player_unit and saved_character_payload then
+        -- Накатываем сохраненные инстансы куклы шмота и сумок через объектные методы
+        if saved_character_payload.inventory and player_unit.inventory then
+            player_unit.inventory:load_save_data(saved_character_payload.inventory)
+        end
+        if saved_character_payload.paperdoll and player_unit.paperdoll then
+            player_unit.paperdoll:load_save_data(saved_character_payload.paperdoll)
+        end
+
+        -- Реанимируем кастомные панели заклинаний, левел, ХП и ману из файла
+        player_unit.action_bars = saved_character_payload.action_bars or player_unit.action_bars
+        player_unit.experience = saved_character_payload.experience or 0
+        player_unit.level = saved_character_payload.level or 1
+        player_unit.health = saved_character_payload.health or player_unit.max_health
+
+        if player_unit.mana and saved_character_payload.mana then
+            player_unit.mana = saved_character_payload.mana
+        end
+
+        -- Выкачиваем позицию из сейва. Если её нет — берем текущую
+        if saved_character_payload.saved_position then
+            player_unit.saved_position = saved_character_payload.saved_position
+        end
+    else
+        print("🚨 БЭКЕНД [Load Error]: Не удалось состыковать паспорт в RAM с payloads файла JSON!")
+    end
+
+    -- =========================================================================
+    -- 📐 ФАЗА 3: ВОССТАНОВЛЕНИЕ СИ-ВЕКТОРОВ И ПЕРЕЗАПУСК КОЛЛЕКЦИИ:
+    -- =========================================================================
+    -- Читаем координаты наносекундно по прямой кэшированной ссылке-мосту!
+    local saved_position = character_data.player and character_data.player.saved_position
+
+    local base_x = saved_position and saved_position.x or 1126 -- Каноничный дефолт новой игры
+    local base_y = saved_position and saved_position.y or 725
     local base_z = saved_position and saved_position.z or 1.0
 
-    -- Конвертируем обратно в Си-вектор для прокси-лоадера Defold
     local live_vector_position = vmath.vector3(base_x, base_y, base_z)
-
     character_data.player.saved_position = live_vector_position
 
-    -- Передаем в лоадер
+    -- Передаем Си-вектор в движковый прокси-лоадер Defold для стриминга сцены
     msg.post("main:/loader#script", "reload_game", {
         is_load = true,
         saved_position = live_vector_position,
-        action_bars = data.player.action_bars
+        action_bars = character_data.player.action_bars
     })
 
     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     broadcast.send("ui_events", { message_id = hash("clear_world_ui") })
 
-    print("💾 БЭКЕНД [SaveManager]: Сейв успешно развернут. Векторы восстановлены!")
+    print(string.format("💾 БЭКЕНД [SaveManager]: Сейв персонажа [%s] успешно развернут. Векторы восстановлены!", character_data.PLAYER_UID))
     return true
 end
 

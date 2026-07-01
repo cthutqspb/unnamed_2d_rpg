@@ -6,6 +6,8 @@ local abilities_db = require("main.modules.data.abilities_db")
 local broadcast = require("main.modules.system.broadcast")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local game_state = require("main.modules.game_state.game_state")
+local units_state = require("main.modules.game_state.units_state")
+
 
 ---@class PlayerPressedKeys
 ---@field up number
@@ -62,6 +64,8 @@ end
 
 ---@param self PlayerScriptInstance
 function init(self)
+    character_data.bind_to_units_registry()
+    units_state.register(go.get_id(), character_data.PLAYER_UID)
     print("Player initialized at position:", go.get_position())
     --local center_x, center_y = settings.get_center()
     go.set_position(vmath.vector3(0, 0, 1.0))
@@ -114,8 +118,38 @@ function update(self, dt)
 
     -- РЕАКТИВНЫЙ ОБСЧЁТ И ВЫКАЧКА ПРОГРЕССА В HUD:
     if player.current_cast_ability_id then
-        -- 🦾 СИ-МИНА СТЁРТА: Строчка "player.cast_current = player.cast_current + dt" УДАЛЕНА!
-        -- Время теперь честно и централизованно капает на бэкенде в units_state.
+        -- =========================================================================
+        -- 🦾 ЗРЯЧИЙ КОНВОИР ДИСТАНЦИИ КАСТА (ДОБАВЛЕНО НАМЕРТВО ПО WoW-КАНОНУ):
+        -- =========================================================================
+        -- Каждый божий кадр, пока ползет полоска, мы заново спрашиваем нашего судью unit_logic!
+        local current_target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
+        local current_target_unit = game_state.get_entity_by_uid(current_target_uid)
+
+        local is_possible, error_reason = unit_logic.check_cast_possibility(player, player.current_cast_ability_id, current_target_unit)
+
+        -- 💥 МИГ ПРEРЫВAНИЯ НА ХОДУ: Скелет отбежал назад и вышел из ренжа!
+        if not is_possible then
+            print("🚨 БЭКЕНД [Cast Monitor]: Каст принудительно СОРВАН покадровым гвардом! Причина:", error_reason)
+
+            -- Намертво выжигаем и очищаем ТТХ каста в оперативной памяти мага
+            player.current_cast_ability_id = nil
+            player.current_cast_time = 0
+            player.current_cast_duration = 0
+            self.cast_payload = nil -- аннигилируем закешированный боевой пакет!
+
+            -- Тушим полоску кастбара с экрана игрока с флагом прерывания
+            msg.post("main:/gui_manager#hud", "hide_castbar", { interrupted = true })
+
+            -- Выплёвываем сочный Blizzard-варнинг на экран
+            local log_text = "Каст прерван"
+            if error_reason == "OUT_OF_RANGE" then log_text = "Цель слишком далеко!"
+            elseif error_reason == "INVALID_TARGET" then log_text = "Неверная цель!"
+            end
+            msg.post("main:/gui_manager#hud", "show_screen_error", { text = log_text })
+
+            return -- Наглухо обрываем апдейт в этом кадре, спасая транзакцию!
+        end
+        -- =========================================================================
 
         -- Шлем покадровый асинхронный прогресс в hud.gui_script для движения ползунка
         local progress = player.current_cast_time / player.current_cast_duration
@@ -133,6 +167,9 @@ function update(self, dt)
 
             -- Вызываем редьюсер диспетчера экшенов, скармливая ему сохраненный payload
             if self.cast_payload then
+                 local live_target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
+
+                self.cast_payload.target_uid = live_target_uid -- Вшиваем чистую строку!
                 actions_dispatcher.REDUCERS["action_bar_use"](self.cast_payload)
                 self.cast_payload = nil -- Очищаем кэш после успешной транзакции
             end
@@ -343,7 +380,6 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("player_action") then
         if message.event == "action" then
             local player = character_data.player
-
             -- =========================================================================
             -- 🛡️ ТИТАНОВЫЙ ААА-ЗАСОВ ГКД ЧЕРЕЗ ПОСРЕДНИКА (ИСПРАВЛЕНО НАМЕРТВО):
             -- =========================================================================
@@ -392,9 +428,8 @@ function on_message(self, message_id, message, sender)
                     })
                 end
 
-                return true -- НАГЛУХО БЛОКИРУЕМ ИНПУТ! Кастбар не родится, мана не спишется!
+                return -- НАГЛУХО БЛОКИРУЕМ ИНПУТ! Кастбар не родится, мана не спишется!
             end
-            -- =========================================================================
             -- =========================================================================
             -- ВЕТКА А: ЗАКЛИНАНИЯ С ВОСПРОИЗВЕДЕНИЕМ КАСТА (Фростболт)
             -- =========================================================================
@@ -412,6 +447,8 @@ function on_message(self, message_id, message, sender)
 
                 -- Кэшируем боевой пакет данных, приводя имена к ААА-стандарту диспетчера
                 self.cast_payload = {
+                    caster_uid = character_data.PLAYER_UID,
+                    target_uid = current_target_uid,
                     slot_index = message.data.slot_index,
                     drag_type = message.data.action_type,
                     action_id = message.data.action_id,
@@ -455,6 +492,8 @@ function on_message(self, message_id, message, sender)
 
             -- Передаем чистый triggers_gcd из конфига чертежа
             actions_dispatcher.REDUCERS["action_bar_use"]({
+                caster_uid = character_data.PLAYER_UID,
+                target_uid = current_target_uid,
                 slot_index = message.data.slot_index,
                 drag_type = message.data.action_type,
                 action_id = message.data.action_id,

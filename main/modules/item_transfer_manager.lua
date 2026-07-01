@@ -9,9 +9,11 @@ local M = {}
 ---@param item table @Данные выбрасываемого предмета
 ---@param position vector3 @Координата спавна X
 function M.drop_to_world(source, source_slot, item, position)
-    print("IS LOOT FROM TRANSFER MANAGER: ", item.is_looted)
+    local owner_unit = source and source.owner
+    local dropper_uid = owner_unit and owner_unit.uid or "player"
+
     msg.post("game_scene:/world", "spawn_world_item", {
-        source = "player",
+        source = dropper_uid,
         item_uid = item.uid,
         item_id = item.item_id,
         amount = item.amount,
@@ -44,6 +46,7 @@ end
 ---@param item_cfg table @Конфиг предмета из БД
 function M.execute_transfer(source, source_slot, target, target_slot, item, item_cfg)
     -- Проверяем, что все критические данные для трансфера доехали успешно
+    print("ДАННЫЕ", source, source_slot, target, target_slot, item, item_cfg)
     if not source or not target or not item or not item_cfg then
         print("🚨 СЕРВИС [Transfer]: Критическая ошибка! Переданы пустые данные (nil) в execute_transfer!")
         M.finalize()

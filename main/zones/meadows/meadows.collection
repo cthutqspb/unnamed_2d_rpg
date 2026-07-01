@@ -58,24 +58,6 @@ instances {
   }
 }
 instances {
-  id: "sceleton_warrior1"
-  prototype: "/main/game_objects/units/unit.go"
-  position {
-    x: 5265.7285
-    y: 3155.4863
-    z: 1.0
-  }
-}
-instances {
-  id: "sceleton_warrior2"
-  prototype: "/main/game_objects/units/unit.go"
-  position {
-    x: 5330.8735
-    y: 3039.5283
-    z: 1.0
-  }
-}
-instances {
   id: "world_item"
   prototype: "/main/game_objects/world_item/world_item.go"
   position {
@@ -181,8 +163,6 @@ embedded_instances {
   children: "dragon"
   children: "player_spawn_point"
   children: "sceleton_warrior"
-  children: "sceleton_warrior1"
-  children: "sceleton_warrior2"
   children: "world_item"
   children: "world_item1"
   children: "world_item2"

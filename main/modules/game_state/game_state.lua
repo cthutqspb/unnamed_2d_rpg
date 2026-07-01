@@ -5,7 +5,6 @@ local units_state = require("main.modules.game_state.units_state")
 ---@class GameStateFacade
 ---@field get_uid_by_go_id function
 ---@field get_entity_by_uid function
----@field get_player_data function 
 local M = {}
 
 ---Узнать тип объекта и получить его чистые данные по go_id из мира (из рейкаста)
@@ -50,31 +49,10 @@ function M.get_full_save_data()
     print("БЭКЕНД [GameState]: Сбор снапшота вселенной RPG...")
     return {
         world_items_state = world_items_state.get_all(),
-        -- containers_state = containers_state.get_all(),
+-- containers_state = containers_state.get_all(),
         -- 🦾 Скелеты и Дракон теперь честно запечатываются в файл сохранения!
         units_state = units_state.get_all()
     }
-end
-
----Получить полную структуру данных игрока как Универсального Юнита из реестра (WoW-Фасад)
----@return UnitInstanceData|nil Возвращает паспорт игрока из RAM
-function M.get_player_data()
-    if units_state and units_state.get_unit_by_uid then
-        return units_state.get_unit_by_uid("player")
-    end
-    return nil
-end
-
----@param unit_uid string UID существа ("player" или "companion_1")
----@param bar_index number Индекс панели (1, 2, 3)
----@return table|nil Массив слотов панели способностей
-function M.get_unit_action_bar(unit_uid, bar_index)
-    local unit = M.get_entity_by_uid(unit_uid)
-    if not unit or not unit.action_bars then
-        return {}
-    end
-
-    return unit.action_bars[bar_index] or {}
 end
 
 ---Покадрово зафиксировать координаты игрока во внутреннем стейте юнитов (WoW-Фасад)
@@ -110,17 +88,27 @@ function M.get_entity_by_uid(uid)
         if item_data then return item_data end
     end
 
-    -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
-    if containers_state and containers_state.get then
-        local container_data = containers_state.get(uid)
-        if container_data then return container_data end
-    end
+    -- -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
+    -- if containers_state and containers_state.get then
+    --     local container_data = containers_state.get(uid)
+    --     if container_data then return container_data end
+    -- end
 
     -- Сущность полностью отсутствует во вселенной RAM игры
     return nil
 end
 
--- Внутри твоего game_state.lua
+---Ищет Душу наносекундно по физическому Си-хэшу go_id со сцены!
+---Вызывается пулями, WASD-системой и ИИ.
+---@param go_id hash Нативный Си-хэш объекта (hash: [/player] или hash: [/instance8])
+---@return table|nil RAM-паспорт сущности
+function M.get_entity_by_go_id(go_id)
+    if not go_id or go_id == hash("") or type(go_id) ~= "userdata" then return nil end
+
+    local clean_uid = units_state and units_state.instances and units_state.instances[go_id]
+
+    return M.get_entity_by_uid(clean_uid)
+end
 
 ---Универсальный Сервис-Локатор (Канон BG3): Каскадный перевод Си Game Object ID в строковый UID
 ---@param go_id hash Нативный хэш-адрес объекта на сцене движка (target_id, sender, клик мыши)
@@ -140,10 +128,10 @@ function M.get_uid_by_go_id(go_id)
         return world_items_state.instances[go_id]
     end
 
-    -- 3. Если и там глухо, проверяем, не интерактивный ли это Контейнер (Сундук, Бочка, Шкаф)
-    if containers_state and containers_state.instances and containers_state.instances[go_id] then
-        return containers_state.instances[go_id]
-    end
+    -- -- 3. Если и там глухо, проверяем, не интерактивный ли это Контейнер (Сундук, Бочка, Шкаф)
+    -- if containers_state and containers_state.instances and containers_state.instances[go_id] then
+    --     return containers_state.instances[go_id]
+    -- end
 
     -- Физический Си-объект полностью неизвестен бэкенду стейтов
     return nil
@@ -170,9 +158,37 @@ function M.set_combat_state(unit_uid, victim_uid)
     end
 end
 
+---@param unit_uid string
+---@param resource string
+---@param cost number|nil
+function M.consume_unit_resource(unit_uid, resource, cost)
+    if units_state and units_state.consume_unit_resource then
+        units_state.consume_unit_resource(unit_uid, resource, cost)
+    end
+end
+
 function M.update_all_timers(dt)
     if units_state and units_state.update_all_timers then
         units_state.update_all_timers(dt)
+    end
+end
+
+---🚨 УЛЬТИМАТИВНЫЙ МУТАТОР АГРО-ПРИЦЕЛА (Чистокровный WoW / BG3 Канон):
+---Записывает боевую цель существу прямо в его RAM-паспорт Души. 0 левых ссылок на ctx!
+---@param caster_uid string UID атакующего моба ("c_5052_3045")
+---@param target_uid string|nil UID жертвы ("player" или другой моб, либо nil для сброса боя)
+function M.set_unit_aggro_target(caster_uid, target_uid)
+    if not caster_uid or not units_state or not units_state.registry then return end
+
+    local unit_data = units_state.registry[caster_uid]
+    if unit_data then
+        -- Пишем цель в глобальный RAM-паспорт Души (Для боёвки, ИИ и сейвов)
+        unit_data.combat_target_uid = target_uid
+
+        -- Включаем боевой режим для HUD-фреймов (Твой оригинальный код)
+        if M.set_combat_state then
+            M.set_combat_state(caster_uid, target_uid)
+        end
     end
 end
 
@@ -213,11 +229,11 @@ function M.restore_all(full_data)
         world_items_state.restore_all(full_data.world_items_state)
     end
 
-    -- 2. Реставрация Контейнеров
-    if full_data.containers_state and containers_state.restore_all then
-        print("Restoring containers_state...")
-        containers_state.restore_all(full_data.containers_state)
-    end
+    -- -- 2. Реставрация Контейнеров
+    -- if full_data.containers_state and containers_state.restore_all then
+    --     print("Restoring containers_state...")
+    --     containers_state.restore_all(full_data.containers_state)
+    -- end
 
     -- 3. 🦾 РEСТAВРAЦИЯ МОНСТРОВ (Породоистый WoW-канон):
     -- Возвращаем Скелетов в живую память бэкенда при загрузке сейва!
@@ -233,7 +249,7 @@ end
 function M.clear_all()
     print("БЭКЕНД [GameState]: Тотальное выжигание реестров для Новой Игры...")
     if world_items_state.clear then world_items_state.clear() end
-    if containers_state.clear then containers_state.clear() end
+    -- if containers_state.clear then containers_state.clear() end
     -- 🦾 Чистим Скелетов, страхуя рантайм от фантомных ранений прошлого прохождения!
     if units_state.clear then units_state.clear() end
 end

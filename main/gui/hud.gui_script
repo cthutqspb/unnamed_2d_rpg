@@ -1,5 +1,6 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
+local interaction_manager = require("main.modules.logic.interaction_manager")
 local PlayerFrame = require("main.gui.components.player_frame.PlayerFrame")
 local TargetFrame = require("main.gui.components.target_frame.TargetFrame")
 local ActionBar = require("main.gui.components.action_bar.ActionBar")
@@ -36,9 +37,10 @@ function init(self)
     self.action_bar = self.druid:new(
         ActionBar,
         "action_bar",
-        {   bar_index = 1,
+        {
+            bar_index = 1,
             item_size = 40,
-            spacing = 2
+            spacing = 2,
         }
     )
 
@@ -48,31 +50,11 @@ function init(self)
 
     -- 📬 СЛАЙС 1: ИНВЕНТАРНЫЕ СОБЫТИЯ (inventory_events)
     self.on_inventory_event = function(data)
-        if data.message_id == hash("add_item") then
-            -- 🎯 ВЫНИМАЕМ АКТУАЛЬНЫЙ ИНСТАНС РЮКЗАКА ИГРОКА ИЗ RAM-ПАСПОРТА:
-            local player_data = game_state.get_player_data()
-            if not player_data or not player_data.inventory then
-                print("🚨 HUD: Не удалось выдать предмет, рюкзак мага отсутствует в RAM!")
-                return
-            end
-
-            -- 🦾 ЗРЯЧИЙ ААА-НАЛИВ: Вызываем метод через двоеточие строго на инстансе мага!
-            -- Наш универсальный inventory_model сам сочно раскидает шмот по ячейкам в RAM,
-            -- а сигналы "refresh" ниже заставят окна перерисовать свежие иконки на экране!
-            local success = player_data.inventory:add_item(
-                data.item_id,
-                data.amount,
-                data.uid,
-                data.items,
-                data.is_looted,
-                data.loot_table_id
-            )
-
-            if success then
-                msg.post("main:/character_window#gui", "refresh")
-                msg.post("main:/inventory_window#gui", "refresh")
-                if self.static_grid then self.static_grid:refresh() end
-            end
+        if data.message_id == hash("inventory_changed") then
+            -- Память сумок на бэкенде уже мутировала шёлком! Просто перерисовываем GUI-окна!
+            msg.post("main:/character_window#gui", "refresh")
+            msg.post("main:/inventory_window#gui", "refresh")
+            if self.static_grid then self.static_grid:refresh() end
         end
     end
 
@@ -88,8 +70,21 @@ function init(self)
     self.on_player_event = function(data)
         if data.message_id == hash("update_health") then
             msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.percentage })
-        elseif data.message_id == hash("update_mana") then
-            msg.post("main:/gui_manager#hud", "update_mana_deferred", { percentage = data.percentage })
+        elseif data.message_id == hash("update_resource") then
+            -- Берем нашего живого мага прямо из Source of Truth
+            local player = character_data.player
+            if player then
+                -- Динамически вычисляем процент для ЛЮБОГО ресурса (mana, rage, energy) в одну строчку!
+                local res_name = data.resource -- "mana"
+                local max_res_name = "max_" .. res_name -- "max_mana"
+
+                local current_val = player[res_name] or 0
+                local max_val = player[max_res_name] or 100
+                local percentage = current_val / max_val
+
+                -- Сочно deferred-обновляем ману на экране!
+                msg.post("main:/gui_manager#hud", "update_mana_deferred", { percentage = percentage })
+            end
         elseif data.message_id == hash("player_data_loaded") then
             msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.health_percentage })
         end
@@ -147,12 +142,12 @@ end
 function on_message(self, message_id, message, sender)
   -- 🎯 ТИПИЗИРОВАННЫЙ ПРИЕМНИК: Отложенный безопасный апдейт графики ХП
     if message_id == hash("update_health_deferred") then
-        print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску ХП.")
+        --print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску ХП.")
         self.player_frame:on_player_event(hash("update_health_deferred"), message)
     end
 
     if message_id == hash("update_mana_deferred") then
-        print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску МАНЫ.")
+        --print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску МАНЫ.")
         self.player_frame:on_player_event(hash("update_mana_deferred"), message)
     end
 
@@ -217,7 +212,7 @@ end
 function update(self, dt)
     local player = character_data.player
 
-    local target_uid = player and player.combat_target_uid
+    local target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
     local target = target_uid and game_state.get_entity_by_uid(target_uid)
 
     if self.action_bar and self.action_bar.update then

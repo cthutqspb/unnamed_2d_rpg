@@ -15,6 +15,8 @@
 ---@field texture string Имя графического атласа/тайлсорса
 ---@field id? string Строковый ID существа для бэкенда
 ---@field ai_profile string
+---@field base_aggro_radius number
+---@field faction string
 ---@field loot_table_id string|nil
 ---@field default_rank string
 ---@field abilities table<string>
@@ -26,7 +28,7 @@ M.units = {
      ["skeleton_warrior"] = {
         name_key = "unit_skeleton_warrior_name",
         race = "elf",
-        type = "undead",
+        type = "skeleton",
         unit_class = {
             warrior = true
         },
@@ -44,6 +46,8 @@ M.units = {
         animation = "skeleton_warrior",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol",
+        base_aggro_radius = 450,
+        faction = "undead",
         default_rank = "common",
         abilities = { "melee_attack" }
     },
@@ -67,6 +71,8 @@ M.units = {
         animation = "boar_idle",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol",
+        base_aggro_radius = 350,
+        faction = "beast_neutral",
         default_rank = "common",
         abilities = { "melee_attack" }
     },
@@ -94,6 +100,8 @@ M.units = {
         animation = "elder_green_dragon",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol",
+        base_aggro_radius = 550,
+        faction = "green_dragon",
         default_rank = "elite",
         abilities = { "melee_attack" }
     },

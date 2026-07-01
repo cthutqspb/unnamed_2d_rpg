@@ -3,6 +3,11 @@ tile_width: 32
 tile_height: 32
 collision_groups: "default"
 animations {
+  id: "New Animation"
+  start_tile: 1
+  end_tile: 1
+}
+animations {
   id: "chest_common"
   start_tile: 7
   end_tile: 7
@@ -51,6 +56,11 @@ animations {
   id: "frostbolt"
   start_tile: 1650
   end_tile: 1650
+}
+animations {
+  id: "frostbolt_particle"
+  start_tile: 1589
+  end_tile: 1589
 }
 animations {
   id: "iron_sword"

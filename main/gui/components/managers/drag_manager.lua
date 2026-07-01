@@ -29,9 +29,7 @@ local is_over_any_gui = false
 ---@param item_cfg table @Конфиг предмета из БД
 function M.start(source, slot, item, item_cfg)
     local animation_name = item_cfg.animation or item_cfg.icon
-    for k,v in pairs(item) do
-        print("ITEM", k,v)
-    end
+
     active_drag = {
         drag_type = item_cfg.action_type,
         source = source,
@@ -245,7 +243,7 @@ function M.finish(target_component, target_slot)
         -- Вытаскиваем UID существа, шмот которого сейчас таскают (чтобы прокинуть в диспетчер гварду стат)
         -- Если это игрок — в модели куклы или инвентаря будет лежать "player", иначе возьмет дефолт.
         local current_unit_uid = (target_model and target_model.uid) or (source_model and source_model.uid) or "player"
-        print("TARGET", target_component, "SOURCE", source_model)
+
         -- Диспатчим экшен переноса, ПРОБРАСЫВАЯ МЕТКИ СПЛИТА В PAYLOAD
         actions_dispatcher.REDUCERS["item_transfer"]({
             slot_index = source_slot,

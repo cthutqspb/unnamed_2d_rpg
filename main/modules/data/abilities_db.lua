@@ -86,7 +86,8 @@ M.abilites_raw = {
             scaling_stats = { intellect = 1.0 }
         },
         effect = "freeze",
-        triggers_gcd = true              -- магия запускает ГКД!
+        triggers_gcd = true, -- магия запускает ГКД!
+        projectile_factory = "game_scene:/world_controller#frostbolt_factory"
     }
 }
 

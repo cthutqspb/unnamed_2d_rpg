@@ -1,6 +1,8 @@
 local component = require("druid.component")
 local StaticGrid = require("main.gui.components.static_grid.StaticGrid")
 local unit_logic = require("main.modules.unit.logic.unit_logic")
+local units_state = require("main.modules.game_state.units_state")
+local character_data = require("main.modules.character.character_data")
 
 ---@class ActionBar : druid.component
 ---@field template_id string
@@ -45,10 +47,11 @@ end
 function M:init(template_id, config)
     self.template_id = template_id
     local druid = self:get_druid()
+    self.bar_index = config and config.bar_index or 1
 
     self.static_grid = druid:new(StaticGrid, get_id(template_id, "static_grid"), {
         grid_type = "action_bar",
-        bar_index = config.bar_index,
+        bar_index = self.bar_index,
         columns = config.columns or 12,
         rows = config.rows or 1,
         item_size = config.item_size or 40,
@@ -59,7 +62,7 @@ function M:init(template_id, config)
         end
     })
     -- gui.set_visible(self.static_grid)
-end
+  end
 
 ---🎯 ИНПУТ КЛAВИAТУРЫ: Вызвать принудительное прожатие слота по хоткею 1..12 (Вариант А)
 ---@param index number Числовой индекс ячейки панели
@@ -88,8 +91,25 @@ function M:on_slot_click(index)
     send_player_action(index, slot_data)
 end
 
-function M:refresh()
+---🎯 РЕАКТИВНЫЙ WoW-ОБРАБОТЧИК: Синхронизация графики с Глобальным Реестром RAM
+function M:refresh_bar()
+    if not self.static_grid then return end
+
+    -- 🧠 ЧИТАЕМ АКТУАЛЬНЫЙ СТEЙТ ИЗ ЦЕНТРАЛЬНОГО РЕЕСТРА (TargetFrame Канон):
+    -- Вытаскиваем самый свежий паспорт мага из RAM по токену сессии
+    local unit_state = units_state.get(character_data.PLAYER_UID)
+    local action_bars = unit_state and unit_state.action_bars
+
+    -- Нагло, принудительно всаживаем актуальную таблицу в data_source сетки прямо из RAM-реестра!
+    -- Никакого кэширования старых ссылок, никакого слова LIVE, чистый Си-транзит!
+    self.static_grid.data_source = action_bars and action_bars[self.bar_index] or {}
+
+    -- Пинаем слепую сетку обновить пиксели на экране
     self.static_grid:refresh()
+end
+
+function M:refresh()
+    self:refresh_bar()
 end
 
 ---@param duration number Длительность ГКД (1.5 сек)

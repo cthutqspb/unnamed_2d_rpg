@@ -7,6 +7,11 @@ local abilities_db = require("main.modules.data.abilities_db")
 ---@class UnitLogicModule
 local M = {}
 
+local MELEE_THRESHOLD_RANGE = 80   -- Порог, ниже которого способность считается ближним боем (в пикселях)
+local DEFAULT_MELEE_RANGE    = 16   -- Базовый ренж замаха оружия ближнего боя по умолчанию
+local DEFAULT_UNIT_HITBOX    = 64   -- Дефолтный размер хитбокса юнита, если RAM пустой
+
+
 -- =========================================================================
 -- 🦾 ГЕЙМПЛЕЙНЫЕ ПОЛИМОРФНЫЕ МЕТОДЫ (ИТЕРАЦИЯ 1)
 -- =========================================================================
@@ -87,7 +92,7 @@ function M.update_derived_stats(unit)
     unit.current_stats.agility = M.get_total_stat("agility", unit)
     unit.current_stats.intellect = M.get_total_stat("intellect", unit)
     unit.current_stats.stamina = M.get_total_stat("stamina", unit)
-    print("current_stats strength!!!", unit.current_stats.strength)
+
     -- 🛡️ ИСПРАВЛЕНО: Прокидываем 'unit' в калькуляторы ресурсов, закрывая дыру дюпа!
     unit.max_health = M.calculate_max_health(unit)
     if unit.max_mana ~= nil then
@@ -116,46 +121,6 @@ function M.update_derived_stats(unit)
         })
     end
 end
-
----Изменить содержимое конкретной ячейки панели способностей Юнита (Бэкенд-мутатор)
----@param bar_index number Номер панели (1, 2 или 3)
----@param slot_index number Порядковый номер ячейки (от 1 до 12)
----@param action_type "ability"|"item"|"empty" Тип действия
----@param action_id string|nil Идентификатор из базы абилок или предметов
----@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт юнита (nil для фоллбека на игрока)
-function M.set_action_bar_slot(bar_index, slot_index, action_type, action_id, unit)
-    if not unit or not unit.action_bars then return end
-
-    -- 1. Страховка: если таблицы конкретной панели в памяти юнита ещё нет — инициализируем её
-    if not unit.action_bars[bar_index] then
-        unit.action_bars[bar_index] = {}
-    end
-
-    -- 2. МУТИРУЕМ ПАМЯТЬ ЮНИТА: Записываем новую структуру в Single Source of Truth
-    if action_type == "empty" then
-        unit.action_bars[bar_index][slot_index] = nil
-    else
-        unit.action_bars[bar_index][slot_index] = {
-            action_type = action_type,
-            action_id = action_id
-        }
-    end
-
-    print(string.format("💾 БЭКЕНД [unit_logic]: Изменена Панель %d, Слот %d для Юнита [%s] -> [%s: %s]",
-        bar_index, slot_index, unit.uid, action_type, tostring(action_id)))
-
-    -- Бэкенд изменил данные и реактивно сообщает интерфейсам, что пора обновить HUD!
-    -- Сигналы шлем только если это ИГРОК, чтобы не спамить шину впустую
-    if unit.is_player then
-        broadcast.send("action_bar_events", {
-            message_id = hash("action_bars_changed")
-        })
-        broadcast.send("inventory_events", {
-            message_id = hash("inventory_changed")
-        })
-    end
-end
-
 
 --- Боевые методы
 ---Проверить магические щиты Юнита и поглотить входящий урон (Универсальный WoW-канон)
@@ -331,7 +296,6 @@ function M.check_item_requirements(item_cfg, unit)
         local stat_ok = true
         --print("REQ ID", req_id, req_val)
         if req_id == "level" then
-            print("LEVEL", unit.level, req_val)
             -- ИСПРАВЛЕНО: Читаем уровень любого юнита во вселенной!
             unit_val = unit.level or 1
             stat_ok = (unit_val >= req_val)
@@ -375,6 +339,23 @@ function M.check_cast_possibility(caster, ability_id, target)
     -- 2. СИ-ЗАЩИТА: Если паспорт кастера потерялся по дороге
     if not caster then return false, "NO_CASTER" end
 
+    if not target then
+        return false, "NO_TARGET"
+    end
+
+    if target.is_dead then
+        return false, "INVALID_TARGET" -- Судья выдаст четкий вердикт!
+    end
+
+
+    --с этим не работает
+    -- if target.go_id then
+    --     local exists, target_pos = pcall(go.get_position, target.go_id) -- 🦾 ТУТ СТРОГО GO_ID, А НЕ СТРОКА UID!
+    --     if not exists or not target_pos then
+    --         return false, "INVALID_TARGET" -- Объекта физически уже нет на сцене
+    --     end
+    -- end
+
     -- 3. ГВАРД РЕСУРСОВ: Хладнокровно проверяем ману персонажа
     if cfg.cost and cfg.cost.resource == "mana" then
         if (caster.mana or 0) < (cfg.cost.value or 0) then
@@ -393,19 +374,37 @@ function M.check_cast_possibility(caster, ability_id, target)
         local player_pos = caster.saved_position
         local target_pos = target.saved_position
 
-        if player_pos and target_pos then
-            -- Считаем чистую Meadows-дистанцию в пикселях между центрами в RAM
+                if player_pos and target_pos then
+            -- Считаем чистую Meadows-дистанцию в пикселях между центрами существ в RAM
             local dist = vmath.length(target_pos - player_pos)
 
-            -- 📐 ТВОЙ СВЯТОЙ ОБМАН ХИТБОКСА:
-            -- Вытаскиваем hitbox_size из твоего конфига монстра (например, 64)
-            -- Делим пополам (32 пикселя радиуса) и легально расширяем дальность!
-            local target_radius = (target.hitbox_size or 0) / 2
-            local max_allowed_range = (cfg.range or 0) + target_radius
+            -- 🛡️ ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ: Берем базовый ренж из чертежа абилки
+            local base_range = cfg.range or 16
+            local max_allowed_range = base_range
 
-            -- Если скелет убежал дальше допустимого радиуса от центра
+            -- =========================================================================
+            -- 🦾 WOW/BG3 КАНОН ХИТБОКСОВ БЛИЖНЕГО БОЯ (ИНТЕГРИРОВАНО НАМЕРТВО):
+            -- =========================================================================
+            -- Если это способность ближнего замаха (ренж меньше 80 пикселей),
+            -- мы легально расширяем зону атаки на СУММУ РАДИУСОВ ОБОИХ участников боя!
+            if base_range < 80 then
+                local caster_radius = (caster.hitbox_size or 64) / 2
+                local target_radius = (target.hitbox_size or 64) / 2
+
+                -- Формула: Радиус_Кастера + Радиус_Цели + Базовый_Замах
+                max_allowed_range = caster_radius + target_radius + base_range
+            else
+                -- 📐 ТВОЙ СВЯТОЙ ОБМАН ДЛЯ ДАЛЬНЕГО БОЯ (Frostbolt 350):
+                -- Для магии хитбокс самого мага не важен, но большая туша босса 
+                -- должна ловить стрелу своим краем, поэтому добавляем только радиус цели!
+                local target_radius = (target.hitbox_size or 64) / 2
+                max_allowed_range = base_range + target_radius
+            end
+            -- =========================================================================
+
+            -- Если цель убежала дальше рассчитанного Meadows-лимита
             if dist > max_allowed_range then
-                return false, "OUT_OF_RANGE" -- СЛИШКОМ ДАЛЕКО!
+                return false, "OUT_OF_RANGE"
             end
         end
     end
@@ -413,64 +412,6 @@ function M.check_cast_possibility(caster, ability_id, target)
     -- Способность полностью легальна, Meadows-конвейер чист!
     return true, nil
 end
-
-
--- ---Титановый ААА-Валидатор Способностей (WoW-канон Spell::CheckCast)
--- ---@param caster_uid string UID того, кто кастует ("player" или UID моба)
--- ---@param ability_id string ID способности ("frostbolt")
--- ---@param target_uid string|nil UID цели
--- ---@return boolean is_possible Можно ли применить?
--- ---@return string|nil error_reason Строковый ключ ошибки ("OUT_OF_RANGE", "NO_TARGET", "NO_MANA")
--- function M.check_cast_possibility(caster_uid, ability_id, target_uid)
---     -- 1. Вытаскиваем статический чертеж способности из твоей базы абилок
---     local cfg = abilities_db.get_ability(ability_id)
---     if not cfg then return false, "UNKNOWN_ABILITY" end
---
---     -- 2. Находим RAM-паспорт кастера во вселенной Meadows
---     local caster = game_state.get_entity_by_uid(caster_uid)
---     if not caster then return false, "NO_CASTER" end
---
---     -- 3. ГВАРД РЕСУРСОВ: Проверяем ману персонажа
---     if cfg.cost and cfg.cost.resource == "mana" then
---         if (caster.mana or 0) < (cfg.cost.value or 0) then
---             return false, "NO_MANA" -- НЕДОСТАТОЧНО МАНЫ!
---         end
---     end
---
---     -- 4. ГВАРД НАЛИЧИЯ ЦЕЛИ И RANGE ДАЛЬНОСТИ ПО ТВОЕМУ КАНОНУ (ИСПРАВЛЕНО НАМЕРТВО):
---     if cfg.requires_target then
---         -- КЕЙС А: Способность требует цель, а в руках пусто -> Нужна цель!
---         if not target_uid or target_uid == "" then
---             return false, "NO_TARGET"
---         end
---
---         -- КЕЙС Б: Цель есть -> Считаем расстояние в RAM-мире
---         local target_unit = game_state.get_entity_by_uid(target_uid)
---         if not target_unit then return false, "INVALID_TARGET" end
---
---         local player_pos = caster.saved_position
---         local target_pos = target_unit.saved_position
---
---         if player_pos and target_pos then
---             -- Считаем чистую Meadows-дистанцию в пикселях между центрами в RAM
---             local dist = vmath.length(target_pos - player_pos)
---
---             -- 📐 ТВОЙ СВЯТОЙ ОБМАН ХИТБОКСА:
---             -- Вытаскиваем hitbox_size из твоего конфига монстра (например, 64)
---             -- Делим пополам (32 пикселя радиуса) и легально расширяем дальность!
---             local target_radius = (target_unit.hitbox_size or 0) / 2
---             local max_allowed_range = (cfg.range or 0) + target_radius
---
---             -- Если скелет убежал дальше допустимого радиуса от центра
---             if dist > max_allowed_range then
---                 return false, "OUT_OF_RANGE" -- СЛИШКОМ ДАЛЕКО!
---             end
---         end
---     end
---
---     -- Способность полностью легальна, Meadows-конвейер чист!
---     return true, nil
--- end
 
 return M
 

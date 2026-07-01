@@ -64,7 +64,6 @@ function M:init(template_id, player_inventory)
 end
 
 function M:refresh()
-    print('INVENTORY static_grid refresh')
     self.static_grid:refresh()
 end
 

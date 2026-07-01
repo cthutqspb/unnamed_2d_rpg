@@ -99,7 +99,7 @@ function M:add_item(item_id, amount, uid, sub_items, is_looted, loot_table_id) -
 
         if not slot or not slot.item_id then
             local add = math.min(remaining, max_stack)
-            print("IS LOOTED FROM INVENTORY MODEL", is_looted, loot_table_id)
+
             local new_item = {
                 item_id = item_hash,
                 amount = add,

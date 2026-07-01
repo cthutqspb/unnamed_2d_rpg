@@ -4,6 +4,7 @@ local combat_manager = require("main.modules.system.combat_manager")
 local items_db = require("main.modules.data.items_db")
 local character_data = require("main.modules.character.character_data")
 local unit_logic = require("main.modules.unit.logic.unit_logic")
+local units_state = require("main.modules.game_state.units_state")
 
 ---@class ActionPayload
 ---@field slot_index number|string|nil Индекс слота (число для сумки, строка для куклы)
@@ -180,73 +181,6 @@ M.REDUCERS = {
         )
     end,
 
-
-    -- === СЛАЙС 2: ГЛОБАЛЬНЫЕ ДЕЙСТВИЯ В МИРЕ (context_menu_action по объектам) ===
-    -- ["container_open"] = function(data)
-    --     -- ВЕТКА А: Бочка стоит на земле Meadows (Есть физический ID тела)
-    --     if data.target_go_id then
-    --         msg.post(data.target_go_id, "click")
-    --
-    --     -- 🎯 ВЕТКА Б: БОЧКА В КАРМАНЕ (Твой нативный чистый msg.post):
-    --     -- Если физического ID нет, но прилетел slot_index — значит, открываем Матрёшку из рюкзака!
-    --     -- Шлём Си-сигнал напрямую в GUI окна контейнеров, передавая паспорт ячейки.
-    --     elseif data.slot_index then
-    --         msg.post("game_scene:/world#world", "prepare_pocket_container", {
-    --             container_uid = data.target_uid,
-    --             item_id = data.item_id,
-    --             slot_index = data.slot_index,
-    --             unit_uid = data.unit_uid or "player"
-    --         })
-    --         print("КОНТРОЛЛЕР [Dispatcher]: Запрос Бэкенду на генерацию лута в карманной бочке. Слот: " .. data.slot_index)
-    --     end
-    -- end,
-
-    -- ["container_open_world"] = function(data)
-    --  -- =========================================================================
-    --     -- 🦾 1. ТВОЙ РОДНОЙ, ПЛОСКИЙ И КРИСТАЛЬНО ЧИСТЫЙ КОД (БЕЗ ЛАПШИ И ИМПОРТОВ!)
-    --     -- =========================================================================
-    --     -- Мы работаем strictly с тем, что прислал бэкенд в payload. 
-    --     -- Никаких require стейтов и никаких выдуманных регистраторов контейнеров!
-    --     local instance = data.instance_data
-    --     local cfg = data.db_cfg
-    --     if not instance then return end
-    --
-    --     -- Если в персистентной таблице сундука на земле лута еще нет — генерируем один раз!
-    --     if not instance.items then
-    --         local final_loot_id = instance.loot_table_id or "empty"
-    --         if final_loot_id == "" or final_loot_id == "unknown" then
-    --             final_loot_id = "empty"
-    --         end
-    --
-    --         print("🎲 ДИСПЕТЧЕР: Первая ленивая генерация лута по таблице:", final_loot_id)
-    --         -- Импорт loot_tables в диспетчере у тебя был разрешен изначально
-    --         local generated_loot = loot_tables.get_loot(hash(final_loot_id)) or {}
-    --         instance.items = generated_loot
-    --     end
-    --
-    --     -- =========================================================================
-    --     -- 🦾 2. ПРЯМАЯ ОТПРАВКА СЫРЫХ ДАННЫХ В GUI ЧЕРЕЗ MSG.POST
-    --     -- =========================================================================
-    --     -- Диспетчер вообще не создает никаких ООП-моделей! Метатаблицы все равно сотрутся.
-    --     -- Он просто шлет плоский массив предметов сундука прямо в окно лута!
-    --     msg.post("main:/container_window#gui", "open_container_window", {
-    --         container_uid = data.uid,
-    --         container_id = hash(data.id),
-    --         container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
-    --         entity_type = data.entity_type,
-    --         columns = cfg and cfg.columns or 6,
-    --         rows = cfg and cfg.rows or 4,
-    --         position = data.position,
-    --         player_pos = go.get_position("game_scene:/player"),
-    --
-    --         -- 🎯 ПЕРЕДАЕМ ЖИВОЙ МАССИВ ПРЕДМЕТОВ С ЗЕМЛИ:
-    --         -- Окно лута примет этот плоский массив и само обернет его в зрячую модель!
-    --         container_items = instance.items
-    --     })
-    -- end,
-
-        -- Внутри actions_dispatcher.lua в таблице REDUCERS:
-
     -- =========================================================================
     -- 🦾 УНИВЕРСАЛЬНЫЙ ААА-РЕДЬЮСЕР ОТКРЫТИЯ ЛЮБЫХ КОНТЕЙНЕРОВ (ЗАФИКСИРОВАНО)
     -- =========================================================================
@@ -271,7 +205,7 @@ M.REDUCERS = {
         end
 
         if not instance then
-            print("🚨 ДИСПЕТЧЕР [container_open]: Критическая ошибка! Данные инстанса сундука пусты!") 
+            print("🚨 ДИСПЕТЧЕР [container_open]: Критическая ошибка! Данные инстанса сундука пусты!")
             return
         end
 
@@ -310,17 +244,35 @@ M.REDUCERS = {
         end
     end,
 
+    ["item_add"] = function(payload)
+        -- 🚀 ЧИСТЫЙ ААА-МАРШРУТИЗАТОР (ТOНКИЙ РOУТEР):
+        -- Диспетчер выполняет свой контракт импортов! Он просто берет плоский payload
+        -- и перенаправляет его в легальный метод памяти units_state, скармливая ему
+        -- токен активного героя сессии character_data.PLAYER_UID!
+        units_state.add_unit_item(
+            character_data.PLAYER_UID, -- Наш контролируемый маг ("player" / "Arthas")
+            payload.item_id,
+            payload.amount,
+            payload.uid,
+            payload.items,
+            payload.is_looted,
+            payload.loot_table_id
+        )
+    end,
+
     -- === СЛАЙС 3: БОЕВОЙ ТАРГЕТИНГ И ПАНЕЛИ СПОСОБНОСТЕЙ ===
     ["action_bar_assign"] = function(data)
-        local target_unit = character_data.player
+        -- 🚀 ПОЛНЫЙ ААА-ПОЛИМОРФИЗМ (UNIT_LOGIC ВЫЖЖЕН ДОТЛА):
+        -- Диспетчер вызывает метод строго на модуле памяти units_state!
+        -- Мы скармливаем мутатору вечный токен сессии активного героя character_data.PLAYER_UID!
+        -- data.action_id пуленепробиваемо подхватит и спеллы, и шмотки из инвентаря!
 
-        -- Перенаправляем чистый payload в метод мутации памяти
-        unit_logic.set_action_bar_slot(
+        units_state.set_action_bar_slot(
+            character_data.PLAYER_UID,  -- "player" или имя сессии "Arthas"
             data.target_bar_index,
             data.target_slot_index,
-            data.drag_type, -- "ablity / "item" / "empty"
-            data.action_id,  -- "melee_attack" / "frostbolt" / nil
-            target_unit
+            data.drag_type,             -- "ability" / "item" / "empty"
+            data.action_id or data.item_id -- Наш строковый ID умения/вещи
         )
     end,
 
@@ -334,10 +286,8 @@ M.REDUCERS = {
 
         -- 2. Если прожали способность — отдаем управление в CombatManager!
         if data.drag_type == "ability" then
-            -- Забираем чистый Си-хэш текущего таргета из твоего геттера
-            local target_go_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
             -- Пинаем комбат менеджер выполнить автоатаку или спелл
-            combat_manager.execute_ability("player", target_go_id, data.action_id)
+            combat_manager.execute_ability(data.caster_uid, data.target_uid, data.action_id)
         end
     end,
 

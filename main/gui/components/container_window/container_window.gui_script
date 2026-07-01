@@ -8,6 +8,7 @@ local window_manager = require("main.gui.components.managers.window_manager")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local items_db = require("main.modules.data.items_db")
 local game_state = require("main.modules.game_state.game_state")
+local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 local inventory_model = require("main.modules.models.inventory_model")
 local loot_tables = require("main.modules.data.loot_tables")
@@ -87,8 +88,8 @@ function on_message(self, message_id, message, sender)
         -- Извлекаем вечную, персистентную Lua-таблицу карточки из Single Source of Truth
         if message.from_inventory and message.slot_index then
             -- Бочка в кармане: достаем её «Душу» прямо из объектного рюкзака игрока в RAM!
-            local player_data = game_state.get_player_data()
-            local player_live_inventory = player_data and player_data.inventory
+            local player = character_data.player
+            local player_live_inventory = player and player.inventory
             container_data = player_live_inventory and player_live_inventory:get_item(message.slot_index)
         else
             -- Сундук на земле Meadows: дергаем вечный стейт через game_state по UID!
@@ -244,9 +245,9 @@ function on_message(self, message_id, message, sender)
         local item_cfg = items_db.get_item(item_id)
 
         -- 🦾 Извлекаем из RAM-паспорта игрока его живые инвентарь и куклу
-        local player_data = game_state.get_player_data()
-        local live_inventory = player_data and player_data.inventory
-        local live_paperdoll = player_data and player_data.paperdoll
+        local player = character_data.player
+        local live_inventory = player and player.inventory
+        local live_paperdoll = player and player.paperdoll
 
         if item and item_cfg then
             local is_equippable = item_cfg.equip_slot and item_cfg.equip_slot ~= ""
@@ -378,8 +379,8 @@ function on_message(self, message_id, message, sender)
                 print("🔍 GUI [Container]: Зряче проверяем рюкзак на наличие бочки UID:", current_uid)
 
                 -- Лезем в Single Source of Truth — в живой рюкзак мага в RAM
-                local player_data = game_state.get_player_data()
-                local player_inv = player_data and player_data.inventory
+                local player = character_data.player
+                local player_inv = player and player.inventory
 
                 -- Проверяем, осталась ли вообще эта бочка внутри карманов нашего мага
                 local is_still_in_backpack = false

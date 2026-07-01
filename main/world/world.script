@@ -1,6 +1,7 @@
 local window_manager = require("main.gui.components.managers.window_manager")
 local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
+local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
 local world_items_state = require("main.modules.game_state.world_items_state")
 local game_state = require("main.modules.game_state.game_state")
@@ -10,6 +11,7 @@ local camera = require("orthographic.camera")
 local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 local interaction_manager = require("main.modules.logic.interaction_manager")
+local perception_manager = require("main.modules.system.perception_manager")
 
 ---@class WorldScriptInstance
 ---@field player_direction number Направление взгляда игрока (-1 или 1)
@@ -18,6 +20,7 @@ local interaction_manager = require("main.modules.logic.interaction_manager")
 ---@field last_player_x number
 ---@field last_player_y number
 ---@field last_action table|nil
+---@field perception_timer number
 
 ---Внутренний изолированный метод проверки коллизий под курсором (Рейкаст)
 ---@private
@@ -103,6 +106,7 @@ function init(self)
     self.last_player_x = 0
     self.last_player_y = 0
     self.last_action = nil
+    self.perception_timer = 0.1
     -- Запрашиваем фокус ввода для отлова системных бродкастов и кликов по карте
     msg.post(".", "acquire_input_focus")
 end
@@ -121,11 +125,11 @@ function update(self, dt)
         return
     end
 
-    local current_player_pos = character_data.player.saved_position
-    if not current_player_pos or not self.last_action then return end
+    local current_player_position = character_data.player.saved_position
+    if not current_player_position or not self.last_action then return end
 
     -- Проверяем, сдвинулся ли персонаж на клавиатуре
-    local player_moved = (current_player_pos.x ~= self.last_player_x) or (current_player_pos.y ~= self.last_player_y)
+    local player_moved = (current_player_position.x ~= self.last_player_x) or (current_player_position.y ~= self.last_player_y)
 
     if player_moved then
         -- Пересчитываем координаты (мир ушел, world_pos теперь другой!)
@@ -139,12 +143,20 @@ function update(self, dt)
         check_hover(self, gui_pos, world_pos)
 
         -- Запоминаем новую позицию игрока
-        self.last_player_x = current_player_pos.x
-        self.last_player_y = current_player_pos.y
+        self.last_player_x = current_player_position.x
+        self.last_player_y = current_player_position.y
     end
 
-    if game_state and game_state.update_all_timers then
+    self.perception_timer = (self.perception_timer or 0.1) - dt
+
+     if game_state and game_state.update_all_timers then
         game_state.update_all_timers(dt)
+    end
+
+    -- Независимый Си-тикер перцепции: тикает раз в 0.1 сек, разгружая CPU на 1000%!
+    if self.perception_timer <= 0 then
+        perception_manager.update_threat_perception()
+        self.perception_timer = 0.1
     end
 end
 
@@ -208,7 +220,7 @@ function on_message(self, message_id, message, sender)
             -- =====================================================================
             -- ВЕТКА А: Дроп из кармана Игрока (Переносим готовый живой массив шмоток)
             -- =====================================================================
-            if source_type == "player" then
+            if source_type == character_data.PLAYER_UID or source_type == "player" then
                 world_item.items = message.items
                 world_item.is_looted = message.is_looted or false
                 world_item.loot_table_id = "empty"
@@ -258,15 +270,25 @@ function on_message(self, message_id, message, sender)
         end
 
         -- Передаем данные в инвентарь игрока
-        broadcast.send("inventory_events", {
-            message_id = hash("add_item"),
+        -- broadcast.send("inventory_events", {
+        --     message_id = hash("add_item"),
+        --     item_id = message.item_id,
+        --     amount = message.amount,
+        --     uid = message.uid, -- 🎯 ПРОБРОС ПАСПОРТА! 
+        --     items = container_data and container_data.items or nil, -- Если бочку уже обыскивали на земле, её лут поедет в карман!
+        --     is_looted = container_data and container_data.is_looted or nil,
+        --     loot_table_id = message.loot_table_id or "empty"
+        -- })
+
+        actions_dispatcher.REDUCERS["item_add"]({
             item_id = message.item_id,
             amount = message.amount,
-            uid = message.uid, -- 🎯 ПРОБРОС ПАСПОРТА! 
-            items = container_data and container_data.items or nil, -- Если бочку уже обыскивали на земле, её лут поедет в карман!
+            uid = message.uid,
+            items = container_data and container_data.items or nil,
             is_looted = container_data and container_data.is_looted or nil,
             loot_table_id = message.loot_table_id or "empty"
         })
+
         -- Удаляем физический Game Object с карты
         go.delete(sender)
 
@@ -306,7 +328,6 @@ function on_message(self, message_id, message, sender)
         local item_data = player_inv:get_item(slot_index)
 
          if item_data then
-            print('is_looted', item_data.is_looted)
             if not item_data.is_looted then
                 print('ХЕР ЕСЛИ ЛУТАЛИ')
                 local final_loot_id = item_data.loot_table_id or item_id or "empty"
@@ -342,7 +363,6 @@ function on_message(self, message_id, message, sender)
 
             -- Регистрируем этот живой объектный инстанс внутренностей бочки в фокус интерфейсов!
             -- Теперь трансфер-менеджер подхватит его по Duck Typing через .get_item / .set_item!
-            
             interaction_manager.set_focus(container_instance)
 
             -- Даем команду GUI-окну на отрисовку, прокидывая саму объектную модель в оверрайд!
@@ -442,7 +462,20 @@ function on_input(self, action_id, action)
         local active_id = self.current_hover_id
 
         if active_id then
-             msg.post(active_id, "click")
+            -- 🟢 КЕЙС А: Кликнули ПО ОБЪЕКТУ (Сундук, Лут, Скелет)
+            -- Объект перехватывает клик, маг бежит к нему, боевой таргет НЕ СБРАСЫВАЕТСЯ!
+            msg.post(active_id, "click")
+        else
+            -- =========================================================================
+            -- 🌱 КЕЙС Б: КЛИКНУЛИ ПО ЧИСТОЙ ТРАВЕ (ДОБАВЛЕНО НАМЕРТВО ПО WoW-КАНОНУ):
+            -- =========================================================================
+            -- Раз active_id равен nil — под курсором мыши абсолютно пустая земля!
+            -- Мы пуленепробиваемо гасим боевую цель мага в RAM через пассивный шлюз!
+            if interaction_manager and interaction_manager.clear_target then
+                interaction_manager.clear_target()
+                print("🌱 WORLD_SCRIPT: Клик по чистой траве. Боевая цель мага сброшена.")
+            end
+            -- =========================================================================
         end
     end
 

@@ -42,9 +42,9 @@ function init(self)
     local string_rank = interactions.clean_id(self.unit_rank) or "common"
     local string_type = interactions.clean_id(self.unit_type) or ""
     local string_loot_table_id = interactions.clean_id(self.loot_table_id) or "empty"
-
+    print("STRING UID 1:", string_uid)
     -- Если UID пустой (моб стоит изначально в редакторе), генерируем его по координатам
-    if self.uid == hash("") or string_uid == "" then
+    if self.uid == hash("") or string_uid == "" or string.find(string_uid, "unknown") then
         string_uid = string.format(
             "c_%d_%d",
             math.floor(self.spawn_position.x + 0.5), -- 🛡️ Честное округление до ближайшего целого
@@ -85,7 +85,7 @@ function init(self)
         if saved_data and saved_data.saved_position then
             baked_position = saved_data.saved_position
         end
-
+        print("STRING UID", string_uid)
         map_config.bake_entity(
             dynamic_chunk_id,
             string_uid,

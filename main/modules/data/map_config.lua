@@ -29,6 +29,7 @@ M.baked_entities = {
 ---@param entity_data table Кастомный мешок свойств из инспектора Defold {id, level, rank}
 ---@param pos vector3 Мировые координаты спавна из редактора
 function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
+    print("ENTITY ID: ", entity_uid)
     if not M.baked_entities[zone_id] then
         M.baked_entities[zone_id] = {}
     end

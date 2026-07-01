@@ -16,7 +16,6 @@ function init(self)
 
     self.broadcast_handler = function(data)
         if data.message_id == hash("inventory_changed") then
-            print("GET BRODCAST IN INVENTORY")
             self.inventory_window:refresh()
         end
     end

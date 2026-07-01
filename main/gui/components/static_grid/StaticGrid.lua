@@ -3,7 +3,6 @@ local Interactions = require("main.gui.components.static_grid.static_grid_intera
 local component = require("druid.component")
 local static_grid = require("druid.base.static_grid")
 local drag_manager = require("main.gui.components.managers.drag_manager")
-local interaction_manager = require("main.modules.logic.interaction_manager")
 
 ---@class StaticGridConfigTable
 ---@field data_source table|nil Модель данных инвентаря/сундука
@@ -184,24 +183,7 @@ end
 ---Получить текущую модель данных с жесткой защитой доменов (WoW-канон)
 ---@return table|nil
 function M:get_data_source()
-    -- Если сорс явно задан в self.data_source — отдаем его без разговоров
-    if self.data_source then
-        return self.data_source
-    end
-
-    -- 🧱 ТИТАНОВАЯ ЗАЩИТА ОТ ЛOЖНOГO ДРAГA ПРEДМEТOВ:
-     -- Если это боевая панель способностей и у неё взведен индекс (1, 2 или 3),
-    -- она САМА идёт в interaction_manager и забирает нужный массив!
-    if self.grid_type == "action_bar" and self.bar_index then
-        return interaction_manager.get_player_action_bar(self.bar_index)
-    end
-
-    -- if self.grid_type == "action_bar" then
-    --     return nil
-    -- end
-
-    -- Только если это чистокровная сумка инвентаря, возвращаем рюкзак по умолчанию
-    return nil
+    return self.data_source
 end
 
 ---Универсальный геттер сырых данных ячейки (Инвентарь vs Экшен-бар)
@@ -322,7 +304,7 @@ end
 ---@param bind_color vector4|nil Цвет для текста хоткея (или nil, если не менять)
 function M:set_slot_colors(index, icon_color, bind_color)
     if not self.slots then return end
-    
+
     -- Вытаскиваем закэшированные Си-ноды конкретной ячейки из структуры
     local slot = self.slots[index]
     if not slot then return end
