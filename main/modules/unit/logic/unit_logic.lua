@@ -155,7 +155,7 @@ function M.consume_absorb_shield(incoming_damage, unit)
     end
 end
 
----Применить получение ОЧИЩЕННОГО урона ЛЮБЫМ существом во вселенной (WoW/Pathfinder канон)
+---применить получение очищенного урона лЮБЫМ существом во вселенной (WoW/Pathfinder канон)
 ---@param final_amount number Количество дамага, который уже пробил все щиты и спасалки
 ---@param unit UnitInstanceData|nil 🎯 ОПЦИОНАЛЬНО: Паспорт цели, получающей урон
 function M.take_damage(final_amount, unit)
@@ -180,22 +180,12 @@ function M.take_damage(final_amount, unit)
         print("💤 БЭКЕНД: ИГРОК БЕЗ СОЗНАНИЯ (Отрицательное ХП):", unit.health)
     end
 
-    -- 🎯 MVC-РАЗВОД СИГНАЛОВ ИНТЕРФЕЙСА:
-    if unit.is_player then
-        -- Если урон получил игрок — шлем бродкаст на его HUD
-        broadcast.send("player_events", {
-            message_id = hash("update_health"),
-            percentage = math.max(0, unit.health) / unit.max_health
-        })
-    else
-        -- 🦾 Если урон получил моб — пуляем реактивный сигнал на сочный RimWorld-покрас 
-        -- спрайта в красный цвет и мгновенное обновление полоски его Nameplate над головой!
-        broadcast.send("unit_events", {
-            message_id = hash("unit_damaged"),
-            uid = unit.uid,
-            percentage = math.max(0, unit.health) / unit.max_health
-        })
-    end
+    -- 🦾 Если урон получил моб — пуляем реактивный сигнал на сочный RimWorld-покрас 
+    -- спрайта в красный цвет и мгновенное обновление полоски его Nameplate над головой!
+    broadcast.send("unit_events", {
+        message_id = hash("unit_health_changed"),
+        uid = unit.uid
+    })
 
     M.update_derived_stats(unit)
 end
@@ -358,7 +348,7 @@ function M.check_cast_possibility(caster, ability_id, target)
 
     -- 3. ГВАРД РЕСУРСОВ: Хладнокровно проверяем ману персонажа
     if cfg.cost and cfg.cost.resource == "mana" then
-        if (caster.mana or 0) < (cfg.cost.value or 0) then
+        if (caster.resource.current or 0) < (cfg.cost.value or 0) then
             return false, "NO_MANA" -- НЕДОСТАТОЧНО МАНЫ!
         end
     end

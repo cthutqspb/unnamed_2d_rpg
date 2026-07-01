@@ -45,7 +45,7 @@ nodes {
     z: 0.101960786
   }
   type: TYPE_BOX
-  id: "target_level_background"
+  id: "unit_level_background"
   pivot: PIVOT_W
   parent: "root"
   size_mode: SIZE_MODE_AUTO
@@ -57,9 +57,9 @@ nodes {
   }
   type: TYPE_TEXT
   font: "font_regular_18"
-  id: "target_level"
+  id: "unit_level"
   pivot: PIVOT_W
-  parent: "target_level_background"
+  parent: "unit_level_background"
   inherit_alpha: true
 }
 nodes {
@@ -72,7 +72,7 @@ nodes {
   }
   type: TYPE_TEXT
   font: "font_regular_18"
-  id: "target_name"
+  id: "unit_name"
   pivot: PIVOT_W
   parent: "root"
 }
@@ -106,27 +106,27 @@ nodes {
 }
 nodes {
   type: TYPE_TEMPLATE
-  id: "mana_bar"
+  id: "resource_bar"
   parent: "root"
   inherit_alpha: true
-  template: "/main/gui/components/mana_bar/mana_bar.gui"
+  template: "/main/gui/components/resource_bar/resource_bar.gui"
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/root"
-  parent: "mana_bar"
+  id: "resource_bar/root"
+  parent: "resource_bar"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/background"
-  parent: "mana_bar/root"
+  id: "resource_bar/background"
+  parent: "resource_bar/root"
   template_node_child: true
 }
 nodes {
   type: TYPE_BOX
-  id: "mana_bar/fill"
-  parent: "mana_bar/root"
+  id: "resource_bar/fill"
+  parent: "resource_bar/root"
   template_node_child: true
 }
 material: "/builtins/materials/gui.material"

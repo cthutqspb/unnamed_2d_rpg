@@ -12,10 +12,15 @@ function init(self)
     gui.set_enabled(gui.get_node("root"), false)
 
     local current_gui_url = msg.url()
-    self.on_combat_event = function(data)
-        if data.event == "unit_attacked" then
-            msg.post(current_gui_url, "unit_attacked", {
-                update_type = data.type,
+
+    -- 📬 СЛАЙС НЕЙМПЛЕЙТОВ: Ловим ЛЮБЫЕ изменения ХП во вселенной Meadows!
+    self.on_unit_event = function(data)
+        -- 🦾 WoW-КАНОН (UNIT_HEALTH_CHANGED):
+        -- Нам больше насрать на боевые эвенты комбат-менеджера! 
+        -- Как только у ЛЮБОГО существа (включая игрока) изменилось ХП в RAM,
+        -- мы асинхронно deferred-пересылаем месседж себе же в on_message кадра!
+        if data.message_id == hash("unit_health_changed") then
+            msg.post(current_gui_url, "unit_health_updated_deferred", {
                 uid = data.uid
             })
         end
@@ -27,11 +32,11 @@ function init(self)
         end
     end
     broadcast.subscribe("ui_events", self.on_ui_event)
-    broadcast.subscribe("combat_events", self.on_combat_event)
+    broadcast.subscribe("unit_events", self.on_unit_event)
 end
 
 function final(self)
-    broadcast.unsubscribe("combat_events", self.on_combat_event)
+    broadcast.unsubscribe("unit_events", self.on_unit_event)
 end
 
 function update(self, dt)
@@ -116,13 +121,18 @@ function on_message(self, message_id, message, sender)
     -- =========================================================================
     -- ⚔️ РЕАКТИВНЫЙ WoW-ОБРАБОТЧИК БОЕВЫХ СОБЫТИЙ ШИНЫ
     -- =========================================================================
-    if message_id == hash("unit_attacked") then
+    if message_id == hash("unit_health_updated_deferred") then
+        -- Находим живую плашку на экране по уникальному UID существа
         local plate = self.created_plates[message.uid]
-        print("PLATE UPDATE")
+        
         if plate and plate.instance then
+            -- 🧠 ЧИТАЕМ ИСТИННЫЙ СТEЙТ ИЗ ЦЕНТРАЛЬНОГО REЕСТРА RAM:
+            -- Вытаскиваем стопроцентно свежие цифры из Single Source of Truth!
             local unit_instance_data = units_state.get(message.uid)
 
             if unit_instance_data then
+                -- Монолитно синхронизируем полоску над головой! 
+                -- Теперь, когда скелеты будут пиздить мага, его плейт сочно поползет вниз!
                 plate.instance:update_state(unit_instance_data)
             end
         end

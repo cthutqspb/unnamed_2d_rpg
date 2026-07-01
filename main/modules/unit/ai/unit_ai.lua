@@ -71,7 +71,6 @@ PROFILES["aggressive_patrol"] = {
         -- Вместо чтения битых полей attack_range_melee из баз данных, ИИ знает:
         -- Ренж базовой автоатаки ближнего боя (melee_attack) во всей нашей вселенной 
         -- равен строго 12 пикселям! А базовый хитбокс Игрока-цели всегда равен 64 пикселям.
-        local melee_ability_range = 12
         local player_hitbox = 64
 
         -- 🧱 УЛЬТИМАТИВНАЯ ФOРМУЛА БЛИЖНEГO БOЯ (Сумма радиусов + Ренж умения):
@@ -81,7 +80,7 @@ PROFILES["aggressive_patrol"] = {
         local monster_radius = monster_hitbox / 2
         local player_radius = player_hitbox / 2
 
-        ctx.attack_range = monster_radius + player_radius + melee_ability_range
+        ctx.attack_range = monster_radius + player_radius
         ctx.primary_ability = monster_data and monster_data.abilities and monster_data.abilities[1] or "melee_attack"
 
         -- Скалирование зон видимости агро от габаритов туши (твой зрячий канон)
@@ -134,12 +133,6 @@ PROFILES["aggressive_patrol"] = {
         -- Дефолтные буферы-заглушки для фазы пассивного покоя (IDLE/PATROL)
         local target_position = vmath.vector3(0, 0, 0)
         local distance_to_target = 999999 -- цель бесконечно далеко, пока мы спим
-
-        -- 🎯 ДЕБАГ-СНАЙПЕР №1: Проверяем, видит ли ИИ моба прописанную менеджером цель!
-        if ctx.ai_target_uid then
-            print(string.format("🔍 [Debug AI Target Tick]: Моб [%s] в стейте [%s] видит цель-UID: [%s] | Паспорт в RAM найден = %s", 
-                ctx.uid, ctx.ai_state, tostring(ctx.ai_target_uid), tostring(target_unit ~= nil)))
-        end
 
         -- Если боевая цель реально существует в оперативной памяти RAM
         if target_unit and target_unit.saved_position then

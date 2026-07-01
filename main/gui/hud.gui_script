@@ -1,8 +1,7 @@
 local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local interaction_manager = require("main.modules.logic.interaction_manager")
-local PlayerFrame = require("main.gui.components.player_frame.PlayerFrame")
-local TargetFrame = require("main.gui.components.target_frame.TargetFrame")
+local UnitFrame = require("main.gui.components.unit_frame.UnitFrame")
 local ActionBar = require("main.gui.components.action_bar.ActionBar")
 local CastBar = require("main.gui.components.cast_bar.CastBar")
 local game_state = require("main.modules.game_state.game_state")
@@ -19,7 +18,7 @@ local character_data = require("main.modules.character.character_data")
 ---@field is_shift_pressed boolean Системный флаг зажатия клавиши Shift
 ---@field on_inventory_event function Коллбэк для инвентарных бродкастов
 ---@field on_action_bar_event function
----@field on_player_event function Коллбэк для характеристик игрока
+---@field on_unit_event function Коллбэк для характеристик игрока
 ---@field on_ui_event function Коллбэк для системных отмен фокусов и окон
 ---@field on_target_event function
 ---@field on_combat_event function
@@ -32,8 +31,11 @@ function init(self)
     defos.set_cursor_visible(false)
     -- Стилизованный курсор
 
-    self.player_frame = self.druid:new(PlayerFrame, "player_frame")
-    self.target_frame = self.druid:new(TargetFrame, "target_frame")
+    -- self.player_frame = self.druid:new(UnitFrame, "player_frame")
+    -- self.target_frame = self.druid:new(TargetFrame, "target_frame")
+    self.player_frame = self.druid:new(UnitFrame, "player_frame")
+    self.target_frame = self.druid:new(UnitFrame, "target_frame")
+    -- self.pet_frame    = self.druid:new(UnitFrame, "pet_frame",    { unit_token = "pet" }) -- Задел под призванного скелета!
     self.action_bar = self.druid:new(
         ActionBar,
         "action_bar",
@@ -64,29 +66,19 @@ function init(self)
         end
     end
 
-    -- 📬 СЛАЙС 2: 🎯 ЧИСТОЕ РЕАКТИВНОЕ РЕШЕНИЕ ХП (player_events)
-    -- Анонимная функция поймала бродкаст и просто перенаправила его себе же 
-    -- через msg.post, чтобы движок Defold на следующем кадре безопасно переключил графический контекст!
-    self.on_player_event = function(data)
-        if data.message_id == hash("update_health") then
-            msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.percentage })
-        elseif data.message_id == hash("update_resource") then
-            -- Берем нашего живого мага прямо из Source of Truth
-            local player = character_data.player
-            if player then
-                -- Динамически вычисляем процент для ЛЮБОГО ресурса (mana, rage, energy) в одну строчку!
-                local res_name = data.resource -- "mana"
-                local max_res_name = "max_" .. res_name -- "max_mana"
+    -- 📬 СЛАЙС 2: 🎯 ЧИСТОЕ РЕАКТИВНОЕ РЕШЕНИЕ ХП И РЕСУРСОВ (unit_events)
+    self.on_unit_event = function(data)
+        -- 🦾 ЕДИНЫЙ ШЛЮЗ ИЗМЕНЕНИЯ ЗДОРОВЬЯ ВСЕЛЕННОЙ Meadows:
+        if data.message_id == hash("unit_health_changed") or data.message_id == hash("unit_resource_changed") then
 
-                local current_val = player[res_name] or 0
-                local max_val = player[max_res_name] or 100
-                local percentage = current_val / max_val
-
-                -- Сочно deferred-обновляем ману на экране!
-                msg.post("main:/gui_manager#hud", "update_mana_deferred", { percentage = percentage })
+            -- Пинаем рамку игрока, явно скармливая ей токен сессии из character_data!
+            if data.uid == character_data.PLAYER_UID then
+                msg.post("main:/gui_manager#hud", "refresh_player_frame_deferred", { uid = data.uid })
             end
-        elseif data.message_id == hash("player_data_loaded") then
-            msg.post("main:/gui_manager#hud", "update_health_deferred", { percentage = data.health_percentage })
+
+            -- 🚀 ЧИСТЫЙ ПРОБРОС ДЛЯ ТАРГЕТ-ОКНА (ИСПРАВЛЕНО):
+            -- Вычистили гнойный мусор из ключа! Теперь передается стерильный update_type!
+            msg.post("main:/gui_manager#hud", "target_update", { update_type = "damage", uid = data.uid })
         end
     end
 
@@ -101,21 +93,20 @@ function init(self)
     -- =========================================================================
     -- 📬 СЛАЙС 4: БОЕВОЙ ТАРГЕТИНГ ПО КAНOНУ (target_events)
     -- =========================================================================
-    -- Берем строго ОДИН аргумент data, полностью убирая краш nil-value!
-    -- Прокидываем данные через msg.post, гарантируя стабильность графического контекста!
     self.on_target_event = function(data)
         if data.message_id == hash("target_changed") then
-            msg.post("main:/gui_manager#hud", "target_changed_deferred", { uid = data.uid, go_id = data.go_id })
+            -- 🚀 ЧИСТЫЙ СИГНАЛ (ИСПРАВЛЕНО): вычистили мусорные склейки из комментария
+            -- Ловим чистый сигнал смены цели и асинхронно deferred-пробрасываем в кадр!
+            msg.post("main:/gui_manager#hud", "target_changed_deferred", { uid = data.uid })
+
         elseif data.message_id == hash("target_lost") then
+            -- Ловим чистый сигнал потери цели и deferred-гасим плашку на экране!
             msg.post("main:/gui_manager#hud", "target_lost_deferred")
         end
     end
 
     self.on_combat_event = function (data)
-        print("ON on_combat_event !!!", data.event)
-
         if data.event == "unit_attacked" then
-            print("unit_damaged !!!")
             msg.post("main:/gui_manager#hud", "target_update", { update_type = data.type, uid = data.uid })
 
         elseif data.message_id == hash("global_cooldown_started") then
@@ -127,10 +118,18 @@ function init(self)
     -- Оформляем подписки на наши Redux-каналы
     broadcast.subscribe("inventory_events", self.on_inventory_event)
     broadcast.subscribe("action_bar_events", self.on_action_bar_event)
-    broadcast.subscribe("player_events", self.on_player_event)
+    broadcast.subscribe("unit_events", self.on_unit_event)
     broadcast.subscribe("ui_events", self.on_ui_event)
     broadcast.subscribe("combat_events", self.on_combat_event)
     broadcast.subscribe("target_events", self.on_target_event)
+
+    if self.player_frame and self.player_frame.refresh_frame then
+        self.player_frame:refresh_frame(character_data.PLAYER_UID)
+    end
+
+    if self.action_bar and self.action_bar.refresh then
+        self.action_bar:refresh()
+    end
 
     print("HUD initialized successfully")
 end
@@ -140,33 +139,36 @@ end
 ---@param message table
 ---@param sender url
 function on_message(self, message_id, message, sender)
-  -- 🎯 ТИПИЗИРОВАННЫЙ ПРИЕМНИК: Отложенный безопасный апдейт графики ХП
-    if message_id == hash("update_health_deferred") then
-        --print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску ХП.")
-        self.player_frame:on_player_event(hash("update_health_deferred"), message)
+    if message_id == hash("refresh_player_frame_deferred") then
+        -- Передаем айдишник мага прямо в метод! Фрейм игрока обновится шёлком!
+        self.player_frame:refresh_frame(character_data.PLAYER_UID)
     end
 
-    if message_id == hash("update_mana_deferred") then
-        --print("HUD: Графический контекст восстановлен аппаратно движком! Красим полоску МАНЫ.")
-        self.player_frame:on_player_event(hash("update_mana_deferred"), message)
-    end
-
-
-    -- 🎯 Б) ОТЛОЖЕННЫЙ БЕЗОПАСНЫЙ АПДЕЙТ ПЛАШКИ ТАРГЕТА:
-    -- Движок восстановил контекст кадра, теперь TargetFrame может легально
-    -- прочитать units_state.lua и плавно отрисовать лицо Скелета/Дракона!
+    -- 🎯 А) ИГРОК КЛИКНУЛ МЫШКОЙ ПО МОБУ (Смена Фокуса):
     if message_id == hash("target_changed_deferred") then
-        self.target_frame:on_target_event(hash("target_changed"), message)
+        -- Запечатали актуальный Си-ИНН жертвы в паспорт мага в RAM
+        -- Пулей скармливаем этот UID рамке цели! Она мгновенно сочно загорится на HUD!
+        self.target_frame:refresh_frame(message.uid)
     end
 
+    -- 🎯 Б) КЛИКНУЛИ В ПУСТОТУ / МОБ УМЕР (Потеря Фокуса):
     if message_id == hash("target_lost_deferred") then
-        self.target_frame:on_target_event(hash("target_lost"), nil)
+        -- Скармливаем nil — универсальный UnitFrame сам вежливо потухнет с экрана!
+        self.target_frame:refresh_frame(nil)
     end
 
+    -- 🎯 В) КТО-ТО ПОЛУЧИЛ ЛЮЛЕЙ В МИРЕ (Боевой Апдейт):
     if message_id == hash("target_update") then
-        self.target_frame:on_target_event(hash("target_update"), message)
-    end
+        -- Вытаскиваем, кто сейчас сидит в прицеле у нашего мага
+        local current_target_uid = character_data.player.combat_target_uid
 
+        -- 🛡️ ГВАРД АОЕ/КЛИВОВ (WoW-канон):
+        -- Мы обновляем плашку таргета strictly только в том случае, если UID побитого 
+        -- на бэкенде существа совпадает с тем мобом, на которого мы сейчас реально СМОТРИМ!
+        if current_target_uid and message.uid == current_target_uid then
+            self.target_frame:refresh_frame(current_target_uid)
+        end
+    end
 
     if message_id == hash("refresh_inventories") then
         msg.post("main:/character_window#gui", "refresh")
@@ -314,7 +316,7 @@ end
 function final(self)
     broadcast.unsubscribe("inventory_events", self.on_inventory_event)
     broadcast.unsubscribe("action_bar_events", self.on_action_bar_event)
-    broadcast.unsubscribe("player_events", self.on_player_event)
+    broadcast.unsubscribe("unit_events", self.on_unit_event)
     broadcast.unsubscribe("ui_events", self.on_ui_event)
     broadcast.unsubscribe("target_events", self.on_target_event)
     broadcast.unsubscribe("combat_events", self.on_combat_event)

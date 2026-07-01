@@ -159,11 +159,11 @@ function M.set_combat_state(unit_uid, victim_uid)
 end
 
 ---@param unit_uid string
----@param resource string
+---@param resource_type string
 ---@param cost number|nil
-function M.consume_unit_resource(unit_uid, resource, cost)
+function M.consume_unit_resource(unit_uid, resource_type, cost)
     if units_state and units_state.consume_unit_resource then
-        units_state.consume_unit_resource(unit_uid, resource, cost)
+        units_state.consume_unit_resource(unit_uid, resource_type, cost)
     end
 end
 

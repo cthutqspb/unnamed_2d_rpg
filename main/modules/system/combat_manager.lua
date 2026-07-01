@@ -51,36 +51,29 @@ function M.execute_ability(caster_uid, target_uid, ability_id)
     local cfg = abilities_db.get_ability(ability_id)
     if not cfg then return end
 
-    if cfg.cost then
-        local resource = cfg.cost.resource or "mana"
-        local value = cfg.cost.value or 0
-        if value > 0 and caster_unit and caster_unit.mana then
-            game_state.consume_unit_resource(caster_uid, resource, value)
-            print(string.format("💾 БЭКЕНД [Combat]: Юнит [%s] потратил %d %s. Осталось: %d",
-                caster_unit.uid, value, resource:upper(), caster_unit[resource] or 0))
-            -- Взрываем реактивный бродкаст во вселенную, чтобы PlayerFrame на HUD мгновенно обновил полоску маны!
-            -- =========================================================================
-            -- 🦾 УЛЬТИМАТИВНЫЙ РЕАКТИВНЫЙ БРОДКАСТ (ИСПРАВЛЕНО НАМЕРТВО):
-            -- =========================================================================
-            -- Проверяем: если ресурс потратил сам Игрок — мы дублируем вызов в канал player_events!
-            -- Никакой математики процентов тут нет! Мы просто передаем чистый payload, 
-            -- а твой HUD-контроллер поймает сигнал и deferred-обновит полоску маны/ярости!
-            if caster_unit.is_player then
-                broadcast.send("player_events", {
-                    message_id = hash("update_resource"), -- делаем универсальное имя вместо update_mana!
-                    resource = resource, -- "mana", "rage"
-                    unit_uid = caster_unit.uid
-                })
-            end
+   -- Внутри твоего комбат-менеджера на проверке стоимости заклинания:
 
-            -- В шину мира для Nameplates и Рамки Целей шлём сигнал всегда, как у тебя и было!
-            broadcast.send("unit_events", {
-                message_id = hash("unit_stats_changed"),
-                unit_uid = caster_unit.uid
-            })
-            -- =========================================================================    
+    if cfg.cost then
+        local resource_type = cfg.cost.resource or "mana"
+        local value = cfg.cost.value or 0
+        
+        -- 🦾 СТЕРИЛЬНЫЙ ГВАРД СТОИМОСТИ (ИСПРАВЛЕНО):
+        -- Проверяем: жив ли кастер, совпадает ли его тип ресурса с ценой заклинания, 
+        -- и хватает ли ему текущей энергии в RAM (.current) на совершение каста!
+        if value > 0 and caster_unit and caster_unit.resource and caster_unit.resource.type == resource_type then
+            if caster_unit.resource.current >= value then
+                
+                -- Пинаем наш зрячий мутатор памяти в units_state!
+                -- Вызов game_state меняем на units_state!
+                game_state.consume_unit_resource(caster_uid, resource_type, value)
+                
+            else
+                print("❌ БОЁВКА: Не хватает ресурса для каста заклинания!")
+                return false -- Отрезаем каст
+            end
         end
     end
+
 
     local min_dmg = cfg.damage and cfg.damage.min or DEFAULT_MIN_DAMAGE
     local max_dmg = cfg.damage and cfg.damage.max or DEFAULT_MAX_DAMAGE
@@ -154,6 +147,19 @@ end
 function M.apply_damage(caster_unit, target_unit, raw_damage)
     -- Жесткий Си-засов: если кто-то из участников испарился из памяти — рубим кадр
     if not caster_unit or not target_unit then return end
+
+    -- =========================================================================
+    -- 🦾 ПОЛИМОРФНАЯ ЗАПИСЬ ОБИДЧИКА В RAM-ПАСПОРТ (WoW Hate-List Канон):
+    -- =========================================================================
+    -- Нам глубоко насрать, кто кого бьет — игрок моба, моб игрока или скелет кабана!
+    -- Есть ФАКТ атаки по существу! И жертва (target_unit) пуленепробиваемо записывает 
+    -- в свое поле .last_attacker_uid уникальный строковый UID нападавшего (caster_unit.uid)!
+    -- 0 сообщений в скрипты, 0 бродкастов — чистая, мгновенная мутация ядра памяти в RAM!
+    if caster_unit.uid and caster_unit.uid ~= "" then
+        print("АТАКА ЮНИТА", target_unit.unit_id)
+        target_unit.last_attacker_uid = caster_unit.uid
+    end
+    -- =========================================================================
 
     local log_message = "Combat event occurred"
 

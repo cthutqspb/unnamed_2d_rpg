@@ -7,6 +7,7 @@
 ---@field base_health number Базовое здоровье на 1 уровне
 ---@field base_mana number|nil
 ---@field health_growth number Коэффициент роста ХП за каждый уровень (например, +15% это 1.15)
+---@field resource UnitResourceData
 ---@field damage_growth number Коэффициент роста урона за уровень
 ---@field base_speed number Базовая скорость перемещения в пикселях
 ---@field hitbox_size number
@@ -40,6 +41,11 @@ M.units = {
         },
         base_health = 40,
         health_growth = 1.12,     -- +12% здоровья за уровень
+        resource = {
+            type = "rage",
+            current = 0,
+            max = 100
+        },
         damage_growth = 1.06, -- +6% урона за уровень
         base_speed = 90,      -- скелеты ходят чуть медленнее игрока
         hitbox_size = 64,
@@ -65,6 +71,11 @@ M.units = {
         },
         base_health = 50,         -- ХП на 1 уровне
         health_growth = 1.15,     -- +15% ХП за каждый уровень
+        resource = {
+            type = "rage",
+            current = 0,
+            max = 100
+        },
         damage_growth = 1.08, -- +8% урона за уровень
         base_speed = 120,     -- базовая скорость бега
         hitbox_size = 64,
@@ -93,10 +104,15 @@ M.units = {
         },
         base_health = 420,
         health_growth = 1.12,     -- +12% здоровья за уровень
+        resource = {
+            type = "mana",
+            current = 0,
+            max = 100
+        },
         damage_growth = 1.2, -- +6% урона за уровень
         base_speed = 175,      -- скелеты ходят чуть медленнее игрока
         hitbox_size = 128,
-        spellcast_range = 120,
+        spellcast_range = 420,
         animation = "elder_green_dragon",
         texture = "project_utumno",
         ai_profile = "aggressive_patrol",

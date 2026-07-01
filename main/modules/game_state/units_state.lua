@@ -1,3 +1,4 @@
+local broadcast = require("main.modules.system.broadcast")
 local utils = require("main.modules.utils")
 local units_db = require("main.modules.data.units_db")
 local paperdoll_model = require("main.modules.models.paperdoll_model")
@@ -22,8 +23,7 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field is_collected boolean
 ---@field health number Текущее живое ХП в данный момент времени
 ---@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
----@field mana number|nil
----@field max_mana number|nil
+---@field resource UnitResourceData
 ---@field auras table|nil
 ---@field damage number Рассчитанный урон с учетом уровня
 ---@field speed number Скорость перемещения
@@ -44,6 +44,7 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field paperdoll PaperdollInstance
 ---@field inventory InventoryInstance
 ---@field is_in_combat boolean Флаг нахождения в бою (активирует боевой реген маны/ХП)
+---@field last_attacker_uid string|nil UID последнего существа, нанесшего урон в RAM
 ---@field combat_target_uid string|nil UID текущей боевой жертвы (кого юнит покадрово лупит)
 ---@field combat_start_time number|nil Таймстамп старта комбата в секундах
 
@@ -52,6 +53,11 @@ local inventory_model = require("main.modules.models.inventory_model")
 ---@field agility number
 ---@field intellect number
 ---@field stamina number
+
+---@class UnitResourceData
+---@field type "mana"|"rage"|"energy"|string Строковый тип энергии (индекс ресурса)
+---@field current number Актуальное текущее значение в RAM (например, 45)
+---@field max number Максимальный потолок пула в RAM (например, 100)
 
 ---@class ActionSlotData
 ---@field action_type "ability"|"item"|"empty" Тип действия в слоте
@@ -134,61 +140,68 @@ function M.add(uid, props)
 
     assert(props and props.unit_id, "Critical Error: Попытка спавна без unit_id!")
 
-    -- 🦾 ЭТАЛОН 1: РАЗДЕЛЕНИЕ СКАЛИРОВАНИЯ ХАРАКТЕРИСТИК (Полиморфизм без дублирования)
+    -- 🚀 ПОРОДИСТОЕ ААА-ОБЪЯВЛЕНИЕ БАЗЫ ДАННЫХ (ИСПРАВЛЕНО НАМЕРТВО):
+    -- Вытаскиваем статический конфиг существа из базы данных на самом верху метода,
+    -- чтобы вся цепочка вычислений ниже видела его паспорт из units_db!
+    local monster_cfg = (not props.is_player and uid ~= "player") and units_db.get_unit(props.unit_id) or nil
+
     local calculated_max_health = props.max_health or props.health or 100
     local calculated_max_mana = props.max_mana or props.mana or 50
     local source_stats = props.base_stats or props.stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 }
     local source_abilities = props.abilities or { "melee_attack" }
 
     -- Если это фабричный монстр, прогоняем его через динамическое левел-скалирование ХП
-    if not props.is_player and uid ~= "player" then
-        local monster_cfg = units_db.get_unit(props.unit_id)
-        if monster_cfg then
-            source_stats = props.base_stats or monster_cfg.base_stats or source_stats
-            source_abilities = props.abilities or monster_cfg.abilities or source_abilities
+    if monster_cfg then
+        source_stats = props.base_stats or monster_cfg.base_stats or source_stats
+        source_abilities = props.abilities or monster_cfg.abilities or source_abilities
 
-            local level_modifier = math.pow(monster_cfg.health_growth or 1, (props.level or 1) - 1)
-            calculated_max_health = math.floor((monster_cfg.base_health or 40) * level_modifier)
+        local level_modifier = math.pow(monster_cfg.health_growth or 1, (props.level or 1) - 1)
+        calculated_max_health = math.floor((monster_cfg.base_health or 40) * level_modifier)
 
-            if compute_rank_modifiers then
-                local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.default_rank)
-                calculated_max_health = math.floor(calculated_max_health * rank_mods.health_multiplier)
-            end
-            calculated_max_mana = monster_cfg.base_mana or calculated_max_mana
+        if compute_rank_modifiers then
+            local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.default_rank)
+            calculated_max_health = math.floor(calculated_max_health * rank_mods.health_multiplier)
         end
+        calculated_max_mana = monster_cfg.base_mana or calculated_max_mana
     end
 
-    -- Намертво изолируем базовые и текущие статы через DeepCopy
     local clean_stats = utils.deepcopy(source_stats)
     local clean_current_stats = utils.deepcopy(source_stats)
     local clean_source_abilities = utils.deepcopy(source_abilities)
     local raw_bars = props.action_bars or {}
-    -- 🦾 ЭТАЛОН 2: ЛИНЕЙНЫЙ, СЛЕПОЙ НАЛИТ ПАРАМЕТРОВ (0 ДУБЛИРОВАНИЙ СЛОЖНЫХ ОБЪЕКТОВ!):
+    local raw_resource = props.resource or {}
+
+    -- Сборка монолитной Души существа в RAM-реестре:
     local instance_data = {
-        -- Игрок привязывается к Си-пути /player, фабричные мобы — к текущему пути спавнера
         go_id = props.go_id or (props.is_player and hash("/player") or msg.url().path),
         uid = uid,
         unit_id = props.unit_id,
-        name_key = props.name_key or "unknown_unit",
+        name_key = props.name_key or (monster_cfg and monster_cfg.name_key) or "unknown_unit",
         is_player = (props.is_player == true or uid == "player"),
-        type = props.type or "humanoid",
-        rank = props.rank or "common",
+        type = props.type or (monster_cfg and monster_cfg.type) or "humanoid",
+        rank = props.rank or (monster_cfg and monster_cfg.default_rank) or "common",
         level = props.level or 1,
         experience = props.experience or 0,
-        -- Если грузим сейв — берем ХП/Ману из props, если Новая игра — берем расчетное!
         health = props.health or calculated_max_health,
         max_health = calculated_max_health,
-        mana = props.mana or calculated_max_mana,
-        max_mana = calculated_max_mana,
-        speed = props.speed or (props.is_player and 220 or 90),
-        spellcast_range = props.spellcast_range or (props.is_player and 0 or 120),
-        hitbox_size = props.hitbox_size or 64,
-        loot_table_id = props.loot_table_id or "empty",
-        ai_profile = props.ai_profile or (props.is_player and "none" or "aggressive_patrol"),
-        base_aggro_range = props.base_aggro_range or (props.is_player and 0 or 350),
-        faction = props.faction or (props.is_player and "neutral_humanoid" or "undead"),
+        resource = {
+            type    = raw_resource.type or (monster_cfg and monster_cfg.resource and monster_cfg.resource.type) or "mana",
+            current = raw_resource.current or 100,
+            max     = raw_resource.max or 100
+        },
+        speed = props.speed or (props.is_player and 220 or (monster_cfg and monster_cfg.base_speed) or 90),
+        spellcast_range = props.spellcast_range or (monster_cfg and monster_cfg.spellcast_range) or (props.is_player and 0 or 120),
+        hitbox_size = props.hitbox_size or (monster_cfg and monster_cfg.hitbox_size) or 64,
+        loot_table_id = props.loot_table_id or (monster_cfg and monster_cfg.default_loot_table_id) or "empty",
+        ai_profile = props.ai_profile or (props.is_player and "none" or (monster_cfg and monster_cfg.ai_profile) or "aggressive_patrol"),
+        base_aggro_radius = props.base_aggro_radius or (props.is_player and 0 or (monster_cfg and monster_cfg.base_aggro_radius) or 350),
 
-        -- Инициализация компонентов ровно ОДИН раз для всех!
+        -- 🚀 ЗРЯЧИЙ АAА-ВЗВОД ФРАКЦИИ (ТИ ПEРВЫЙ КOНТУР ПОЛНОСТЬЮ СМЫКАЕТСЯ):
+        -- Мы больше не гадаем вслепую! Если в props прилетел nil (из сейва или спавнера),
+        -- мы берем породистую фракцию прямо из его верхнего monster_cfg базы данных units_db!
+        -- И только если это чистокровный игрок, ставим "neutral_humanoid", а мобу — "undead".
+        faction = props.faction or (monster_cfg and monster_cfg.faction) or (props.is_player and "neutral_humanoid" or "undead"),
+
         paperdoll = paperdoll_model.new(),
         inventory = inventory_model.new(),
         action_bars = {
@@ -371,7 +384,6 @@ function M.set_action_bar_slot(uid, bar_index, slot_index, action_type, action_i
 
     -- Реактивно пинаем HUD бродкастами, strictly только если изменился ИГРОК
     if unit_data.is_player or uid == "player" then
-        local broadcast = require("main.modules.system.broadcast")
         broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     end
@@ -537,18 +549,35 @@ function M.set_combat_state(unit_uid, victim_uid)
     end
 end
 
----@param unit_uid string
----@param resource string
----@param cost number|nil
-function M.consume_unit_resource(unit_uid, resource, cost)
-    local unit = M.registry and M.registry[unit_uid]
-    if not unit then return end
+---🚨 ДОМЕННЫЙ МУТАТОР: Списать ресурс у юнита в Single Source of Truth
+---@param unit_uid string UID существа ("player")
+---@param resource_type "mana"|"energy"|"rage"|string Тип требуемого ресурса
+---@param cost number Количество списываемой энергии
+function M.consume_unit_resource(unit_uid, resource_type, cost)
+    if not M.registry or not M.registry[unit_uid] then return end
 
-    if unit[resource] then
-        unit[resource] = unit[resource] - cost
+    local unit = M.registry[unit_uid]
+    if not unit or not unit.resource then return end
+
+    -- 🦾 ЗРЯЧАЯ СИ-ПРОВЕРКА ТИПА (ИСПРАВЛЕНО НАМЕРТВО):
+    -- Мы проверяем, совпадает ли требуемый ресурс с тем, что запечен в поле .type!
+    if unit.resource.type == resource_type then
+        -- Списываем цифры напрямую из RAM-ячейки
+        unit.resource.current = math.max(0, unit.resource.current - (cost or 0))
+
+        print(string.format("💾 БЭКЕНД [UnitsState]: Юнит [%s] потратил %d %s. Осталось: %d",
+            unit_uid, cost or 0, resource_type:upper(), unit.resource.current))
+
+        -- 🚀 ЕДИНЫЙ СЛEПОЙ СВIСТOК РЕАКТИВНОСТИ:
+        -- Пуляем в шину строго ОДИН ивент и скармливаем только UID пострадавшего!
+        -- Никаких мешков с процентами и типами — HUD сам deferred-пнёт PlayerFrame, 
+        -- а фрейм игрока наносекундно высосет свежий стейт из RAM и обновит полоску! 
+        broadcast.send("unit_events", {
+            message_id = hash("unit_resource_changed"),
+            uid = unit_uid -- 🎯 КРИТИЧЕСКИ ВАЖНО: передаем strictly под именем uid, как в ХП!
+        })
     end
 end
-
 
 ---Проверить, находится ли Душа моба в боевом состоянии (WoW-канон)
 ---@param uid string

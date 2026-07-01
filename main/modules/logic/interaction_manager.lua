@@ -1,32 +1,55 @@
-local game_state = require("main.modules.game_state.game_state")
+local units_state = require("main.modules.game_state.units_state")
+local character_data = require("main.modules.character.character_data")
 local broadcast = require("main.modules.system.broadcast")
 
 ---@class InteractionManager
 local M = {}
 
 -- =========================================================================
--- 🎯 ЖИВОЙ БОЕВОЙ СТEЙТ ТAРГEТA ИГРОКА (Единственный Источник Правды для UI):
+-- 🎯 ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ ДЛЯ СИ-ВЕКТОРОВ (ДВИЖКОВЫЙ ФОКУС):
 -- =========================================================================
-M.current_target_go_id = nil  -- 🚀 ТУТ ЧЕСТНО СИДИТ Си-хэш hash: [/instance8]
-M.current_target_uid = nil    -- 🚀 ТУТ ЧЕСТНО СИДИТ строка "companion_skeleton_1"
+-- Си-хэш гошки (hash: [/instance8]) мы оставляем тут, так как бэкенд памяти 
+-- units_state ничего не знает про Defold-гошки и не должен хранить Си-адреса!
+M.current_target_go_id = nil
 
 ---Взять существо в прицел (Взводится strictly при клике мыши в world.script)
 ---@param go_id hash Движковый Си-идентификатор объекта монстра
 ---@param uid string Уникальный строковый UID инстанса для бэкенда
 function M.set_target(go_id, uid)
-    if M.current_target_uid == uid then return end
+    -- Идём напрямую в Single Source of Truth — в живой RAM-паспорт нашего мага!
+    local player = units_state.get(character_data.PLAYER_UID)
+    if not player then return end
+
+    if player.combat_target_uid == uid then return end
 
     print(string.format("🎯 ИНТEРAКШEН: Захвачен фокус цели! UID: [%s] | GO_ID: %s", uid, tostring(go_id)))
 
-    -- Запекаем ключи ПРЯМО ТУТ, без левых прослоек и прыжков!
+    -- 🦾 АТОМАРНАЯ ЗАПИСЬ В ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ:
     M.current_target_go_id = go_id
-    M.current_target_uid = uid
+    player.combat_target_uid = uid -- Запекли строковый UID прямо в Душу мага в RAM!
 
-    -- 💥 МVС-БРOДКAСТ: Сообщаем HUD фрейму и экшен-бару, что цель сменилась
+    -- Оповещаем HUD-контроллер. Строго выверенное ААА-имя ивента!
     broadcast.send("target_events", {
         message_id = hash("target_changed"),
-        go_id = go_id,
-        uid = uid
+        uid = uid,
+        go_id = go_id
+    })
+end
+
+---Сбросить текущую боевую цель (При клике на чистую траву)
+function M.clear_target()
+    local player = units_state.get(character_data.PLAYER_UID)
+    if not player or not player.combat_target_uid or player.combat_target_uid == "" then return end
+
+    -- Стерильно выжигаем память из реестра мира
+    M.current_target_go_id = nil
+    player.combat_target_uid = nil -- Стерли цель из Души мага!
+
+    print("🎯 ИНТEРAКШEН: Боевая цель пуленепробиваемо сброшена в RAM.")
+
+    -- Выровненное, красивейшее имя ивента потери фокуса! Без всяких deferred!
+    broadcast.send("target_events", {
+        message_id = hash("target_lost")
     })
 end
 
@@ -39,44 +62,17 @@ end
 ---Получить строковый UID текущей цели (Для редьюсеров и комбат-менеджера)
 ---@return string|nil
 function M.get_current_target_uid()
-    return M.current_target_uid
-end
-
----Сбросить текущую боевую цель (При клике на чистую траву)
-function M.clear_target()
-    if not M.current_target_uid then return end
-
-    -- Стерильно стираем оперативку менеджера
-    M.current_target_go_id = nil
-    M.current_target_uid = nil
-
-    print("🎯 ИНТEРAКШEН: Боевая цель пуленепробиваемо сброшена.")
-    broadcast.send("target_events", { message_id = hash("target_lost") })
+    local player = units_state.get(character_data.PLAYER_UID)
+    return player and player.combat_target_uid or nil
 end
 
 -- =========================================================================
--- СЕКЦИЯ ВЗАИМОДЕЙСТВИЯ С КОНТЕЙНЕРАМИ (СУНДУКИ / БОЧКИ):
+-- СЕКЦИЯ КОНТЕЙНЕРОВ (Оставляй твой оригинальный идеальный код без изменений)
 -- =========================================================================
-M.current_focus_ds = nil -- Ссылка на data_source (items) АКТИВНОГО контейнера
-
----Установить фокус на модель данных открытого контейнера
----@param ds table Модель данных инвентаря сундука/бочки
-function M.set_focus(ds)
-    M.current_focus_ds = ds
-end
-
----Очистить фокус взаимодействия (вызывается при закрытии окон)
-function M.clear_focus()
-    M.current_focus_ds = nil
-    broadcast.send("ui_events", {
-        message_id = hash("focus_lost")
-    })
-end
-
----Получить модель данных текущего открытого контейнера
----@return table|nil
-function M.get_focus()
-    return M.current_focus_ds
-end
+M.current_focus_ds = nil
+function M.set_focus(ds) M.current_focus_ds = ds end
+function M.clear_focus() M.current_focus_ds = nil; broadcast.send("ui_events", { message_id = hash("focus_lost") }) end
+function M.get_focus() return M.current_focus_ds end
 
 return M
+

@@ -32,8 +32,11 @@ function M.bind_to_units_registry()
             -- Выставляем ХП и Ману, а units_state.add() сам шёлково упакует их в паспорт!
             health = 100,
             max_health = 100,
-            mana = 50,
-            max_mana = 50,
+            resource = {
+                type = "mana",
+                current = 50,
+                max = 50
+            },
             speed = 220,
             hitbox_size = 64,
             saved_position = vmath.vector3(1126, 725, 1.0), -- Твоя стартовая точка Meadows

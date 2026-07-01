@@ -19,6 +19,11 @@ instances {
       value: "elder_green_dragon"
       type: PROPERTY_TYPE_HASH
     }
+    properties {
+      id: "unit_level"
+      value: "25.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
   }
 }
 instances {

@@ -23,6 +23,7 @@ local map_config = require("main.modules.data.map_config")
 ---@field unit_rank string
 ---@field unit_type string
 ---@field loot_table_id string
+---@field faction string
 ---@field is_from_factory boolean
 ---@field speed number                 -- Наша рабочая скорость для ИИ
 ---@field hitbox_size number  
@@ -85,7 +86,7 @@ function init(self)
         if saved_data and saved_data.saved_position then
             baked_position = saved_data.saved_position
         end
-        print("STRING UID", string_uid)
+
         map_config.bake_entity(
             dynamic_chunk_id,
             string_uid,
@@ -171,6 +172,7 @@ function init(self)
         self.hitbox_size = unit_instance_data.hitbox_size or 64
         self.ai_profile = unit_instance_data.ai_profile or "aggressive_patrol"
         self.loot_table_id = unit_instance_data.loot_table_id
+        self.faction = unit_instance_data.faction or "neutral_humanoid"
 
         -- (Отсюда блок смены спрайта и масштаба удален, так как мы выполнили его выше!)
     else
@@ -179,6 +181,7 @@ function init(self)
         self.hitbox_size = db_cfg and db_cfg.hitbox_size or 64
         self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
         self.loot_table_id = string_loot_table_id
+        self.faction = db_cfg and db_cfg.faction or "neutral_humanoid"
 
         -- Фоллбек перекраса на случай краша RAM-реестра
         local anim_name = db_cfg and db_cfg.animation or string_id

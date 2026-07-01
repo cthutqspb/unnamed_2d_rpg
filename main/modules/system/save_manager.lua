@@ -93,8 +93,11 @@ function M.new_game(creation_package)
         experience = 0,
         health = 100,
         max_health = 100,
-        mana = 50,
-        max_mana = 50,
+        resource = {
+            type = character.resource_type or "mana", -- Динамически подхватит тип класса!
+            current = character.base_max_resource or 100,
+            max = character.base_max_resource or 100
+        },
         base_stats = character.base_stats,
         faction = "neutral_humanoid",
         current_stats = character.current_stats,
@@ -142,6 +145,15 @@ function M.new_game(creation_package)
     msg.post("main:/loader#script", "reload_game", { saved_position = nil })
     broadcast.send("inventory_events", { message_id = hash("inventory_changed")})
     broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
+    broadcast.send("unit_events", {
+        message_id = hash("unit_health_changed"),
+        uid = character_data.PLAYER_UID
+    })
+    broadcast.send("unit_events", {
+        message_id = hash("unit_resource_changed"),
+        uid = character_data.PLAYER_UID
+    })
+    broadcast.send("target_events", { message_id = hash("target_lost") })
     broadcast.send("log_events", { message_id = hash("log_clear") })
 end
 
