@@ -45,8 +45,9 @@ function M.bind_to_units_registry()
                 [1] = {
                     [1] = { action_type = "ability", action_id = "melee_attack" },
                     [2] = { action_type = "ability", action_id = "frostbolt", triggers_gcd = true },
-                    [3] = { action_type = "item",    action_id = "lesser_mana_potion", triggers_gcd = true },
-                    [4] = { action_type = "item",    action_id = "iron_sword" },
+                    [3] = { action_type = "ability", action_id = "lightning_bolt", triggers_gcd = true },
+                    [4] = { action_type = "item",    action_id = "lesser_mana_potion", triggers_gcd = true },
+                    [5] = { action_type = "item",    action_id = "iron_sword" },
                 },
                 [2] = {},
                 [3] = {}

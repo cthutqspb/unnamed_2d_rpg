@@ -166,7 +166,7 @@ function M:on_drop(x, y)
 
     for slot_type, nodes in pairs(self.slots) do
         if gui.pick_node(nodes.root, x, y) then
-            if not self.unit and self.unit.paperdoll then
+            if self.unit and self.unit.paperdoll then
                 -- 🦾 Передаем strictly модель куклы!
                 drag_manager.finish(self.unit.paperdoll, slot_type)
                 return true

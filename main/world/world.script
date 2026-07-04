@@ -12,6 +12,7 @@ local character_data = require("main.modules.character.character_data")
 local CustomCursor = require("main.gui.components.cursor.CustomCursor")
 local interaction_manager = require("main.modules.logic.interaction_manager")
 local perception_manager = require("main.modules.system.perception_manager")
+local combat_manager = require("main.modules.system.combat_manager")
 
 ---@class WorldScriptInstance
 ---@field player_direction number Направление взгляда игрока (-1 или 1)
@@ -147,17 +148,27 @@ function update(self, dt)
         self.last_player_y = current_player_position.y
     end
 
-    self.perception_timer = (self.perception_timer or 0.1) - dt
-
-     if game_state and game_state.update_all_timers then
+    -- 🦾 1. ТАЙМЕРЫ И КД (КАЖДЫЙ КАДР):
+    -- Отсчет тиков ГКД на панелях и кастбары обязаны обновляться плавно, 
+    -- чтобы полоски на HUD не дергались как паралитики.
+    if game_state and game_state.update_all_timers then
         game_state.update_all_timers(dt)
     end
 
-    -- Независимый Си-тикер перцепции: тикает раз в 0.1 сек, разгружая CPU на 1000%!
+    -- 🦾 2. СИМУЛЯЦИЯ ФИЗИКИ СНАРЯДОВ (КАЖДЫЙ КАДР):
+    -- Движение стрел, магии и проверка коллизий импакта — строго на максимальной 
+    -- частоте кадров твоего монитора (60/144 FPS) без малейших задержек!
+    combat_manager.simulate_combat_effects(dt)
+
+    -- =========================================================================
+    -- 🧠 3. ЛЕНИВЫЙ ИИ-ТИКЕР ВOСПРIЯТIЯ (РАЗ В 0.1 СЕК — ОПТИМИЗАЦИЯ CPU):
+    -- =========================================================================
+    self.perception_timer = self.perception_timer - dt
     if self.perception_timer <= 0 then
         perception_manager.update_threat_perception()
         self.perception_timer = 0.1
     end
+    -- =========================================================================    
 end
 
 ---@param self WorldScriptInstance
@@ -269,17 +280,6 @@ function on_message(self, message_id, message, sender)
             world_items_state.remove(message.uid)
         end
 
-        -- Передаем данные в инвентарь игрока
-        -- broadcast.send("inventory_events", {
-        --     message_id = hash("add_item"),
-        --     item_id = message.item_id,
-        --     amount = message.amount,
-        --     uid = message.uid, -- 🎯 ПРОБРОС ПАСПОРТА! 
-        --     items = container_data and container_data.items or nil, -- Если бочку уже обыскивали на земле, её лут поедет в карман!
-        --     is_looted = container_data and container_data.is_looted or nil,
-        --     loot_table_id = message.loot_table_id or "empty"
-        -- })
-
         actions_dispatcher.REDUCERS["item_add"]({
             item_id = message.item_id,
             amount = message.amount,
@@ -291,6 +291,7 @@ function on_message(self, message_id, message, sender)
 
         -- Удаляем физический Game Object с карты
         go.delete(sender)
+        tooltip_manager.hide_world_tooltips()
 
         broadcast.send("log_events", {
             message_id = hash("log_message"),

@@ -58,7 +58,7 @@ animations {
   end_tile: 1650
 }
 animations {
-  id: "frostbolt_particle"
+  id: "frostbolt_sprite"
   start_tile: 1589
   end_tile: 1589
 }
@@ -76,6 +76,16 @@ animations {
   id: "lesser_mana_potion"
   start_tile: 2683
   end_tile: 2683
+}
+animations {
+  id: "lightning_bolt"
+  start_tile: 1862
+  end_tile: 1862
+}
+animations {
+  id: "lightning_bolt_sprite"
+  start_tile: 1634
+  end_tile: 1634
 }
 animations {
   id: "melee_attack"

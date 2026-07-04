@@ -1,7 +1,13 @@
-{
+{   
+    "runtime.version": "LuaJIT",
+    "workspace.library": [
+        "/home/trip/.local/share/defold/api",
+        "./.internal/lua-annotations/"
+    ],
     "diagnostics": {
         "disable": [
-            "protected-access"
+            "protected-access",
+            "lowercase-global"
         ]
     }
 }

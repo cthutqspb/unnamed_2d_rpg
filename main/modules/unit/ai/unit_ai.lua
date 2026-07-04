@@ -83,14 +83,19 @@ PROFILES["aggressive_patrol"] = {
         ctx.attack_range = monster_radius + player_radius
         ctx.primary_ability = monster_data and monster_data.abilities and monster_data.abilities[1] or "melee_attack"
 
-        -- Скалирование зон видимости агро от габаритов туши (твой зрячий канон)
-        if monster_hitbox >= 128 then
-            ctx.agro_range = 450
-            ctx.loose_range = 650
-        else
-            ctx.agro_range = 300
-            ctx.loose_range = 450
-        end
+        -- Читаем базовый агро-радиус напрямую из твоего породистого конфига в БД!
+        -- Для скелета это будет твои честные 450 пикселей!
+        local db_aggro = monster_data and monster_data.base_aggro_radius or 350
+
+        -- 🚀 УЛЬТИМАТИВНЫЙ АAА-ДИHАМИЧЕСКИЙ РАДИУС ПОГОНИ (0% ХАРДКОДА):
+        -- Зона первого агра (agro_range) берется из паспорта базы данных.
+        ctx.agro_range = db_aggro
+
+        -- 🚀 ЗОНА ПОТEРИ ЦЕЛИ (loose_range) ОБЯЗАНА БЫТЬ В 2-3 РАЗА БOЛЬШЕ!
+        -- Теперь для скелета loose_range станет: 450 * 2.5 = 1125 пикселей!
+        -- Раз дальнобойность Молнии 450 или 750, маг гарантированно сидит глубоко внутри 
+        -- зоны преследования, и ИИ-мозг скелета никогда не сбросит агро при первом ударе!
+        ctx.loose_range = db_aggro * 2.5
 
         print(string.format("🧠 ИИ ИНИЦ: [%s] | ID=%s | Габариты=%d | Авто-Ренж Ближнего Боя=%d",
             ctx.uid, ctx.unit_id, monster_hitbox, ctx.attack_range))

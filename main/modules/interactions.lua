@@ -1,5 +1,3 @@
-local window_manager = require("main.gui.components.managers.window_manager")
-
 ---@class InteractionModule
 local M = {}
 
@@ -41,7 +39,7 @@ function M.handle_click(self, interaction_range, callback)
     local player_pos = go.get_position("game_scene:/player")
     local my_pos = go.get_world_position()
     local dist = vmath.length(player_pos - my_pos)
-    print("INTERACTION HANDE CLICK")
+
     if dist < interaction_range then
         callback()
     else
@@ -132,20 +130,20 @@ end
 function M.get_current_defold_chunk()
     -- 1. Получаем абсолютный Си-URL текущего скрипта
     local current_url = msg.url()
-    
+
     -- 2. Переводим хэш пути в чистую Lua-строку (например, "/meadows/skeleton_1")
     local absolute_path_str = tostring(current_url.path)
-    
+
     -- 3. Регуляркой WoW-канона откусываем всё, что лежит между первыми слэшами!
     -- Из строки "/meadows/skeleton_1" мы ювелирно заберем "meadows"
     -- Из строки "/swamp/instance_1/box" мы заберем "swamp"
     local chunk_name = string.match(absolute_path_str, "^/([^/]+)")
-    
+
     -- Если объект лежит в корне самой game_scene (тест-сцена), сработает гвард-фолбек
     if not chunk_name or chunk_name == "" or chunk_name == "game_scene" then
         chunk_name = "meadows" -- Твой дефолтный стартовый биом
     end
-    
+
     return chunk_name
 end
 

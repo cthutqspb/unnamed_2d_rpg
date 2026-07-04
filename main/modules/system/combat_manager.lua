@@ -7,10 +7,11 @@ local broadcast = require("main.modules.system.broadcast")
 ---@class CombatManager
 local M = {}
 
+local active_effects = {}
+
 local DEFAULT_MIN_DAMAGE     = 1    -- Гарантированный минимальный урон, если в базе абилок пусто
 local DEFAULT_MAX_DAMAGE     = 2    -- Гарантированный максимальный урон, если в базе абилок пусто
 
----Попытаться использовать способность ЛЮБЫМ юнитом по выбранной цели (WoW-канон — ИСПРАВЛЕНО)
 ---@param caster_uid string КТО использует способность (Си-адрес или "player")
 ---@param target_uid string КОГО бьем (Си-адрес выделенного монстра или игрока)
 ---@param ability_id string ID способности из базы данных ("melee_attack")
@@ -56,17 +57,17 @@ function M.execute_ability(caster_uid, target_uid, ability_id)
     if cfg.cost then
         local resource_type = cfg.cost.resource or "mana"
         local value = cfg.cost.value or 0
-        
+
         -- 🦾 СТЕРИЛЬНЫЙ ГВАРД СТОИМОСТИ (ИСПРАВЛЕНО):
         -- Проверяем: жив ли кастер, совпадает ли его тип ресурса с ценой заклинания, 
         -- и хватает ли ему текущей энергии в RAM (.current) на совершение каста!
         if value > 0 and caster_unit and caster_unit.resource and caster_unit.resource.type == resource_type then
             if caster_unit.resource.current >= value then
-                
+
                 -- Пинаем наш зрячий мутатор памяти в units_state!
                 -- Вызов game_state меняем на units_state!
                 game_state.consume_unit_resource(caster_uid, resource_type, value)
-                
+
             else
                 print("❌ БОЁВКА: Не хватает ресурса для каста заклинания!")
                 return false -- Отрезаем каст
@@ -99,46 +100,198 @@ function M.execute_ability(caster_uid, target_uid, ability_id)
     -- 🚀 УЛЬТИМАТИВНЫЙ СПАВНЕР ФИЗИЧЕСКИХ СНАРЯДОВ (ДОБАВЛЕНО НАМЕРТВО):
     -- =========================================================================
     -- Если у абилки в БД прописан путь к фабрике (например, cfg.projectile_factory = "#frostbolt_factory")
-    if cfg.projectile_factory then
-        -- Спелл требует летящего визуала (Фростболт)
+    if cfg.projectile_factory and cfg.delivery_type == "projectile" then
         local spawn_pos = go.get_position(caster_unit.go_id)
-        
-        -- Рождаем Си-тело пули, скармливая свойствам чистокровные, легальные go_id из паспортов!
-        -- Больше никаких строк и хэшей от строк! Движок Defold со свистом пропустит этот пакет!
-        factory.create(
-            cfg.projectile_factory, 
-            spawn_pos, 
-            nil, 
-            {
+
+        -- Спавним абсолютно пустую Си-гошку на сцене
+        local proj_go_id = factory.create(cfg.projectile_factory, spawn_pos, nil, {
+            caster_go_id = caster_unit.go_id,
+            target_go_id = target_unit.go_id,
+            ability_id   = hash(ability_id)
+        })
+
+        -- Регистрируем снаряд в нашей чистой Lua-памяти комбат-менеджера!
+        table.insert(active_effects, {
+            go_id        = proj_go_id,
+            caster_unit  = caster_unit,
+            target_unit  = target_unit,
+            caster_uid   = caster_uid,
+            target_uid   = target_uid,
+            damage       = final_damage,
+            speed        = cfg.projectile_speed or 500,
+            ability_id   = ability_id
+        })
+
+    else
+        -- =========================================================================
+        -- 💥 МГНОВЕННЫЙ НАНОСИТЕЛЬ УРОНА (Мили-атаки, Блинк, Мгновенные лучи)
+        -- =========================================================================
+        -- 1. Сначала шёлково бьем бэкендом в RAM-паспорт цели!
+        M.apply_damage(caster_unit, target_unit, final_damage)
+
+        -- 2. ⚡ WOW-КАНОН МОЛНИИ (ВРЕЗАНО ЮВЕЛИРНО):
+        if cfg.delivery_type == "beam" and cfg.fx and cfg.fx.particle_fx then
+            local spawn_pos = go.get_position(caster_unit.go_id)
+
+            local fx_props = {
+                duration = cfg.fx.duration or 0.4,
                 caster_go_id = caster_unit.go_id,
                 target_go_id = target_unit.go_id,
-                damage = final_damage,
-                speed = cfg.projectile_speed or 500
+                ability_id   = hash(ability_id)
             }
-        )
-        print(string.format("🚀 БЭКЕНД [Combat]: Снаряд [%s] запущен из %s в %s", 
-            ability_id, caster_unit.uid, target_unit.uid))
-    else
-        M.apply_damage(caster_unit, target_unit, final_damage)
-    end   
-    -- =========================================================================
+
+            -- Спавним контейнер и ловим его Си-Id со сцены!
+            local fx_go_id = factory.create(cfg.projectile_factory, spawn_pos, nil, fx_props)
+
+            -- 🚀 РЕГИСТРИРУЕМ ЛУЧ МОЛНИИ В ТВОЮ ЖЕ ТАБЛИЦУ (ИСПРАВЛЕНО):
+            -- Мы просто кидаем гошку в твой готовый active_projectiles!
+            -- Нам не нужны левые unit-ссылки для луча, только Си-хэши гошек для тригонометрии!
+            table.insert(active_effects, {
+                go_id         = fx_go_id,
+                is_beam       = true, -- 🦾 ГЛАВНЫЙ МАРКЕР: "Я не пуля, я лазер!"
+                caster_go_id  = caster_unit.go_id,
+                target_go_id  = target_unit.go_id,
+                ability_id    = ability_id
+            })
+
+            print(string.format("⚡ БЭКЕНД [Combat]: Молния [%s] визуально прошила цель!", ability_id))
+        end
+        -- =========================================================================
+    end
 end
 
----🛬 ШЛЮЗ ИМПАКТА ПУЛИ: Принимает два Си-хэша тела со сцены и превращает их в RAM-паспорта
----@param caster_go_id hash Нативный Си-идентификатор атакующего (hash: [/player] или hash: [/instance7])
----@param target_go_id hash Нативный Си-идентификатор побитого моба (hash: [/instance8])
----@param damage number Рассчитанный урон
-function M.apply_damage_by_go_id(caster_go_id, target_go_id, damage)
-    -- 🚀 ПОЛНЫЙ КЛИНАП ЗАВИСИМОСТЕЙ:
-    -- Нам глубоко насрать, кто это и где лежат их инстансы.
-    -- Мы просто скармливаем Си-хэши напрямую в наш Фасад вселенной!
-    -- Фасад сам зряче под капотом переведёт хэши в строки и вытащит Души!
-    local caster_unit = game_state.get_entity_by_go_id(caster_go_id)
-    local target_unit = game_state.get_entity_by_go_id(target_go_id)
-    print("CASTER", caster_unit, "TARGET", target_unit)
-    -- Наносим атомарный урон строго внутри ядра боёвки
-    M.apply_damage(caster_unit, target_unit, damage)
+function M.simulate_combat_effects(dt)
+    -- Идем с конца в начало, чтобы безопасно удалять элементы из таблицы
+    for i = #active_effects, 1, -1 do
+        local effect = active_effects[i]
+
+        -- Нативная Си-проверка: существует ли еще игровой объект эффекта на сцене
+        local exists_proj, proj_pos = pcall(go.get_position, effect.go_id)
+
+        -- =========================================================================
+        -- ⚡ КАСКАД Б: СИМУЛЯЦИЯ ЛУЧА МОЛНИИ (ТВОЯ MIDPOINT СТЯЖКА + UNIFORM СКЕЙЛ)
+        -- =========================================================================
+        if effect.is_beam then
+            -- Запрашиваем Си-координаты участников напрямую по хэшам гошек
+            local exists_caster, caster_pos = pcall(go.get_position, effect.caster_go_id)
+            local exists_target, target_pos = pcall(go.get_position, effect.target_go_id)
+
+            if not exists_proj or not exists_caster or not exists_target then
+                -- Если кто-то умер или удален — тушим гошку луча пулей и чистим RAM
+                if exists_proj then go.delete(effect.go_id) end
+                table.remove(active_effects, i)
+            else
+                -- 🚀 1. ВЫЧИСЛЯЕМ СЕРЕДИНУ ВЕКТОРА (MIDPOINT КАНОН):
+                -- Комбат-менеджер сам ставит контейнер молнии ровно между вами!
+                local midpoint = (caster_pos + target_pos) * 0.5
+                go.set_position(midpoint, effect.go_id)
+
+                -- 2. Считаем реальную дистанцию и направление
+                local direction = target_pos - caster_pos
+                local distance = vmath.length(direction)
+
+                -- Ротируем кабель молнии носом строго по оси направления между вами
+                local angle = math.atan2(direction.y, direction.x)
+                go.set_rotation(vmath.quat_rotation_z(angle), effect.go_id)
+
+                -- 🚀 3. ТВОЙ ПРОПОРЦИОНАЛЬНЫЙ UNIFORM-СКЕЙЛ ОТ ЦЕНТРА:
+                -- Делим реальную дистанцию на базовую длину эмиттера из редактора (200)
+                local base_beam_length = 200
+                local scale_factor = distance / base_beam_length
+
+                -- Аппаратно расширяем края молнии влево к магу и вправо к скелету за 0 тактов!
+                go.set_scale(vmath.vector3(scale_factor, scale_factor, scale_factor), effect.go_id)
+            end
+
+        -- =========================================================================
+        -- 🟢 КАСКАД А: СИМУЛЯЦИЯ ЛЕТЯЩЕЙ ПУЛИ (ТВОЙ ДЕВСТВЕННЫЙ ПОДХОД БЕЗ ИЗМЕНЕНИЙ)
+        -- =========================================================================
+        else
+            local exists_target, target_pos = pcall(go.get_position, effect.target_unit.go_id)
+
+            if not exists_proj or not exists_target then
+                -- Если цель умерла от чего-то другого, удаляем пулю
+                if exists_proj then go.delete(effect.go_id) end
+                table.remove(active_effects, i)
+            else
+                -- Двигаем пулю СИЛАМИ КОМБАТ МЕНЕДЖЕРА
+                local direction = target_pos - proj_pos
+                local distance = vmath.length(direction)
+
+                -- ЧЕСТНЫЙ ИМПАКТ (Как в WoW):
+                if distance <= (effect.speed * dt) or distance <= 15 then
+                    -- Вытаскиваем свежие, актуальные карточки из RAM-реестра по UID прямо в этот кадр
+                    local caster = game_state.get_entity_by_uid(effect.caster_uid)
+                    local target = game_state.get_entity_by_uid(effect.target_uid)
+
+                    if caster and target then
+                        -- Наносим урон строго по актуальному стейту живых существ!
+                        M.apply_damage(caster, target, effect.damage)
+                        print(string.format("💥 WOW-ИМПАКТ: %s сочно долетел до цели!", effect.ability_id))
+                    end
+
+                    go.delete(effect.go_id) -- Удаляем гошку со сцены
+                    table.remove(active_effects, i) -- Чистим из таблицы
+                else
+                    -- Если еще летит — перемещаем и поворачиваем гошку на сцене
+                    local move_vector = vmath.normalize(direction) * effect.speed * dt
+                    local new_pos = proj_pos + move_vector
+                    go.set_position(new_pos, effect.go_id)
+
+                    local angle = math.atan2(direction.y, direction.x)
+                    go.set_rotation(vmath.quat_rotation_z(angle), effect.go_id)
+                end
+            end
+        end
+        -- =========================================================================
+    end
 end
+
+-- -- Этот метод мы вызываем в главном update игры (например, в main.script)
+-- function M.simulate_combat_effects(dt)
+--     -- Идем с конца в начало, чтобы безопасно удалять элементы из таблицы
+--     for i = #active_effects, 1, -1 do
+--         local effect = active_effects[i]
+--         
+--         -- Проверяем, существует ли еще пуля и ее цель на сцене
+--         local exists_proj, proj_pos = pcall(go.get_position, effect.go_id)
+--         local exists_target, target_pos = pcall(go.get_position, effect.target_unit.go_id)
+--
+--         if not exists_proj or not exists_target then
+--             -- Если цель умерла от чего-то другого, удаляем пулю
+--             if exists_proj then go.delete(effect.go_id) end
+--             table.remove(active_effects, i)
+--         else
+--             -- Двигаем пулю СИЛАМИ КОМБАТ МЕНЕДЖЕРА
+--             local direction = target_pos - proj_pos
+--             local distance = vmath.length(direction)
+--
+--             -- ЧЕСТНЫЙ ИМПАКТ (Как в WoW):
+--             if distance <= (effect.speed * dt) or distance <= 15 then
+--                 -- Вытаскиваем свежие, актуальные карточки из RAM-реестра по UID прямо в этот кадр
+--                 local caster = game_state.get_entity_by_uid(effect.caster_uid)
+--                 local target = game_state.get_entity_by_uid(effect.target_uid)
+--
+--                 if caster and target then
+--                     -- Наносим урон строго по актуальному стейту живых существ!
+--                     M.apply_damage(caster, target, effect.damage)
+--                     print(string.format("💥 WOW-ИМПАКТ: %s сочно долетел до цели!", effect.ability_id))
+--                 end
+--
+--                 go.delete(effect.go_id) -- Удаляем гошку со сцены
+--                 table.remove(active_effects, i) -- Чистим из таблицы
+--             else
+--                 -- Если еще летит — перемещаем и поворачиваем гошку на сцене
+--                 local move_vector = vmath.normalize(direction) * effect.speed * dt
+--                 local new_pos = proj_pos + move_vector
+--                 go.set_position(new_pos, effect.go_id)
+--
+--                 local angle = math.atan2(direction.y, direction.x)
+--                 go.set_rotation(vmath.quat_rotation_z(angle), effect.go_id)
+--             end
+--         end
+--     end
+-- end
 
 ---Универсальный атомарный метод нанесения любого урона во вселенной Meadows (WoW / BG3 канон)
 ---@param caster_unit UnitInstanceData Живой RAM-паспорт атакующего существа

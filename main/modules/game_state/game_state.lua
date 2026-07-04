@@ -1,5 +1,4 @@
 local world_items_state = require("main.modules.game_state.world_items_state")
-local containers_state = require("main.modules.game_state.containers_state")
 local units_state = require("main.modules.game_state.units_state")
 
 ---@class GameStateFacade
@@ -13,7 +12,7 @@ local M = {}
 ---@return string|nil uid Уникальный строковый UID объекта в реестре состояний
 ---@return table|nil data Таблица чистых данных объекта
 function M.get_inspect_info(go_id)
-    print('get_inspect_info', go_id)
+    -- print('get_inspect_info', go_id)
 
     ---@type any
     -- local world_object_uid = world_objects_state.instances[go_id]

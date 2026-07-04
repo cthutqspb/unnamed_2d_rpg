@@ -35,7 +35,7 @@ function on_message(self, message_id, message, sender)
         print("collision_response:", message.other_id)
 
     elseif message_id == hash("trigger_response") then
-        print("trigger_response: ", message.other_id)
+        -- print("trigger_response: ", message.other_id)
         msg.post("game_scene:/world", "trigger_response", message)
     end
 end

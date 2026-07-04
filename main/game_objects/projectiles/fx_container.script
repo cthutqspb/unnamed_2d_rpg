@@ -1,0 +1,53 @@
+local abilities_db = require("main.modules.data.abilities_db")
+
+-- 🦾 ЗАПЕЧАТАННЫЙ КОНТРАКТ СИ-СВОЙСТВ (Прилетает транзитом из комбат-менеджера):
+go.property("duration", 1.0)
+go.property("caster_go_id", hash(""))
+go.property("target_go_id", hash(""))
+go.property("ability_id", hash("")) -- Хэш спелла (hash("lightning_bolt"))
+
+function init(self)
+    -- Ищем паспорт визуальных эффектов заклинания в базе данных
+    local ability_cfg = abilities_db.get_ability(self.ability_id)
+
+    -- 🚀 ЗРЯЧИЙ ДИНАМИЧЕСКИЙ СТАРТ ЛУЧА / ВЗРЫВА (БЕЗ ДУБЛИРОВАНИЯ КОДА):
+    -- Пускаем свисток строго на тот Id компонента, который прописан в базе!
+    if ability_cfg and ability_cfg.fx and ability_cfg.fx.particle_fx then
+        local component_id = "#" .. ability_cfg.fx.particle_fx
+        pcall(particlefx.play, component_id)
+        print("⚡ ФАБРИКА FX: Встроенный луч [" .. component_id .. "] успешно запущен в контейнере!")
+    else
+        -- Фоллбек-заглушка на случай, если что-то пошло не так
+        pcall(particlefx.play, "#particle")
+    end
+
+    -- Нативный Си-таймер автоликвидации гошки со сцены Meadows (Реактивный канон Defold)
+    timer.delay(self.duration, false, function()
+        if ability_cfg and ability_cfg.fx and ability_cfg.fx.particle_fx then
+            pcall(particlefx.stop, "#" .. ability_cfg.fx.particle_fx)
+        end
+        print("🗑️ ФАБРИКА FX [Container]: Время жизни эффекта луча истекло. Самоликвидация!")
+        go.delete()
+    end)
+end
+
+function final(self)
+end
+
+function update(self, dt)
+end
+
+function late_update(self, dt)
+end
+
+function fixed_update(self, dt)
+end
+
+function on_message(self, message_id, message, sender)
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end

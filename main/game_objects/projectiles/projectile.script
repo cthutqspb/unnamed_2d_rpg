@@ -1,64 +1,24 @@
-local game_state = require("main.modules.game_state.game_state")
-local units_state = require("main.modules.game_state.units_state")
-local interaction_manager = require("main.modules.logic.interaction_manager")
-local combat_manager = require("main.modules.system.combat_manager")
+local abilities_db = require("main.modules.data.abilities_db")
 
--- 🦾 ДВИЖКОВЫЕ СИ-СВОЙСТВА: Пуля принимает чистые нативные go_id со сцены!
 go.property("caster_go_id", hash(""))
 go.property("target_go_id", hash(""))
-go.property("damage", 0)
-go.property("speed", 500)
+go.property("ability_id", hash(""))
 
 function init(self)
-    -- Жесткий Си-гвард: если Си-тело цели удалено со сцены — тушим пулю сразу
-    if not self.target_go_id or self.target_go_id == hash("") then
-        go.delete()
-        return
+    -- Только включаем визуал, спрайты и партиклы
+    self.ability_cfg = abilities_db.get_ability(self.ability_id)
+    if self.ability_cfg and self.ability_cfg.fx and self.ability_cfg.fx.sprite_animation then
+        sprite.play_flipbook("#sprite", hash(self.ability_cfg.fx.sprite_animation))
     end
 
     pcall(particlefx.play, "#frostbolt_trail") 
-    print(string.format("🔮 [Projectile Init]: Пуля ожила! Летим в Си-тело %s", tostring(self.target_go_id)))
 end
 
 function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+    -- Стерильный клинап
 end
 
 function update(self, dt)
-    local my_pos = go.get_position()
-    
-    -- Наносекундный Си-запрос координат СЦЕНЫ напрямую по хэшу! Без левых Lua-таблиц!
-    local exists, target_pos = pcall(go.get_position, self.target_go_id)
-    if not exists or not target_pos then
-        go.delete() -- Цель исчезла, деспавнилась или умерла — пуля испарилась в воздухе
-        return
-    end
-    
-    local direction = target_pos - my_pos
-    local distance = vmath.length(direction)
-
-    -- Проверяем соприкосновение с хитбоксом (Impact Distance)
-    if distance <= (self.speed * dt) or distance <= 15 then
-        -- =========================================================================
-        -- 💥 МИГ СOПРOКOСНOВEНИЯ (Impact — ЗАМЫКАЕМ ТРАНЗАКЦИЮ БОЁВКИ):
-        -- =========================================================================
-        -- Пуля долетела! Скармливаем два Си-хэша напрямую в урон комбат-менеджера!
-        -- Пуля осталась кристально слепой, она просто сдала Payload бэкенду!
-        combat_manager.apply_damage_by_go_id(self.caster_go_id, self.target_go_id, self.damage)
-        
-        go.delete()
-        return
-    end
-
-    -- Двигаем пулю по вектору направления строго с учётом дельты кадра (dt)
-    local move_vector = vmath.normalize(direction) * self.speed * dt
-    go.set_position(my_pos + move_vector)
-
-    -- Ротируем объект пули носом строго по вектору полёта
-    local angle = math.atan2(direction.y, direction.x)
-    go.set_rotation(vmath.quat_rotation_z(angle))
 end
 
 function late_update(self, dt)
