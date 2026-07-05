@@ -132,8 +132,8 @@ end
 
 ---Покадрово перекрасить кнопки и бинды панели на основе живого контекста боя
 ---@param dt number Дельта времени кадра
----@param player UnitInstanceData|nil Живой RAM-паспорт мага
----@param target UnitInstanceData|nil Живой RAM-паспорт его текущей боевой жертвы
+---@param player UnitInstance|nil Живой RAM-паспорт мага
+---@param target UnitInstance|nil Живой RAM-паспорт его текущей боевой жертвы
 function M:update(dt, player, target)
     if not self.static_grid or not self.static_grid.slots then return end
 

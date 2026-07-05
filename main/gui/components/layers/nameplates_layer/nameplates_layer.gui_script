@@ -56,7 +56,7 @@ function update(self, dt)
                     local plate_instance = self.druid:new(NameplateInstance, root_node, cloned_nodes)
                     plate_instance:update_state(unit_data)
                     -- Записываем стартовый текст имени
-                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(unit_data.name_key or "unknown_unit"))
+                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(unit_data.identity.name_key or "unknown_unit"))
 
                     self.created_plates[uid] = {
                         go_id = go_id,
@@ -124,7 +124,7 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("unit_health_updated_deferred") then
         -- Находим живую плашку на экране по уникальному UID существа
         local plate = self.created_plates[message.uid]
-        
+
         if plate and plate.instance then
             -- 🧠 ЧИТАЕМ ИСТИННЫЙ СТEЙТ ИЗ ЦЕНТРАЛЬНОГО REЕСТРА RAM:
             -- Вытаскиваем стопроцентно свежие цифры из Single Source of Truth!
@@ -140,14 +140,14 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("clear_all_nameplates") then
         print("🧹 ИНТЕРФЕЙС: Принудительно выжигаем кэш плашек при загрузке сейва!")
-        
+
         -- Удаляем физические GUI-ноды с экрана, чтобы они не фантомили
         for uid, plate in pairs(self.created_plates) do
             if plate.root_node then
                 gui.delete_node(plate.root_node)
             end
         end
-        
+
         -- Стерильно обнуляем таблицу, чтобы ленивый спавн ЗАРАБОТАЛ заново!
         self.created_plates = {}
     end

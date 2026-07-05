@@ -230,6 +230,7 @@ end
 ---@param unit_uid string Уникальный строковый UID цели ("player", "c_skeleton_42")
 function M:bind_unit(unit_uid)
     -- Ленивый Фасад для проверки флага игрока
+    ---@type UnitInstance
     local unit = game_state.get_entity_by_uid(unit_uid)
     if not unit then return end
 

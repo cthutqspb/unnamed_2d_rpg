@@ -61,7 +61,7 @@ function M:show(x, y, type, sub_type, flags, data)
 
     local total_height = (#actions * cfg.btn_height) + ((#actions - 1) * cfg.spacing) + (cfg.padding * 2)
     gui.set_size(self.background, vmath.vector3(cfg.menu_width, total_height, 0))
-    
+
     -- Наполнение кнопок на экране HUD
     for i, action in ipairs(actions) do
         self:create_menu_button(action, i, data, cfg)
@@ -102,11 +102,11 @@ function M:create_menu_button(action, index, data, config)
 
         -- Отправляем в character_window.gui_script (или container_window) 
         -- ультимативно зрячую посылку, готовую к ААА-транзакциям!
-        msg.post(data.source_url, "context_menu_action", { 
-            event = action.event, 
-            data = merged_payload 
+        msg.post(data.source_url, "context_menu_action", {
+            event = action.event,
+            data = merged_payload
         })
-        
+
         self:hide()
     end)
     -- 3. ЖЕСТКОЕ ОТКЛЮЧЕНИЕ СТИЛЯ (Чтобы не было анимации увеличения)

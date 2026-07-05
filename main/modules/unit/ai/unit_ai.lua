@@ -12,6 +12,8 @@ local abilities_db = require("main.modules.data.abilities_db")
 ---@field spawn_position vector3 Изначальная точка дома, вокруг которой идет патруль
 ---@field ai_state AIUnitState Текущая фаза конечного автомата ИИ
 ---@field ai_timer number Универсальный таймер (время раздумий / откат атаки)
+---@field ai_target_uid string 
+---@field ai_target_position vector3|nil
 ---@field ai_target vector3|nil Координаты целевой точки патрулирования в мире
 ---@field ai_is_patrolling boolean Флаг снижения боевой скорости в патруле
 ---@field agro_range number Изменяемый радиус обнаружения игрока (в пикселях)
@@ -33,7 +35,7 @@ local PROFILES = {}
 -- 🦾 AAA-СЕЛЕКТОР НА ВЕСАХ ТЕГОВ (BG3 / PATHFINDER UTILITY AI КАНОН):
 local function select_best_ability(ctx, unit_passport, distance_to_target)
     local available_abilities = unit_passport and unit_passport.abilities or { "melee_attack" }
-    
+
     -- Личные весовые предпочтения этого конкретного моба (из его ai_combat_data в units_db)
     local weights = unit_passport.ai_combat_data and unit_passport.ai_combat_data.tag_weights or {}
 
@@ -45,7 +47,7 @@ local function select_best_ability(ctx, unit_passport, distance_to_target)
     for i = 1, #available_abilities do
         local ability_id = available_abilities[i]
         local cfg = abilities_db.get_ability(ability_id)
-        
+
         if cfg then
             local is_usable = true
 
@@ -70,7 +72,7 @@ local function select_best_ability(ctx, unit_passport, distance_to_target)
             -- 🚀 МАТЕМАТИЧЕСКИЙ РАСЧЕТ ВЕСА (SCORING PHASE):
             if is_usable then
                 -- Базовый дефолтный вес для любой прошедшей проверки абилки
-                local current_score = 1.0 
+                local current_score = 1.0
 
                 -- Сканируем теги способности и умножаем/плюсуем веса из личности моба!
                 if cfg.tags then
@@ -125,12 +127,13 @@ PROFILES["aggressive_patrol"] = {
     init = function(ctx)
         ctx.ai_state = "IDLE"
         ctx.ai_timer = 1.0
-        ctx.ai_target = nil
+        ctx.ai_target_uid = nil
         ctx.ai_is_patrolling = false
 
         -- 1. Вытаскиваем характеристики ЭТОГО конкретного монстра из живого бэкенда Фасада
-        local monster_data = game_state.get_entity_by_uid(ctx.uid)
-        local monster_hitbox = monster_data and monster_data.hitbox_size or 64
+        ---@type UnitInstance
+        local unit = game_state.get_entity_by_uid(ctx.uid)
+        local unit_hitbox = unit and unit.parameters.hitbox_size or 64
 
         -- 2. 🦾 ААА-КАНОН РАДИУСА (ИСПРАВЛЕНО):
         -- Вместо чтения битых полей attack_range_melee из баз данных, ИИ знает:
@@ -142,15 +145,15 @@ PROFILES["aggressive_patrol"] = {
         -- Скелет:  32 (моб) + 32 (игрок) + 12 (абилка) = 76 пикселей до центра мага.
         -- Дракон:  64 (моб) + 32 (игрок) + 12 (абилка) = 108 пикселей до центра мага!
         -- Математика работает идеально, полиморфно и без единой строчки хардкода в базах!
-        local monster_radius = monster_hitbox / 2
+        local unit_radius = unit_hitbox / 2
         local player_radius = player_hitbox / 2
 
-        ctx.attack_range = monster_radius + player_radius
-        ctx.primary_ability = monster_data and monster_data.abilities and monster_data.abilities[1] or "melee_attack"
+        ctx.attack_range = unit_radius + player_radius
+        ctx.primary_ability = unit and unit.abilities and unit.abilities[1] or "melee_attack"
 
         -- Читаем базовый агро-радиус напрямую из твоего породистого конфига в БД!
         -- Для скелета это будет твои честные 450 пикселей!
-        local db_aggro = monster_data and monster_data.base_aggro_radius or 350
+        local db_aggro = unit and unit.ai.base_aggro_radius or 350
 
         -- 🚀 УЛЬТИМАТИВНЫЙ АAА-ДИHАМИЧЕСКИЙ РАДИУС ПОГОНИ (0% ХАРДКОДА):
         -- Зона первого агра (agro_range) берется из паспорта базы данных.
@@ -163,7 +166,7 @@ PROFILES["aggressive_patrol"] = {
         ctx.loose_range = db_aggro * 2.5
 
         print(string.format("🧠 ИИ ИНИЦ: [%s] | ID=%s | Габариты=%d | Авто-Ренж Ближнего Боя=%d",
-            ctx.uid, ctx.unit_id, monster_hitbox, ctx.attack_range))
+            ctx.uid, ctx.unit_id, unit_hitbox, ctx.attack_range))
     end,
 
     update = function(ctx, dt)
@@ -175,22 +178,24 @@ PROFILES["aggressive_patrol"] = {
         local position = go.get_position(ctx.go_id)
 
         -- 🦾 СИНХРОНИЗАЦИЯ СТЕЙТА С БЭКЕНДОМ (Канон BG3):
-    -- Из Фасада забираем RAM-паспорт этого конкретного моба по его ctx.uid
+        -- Из Фасада забираем RAM-паспорт этого конкретного моба по его ctx.uid
+
+        ---@type UnitInstance
         local unit = game_state.get_entity_by_uid(ctx.uid)
         -- Если перцепция секундой ранее всадила нам цель в паспорт — мозг на лету подхватывает её!
-        if unit and unit.combat_target_uid then
+        if unit and unit.combat.combat_target_uid then
             -- Проверяем: если мы ещё чиллили, а цель появилась — взводим погоню
             if ctx.ai_state == "IDLE" or ctx.ai_state == "PATROL" then
                 ctx.ai_state = "CHASE"
                 msg.post("main:/context_menu_layer#gui", "hide_menu")
             end
-            ctx.ai_target_uid = unit.combat_target_uid -- Намертво привязали "player" в прицел ИИ!
+            ctx.ai_target_uid = unit.combat.combat_target_uid -- Намертво привязали "player" в прицел ИИ!
         else
             -- Если в паспорте пусто (эвейд/сброс боя перцепцией) — гасим погоню
             if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
                 ctx.ai_state = "IDLE"
                 ctx.ai_target_uid = nil
-                ctx.ai_target_pos = nil
+                ctx.ai_target_position = nil
             end
         end
         -- =========================================================================
@@ -198,6 +203,7 @@ PROFILES["aggressive_patrol"] = {
         -- =========================================================================
         -- Мы просим Фасад game_state выдать нам живой паспорт Души строго по UID цели,
         -- который perception_manager запишет в поле ctx.ai_target_uid!
+        ---@type UnitInstance
         local target_unit = ctx.ai_target_uid and game_state.get_entity_by_uid(ctx.ai_target_uid)
 
         -- Дефолтные буферы-заглушки для фазы пассивного покоя (IDLE/PATROL)
@@ -210,12 +216,12 @@ PROFILES["aggressive_patrol"] = {
             distance_to_target = vmath.length(target_position - position)
 
             -- Проверяем смерть ЛЮБОЙ цели (игрока или другого моба) через её карточку
-            if target_unit.is_dead then
+            if target_unit.combat.is_dead then
                 if ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK" then
                     print(string.format("💀 ИИ: [%s] Жертва [%s] мертва, расходимся по домам.", ctx.unit_id, ctx.ai_target_uid))
                     ctx.ai_state = "IDLE"
                     ctx.ai_target_uid = nil -- Очищаем боевой прицел
-                    ctx.ai_target_pos = nil -- Очищаем векторную точку ходьбы
+                    ctx.ai_target_position = nil -- Очищаем векторную точку ходьбы
 
                     game_state.set_combat_state(ctx.uid, nil)
                 end
@@ -231,7 +237,7 @@ PROFILES["aggressive_patrol"] = {
             -- Вызываем наш новый калькулятор! Он сканирует ману моба и дистанцию до игрока,
             -- находит спелл с максимальным счётом (Score) и шёлково возвращает его Id и рендж!
             local best_ability, current_range = select_best_ability(ctx, unit, distance_to_target)
-            
+
             -- Нагло на лету перезаписываем прицел ИИ под тактическую ситуацию!
             ctx.primary_ability = best_ability
             ctx.attack_range = current_range
@@ -247,12 +253,12 @@ PROFILES["aggressive_patrol"] = {
             -- 🚀 ТАКТИЧЕСКИЙ СРЫВ КАСТА (WOW/BG3 КАНОН):
             -- Если наглый маг подошёл к Скелету-Магу БЛИЖЕ, чем его зона страха (например, 80 < 140),
             -- моб обязан ПРEРВAТЬ каст, испугаться и переключиться в CHASE, чтобы убежать!
-            if distance_to_target < unit.flee_range then
-                print(string.format("🏃‍♂️ ИИ: [%s] Враг подошёл слишком близко (%d < %d)! Рву дистанцию!", ctx.unit_id, distance_to_target, unit.flee_range))
+            if distance_to_target < unit.ai.flee_range then
+                print(string.format("🏃‍♂️ ИИ: [%s] Враг подошёл слишком близко (%d < %d)! Рву дистанцию!", ctx.unit_id, distance_to_target, unit.ai.flee_range))
                 ctx.ai_state = "CHASE"
                 -- Инвертируем вектор: бежим строго ОТ игрока (position - target_position)
                 move_direction = vmath.normalize(position - target_position)
-                
+
             elseif distance_to_target > ctx.attack_range + 12 then
                 print(string.format("💥 ИИ: [%s] потерял дистанцию боя, возобновляю погоню!", ctx.unit_id))
                 ctx.ai_state = "CHASE"
@@ -273,14 +279,15 @@ PROFILES["aggressive_patrol"] = {
             if distance_to_target > ctx.loose_range then
                 print(string.format("🏃‍♂️ ИИ: [%s] потерял цель, возвращаюсь домой...", ctx.unit_id))
                 ctx.ai_state = "IDLE"
-                ctx.ai_target = nil
+                ctx.ai_target_uid = nil
+                ctx.ai_target_position = nil
                 game_state.set_combat_state(ctx.uid, nil)
                 return return_to_spawn(ctx, position)
 
             -- 🚀 РЕАКТИВНАЯ ЗОНА СТРАХА КАСТEРA (ИСПРАВЛЕНО НАМЕРТВО):
             -- Если ты подошёл ближе 140 пикселей, моб НЕ ИМЕЕТ ПРАВА атаковать!
             -- Он покадрово удерживает CHASE, но его move_direction шёлково разворачивается ОТ тебя!
-            elseif distance_to_target < unit.flee_range then
+            elseif distance_to_target < unit.ai.flee_range then
                 move_direction = vmath.normalize(position - target_position)
 
             -- Садиться в атаку мы имеем право СТРОГО тогда, когда мы ЗА ПРЕДЕЛАМИ зоны страха,
@@ -301,34 +308,34 @@ PROFILES["aggressive_patrol"] = {
         else
             -- 🎯 ДЕБАГ-СНАЙПЕР №2: Проверяем, переключил ли perception_manager стейт моба из IDLE
             if ctx.ai_target_uid and (ctx.ai_state == "CHASE" or ctx.ai_state == "ATTACK") then
-                print(string.format("⚡ [Debug AI Aggro Trigger]: Моб %s УСПЕШНО ЗААГРИЛСЯ! Стейт=%s | Цель=%s", 
+                print(string.format("⚡ [Debug AI Aggro Trigger]: Моб %s УСПЕШНО ЗААГРИЛСЯ! Стейт=%s | Цель=%s",
                     ctx.uid, ctx.ai_state, ctx.ai_target_uid))
-                
+
                 -- Синхронизируем покадровый вектор погони на первом же тике агро!
                 move_direction = vmath.normalize(target_position - position)
-            
+
             elseif ctx.ai_state == "IDLE" then
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
                     local rx = ctx.spawn_position.x + math.random(-70, 70)
                     local ry = ctx.spawn_position.y + math.random(-70, 70)
-                    
+
                     -- 🦾 ИСПОЛЬЗУЕМ AI_TARGET_POS КАК ЧИСТЫЙ ВЕКТОР ДЛЯ ПАТРУЛИРОВАНИЯ!
-                    ctx.ai_target_pos = vmath.vector3(rx, ry, 0)
+                    ctx.ai_target_position = vmath.vector3(rx, ry, 0)
                     ctx.ai_state = "PATROL"
                 end
                 move_direction = nil
-                
-            elseif ctx.ai_state == "PATROL" and ctx.ai_target_pos then
+
+            elseif ctx.ai_state == "PATROL" and ctx.ai_target_position then
                 -- Считаем вектор до точки патрулирования strictly по ai_target_pos
-                local d = ctx.ai_target_pos - position
+                local d = ctx.ai_target_position - position
                 if vmath.length(d) > 4 then
                     ctx.ai_is_patrolling = true
                     move_direction = vmath.normalize(d)
                 else
                     ctx.ai_state = "IDLE"
                     ctx.ai_timer = math.random(10, 30) / 10
-                    ctx.ai_target_pos = nil
+                    ctx.ai_target_position = nil
                     ctx.ai_is_patrolling = false
                     move_direction = nil
                 end
@@ -352,14 +359,15 @@ PROFILES["aggressive_patrol"] = {
                     local other_uid = active_instances[other_go_id]
 
                     -- 🎯 СИММЕТРИЧНЫЙ ВЫЗОВ: Достаем паспорт соседа через наш новый каскадный get_entity_by_uid!
-                    local other_state = game_state.get_entity_by_uid(other_uid)
+                    ---@type UnitInstance
+                    local other_unit_state = game_state.get_entity_by_uid(other_uid)
 
                     -- 🛡️ WoW-ФРАКЦИОННЫЙ ГВАРД ОКРУЖЕНИЯ (ИСПРАВЛЕНО):
                     -- 1. Если сосед мертв — мы его полностью игнорируем.
                     -- 2. Если сосед является ИГРОКОМ — мы его тоже игнорируем! 
                     -- Скелеты не будут пытаться "обойти" мага по касательной, они пойдут 
                     -- прямо на него напролом, нативно зажимая персонажа в плотное кольцо!
-                    if other_state and (other_state.is_dead or other_state.is_player) then
+                    if other_unit_state and (other_unit_state.combat.is_dead or other_unit_state.is_player) then
                         -- LuaLS в Neovim прекрасно понимает этот легальный пропуск шага
                     else
                         -- 🧱 ВЕТКА ЖИВЫХ СОЮЗНИКОВ-МОБОВ (Твой оригинальный код обхода):
@@ -367,8 +375,9 @@ PROFILES["aggressive_patrol"] = {
                         local distance_to_neighbor = vmath.length(other_position - position)
 
                         -- Пузырь личного пространства (сумма радиусов хитбоксов)
-                        local other_hitbox = other_state and other_state.hitbox_size or 64
-                        local min_distance = (ctx.hitbox_size / 2) + (other_hitbox / 2)
+                        local other_unit_hitbox = other_unit_state and other_unit_state.parameters.hitbox_size or 64
+                        local unit_hitbox = unit and unit.parameters.hitbox_size or 64
+                        local min_distance = (unit_hitbox / 2) + (other_unit_hitbox / 2)
 
                         -- КРИТИЧЕСКАЯ ЗОНА СЛИПАНИЯ СУЩЕСТВ:
                         if distance_to_neighbor <= min_distance + 8 and distance_to_neighbor > 0 then

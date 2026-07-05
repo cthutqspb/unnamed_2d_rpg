@@ -46,7 +46,7 @@ function M:refresh_frame(uid)
 
     -- 🧠 ЧИТАЕМ ИСТИННЫЙ СТEЙТ ИЗ ЦЕНТРАЛЬНОГО РЕЕСТРА ПО ВХОДЯЩЕМУ UID:
     local unit_instance = units_state.get(uid)
-    if not unit_instance or unit_instance.is_dead then
+    if not unit_instance or unit_instance.combat.is_dead then
         gui.set_enabled(self.root, false)
         return
     end
@@ -55,7 +55,7 @@ function M:refresh_frame(uid)
     gui.set_enabled(self.root, true)
 
     -- 1. Считаем и красим ХП-бар существа
-    local health_percent = unit_instance.health / unit_instance.max_health
+    local health_percent = unit_instance.health_resource.current / unit_instance.health_resource.max
     self.unit_health_bar:update_health(health_percent)
 
     -- 2. Достаем нашу изолированную доменную табличку ресурса из RAM
@@ -73,7 +73,7 @@ function M:refresh_frame(uid)
 
     -- 3. Выплескиваем паспортные текстовые данные в ноды экрана
     -- (Здесь локали подхватят locales.get(unit_instance.name_key) позже)
-    gui.set_text(self.unit_name, locales.get(unit_instance.name_key) or "Unknown")
+    gui.set_text(self.unit_name, locales.get(unit_instance.identity.name_key) or "Unknown")
     gui.set_text(self.unit_level, string.format("Ур. %d", unit_instance.level or 1))
 end
 

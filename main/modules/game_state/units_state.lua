@@ -4,79 +4,78 @@ local units_db = require("main.modules.data.units_db")
 local paperdoll_model = require("main.modules.models.paperdoll_model")
 local inventory_model = require("main.modules.models.inventory_model")
 
----@class UnitInstanceData
----@field go_id hash идентификатор движка
----@field is_player boolean
----@field name string|nil Конкретное имя
----@field name_key string Имя типа юнита: скелет, кабан, росянка
----@field race string|nil
----@field class string|nil
----@field unit_id string Строковый ID вида ("skeleton")
----@field uid string Уникальный строковый UID конкретного монстра
----@field level number Текущий уровень существа
----@field experience number
----@field base_stats table<string, number>
----@field current_stats table<string, number>
----@field type string Тип существа ("undead", "beast", "humanoid")
----@field rank string Ранг сложности ("common", "rare", "elite")
----@field loot_table_id string|nil
----@field is_collected boolean
----@field health number Текущее живое ХП в данный момент времени
----@field max_health number Рассчитанный лимит ХП с учетом уровня и ранга
----@field resource UnitResourceData
----@field auras table|nil
----@field damage number Рассчитанный урон с учетом уровня
----@field speed number Скорость перемещения
----@field hitbox_size number
----@field spellcast_range number
----@field ai_profile string
----@field saved_position vector3|nil
----@field is_dead boolean|nil
----@field is_invulnerable boolean|nil 🛡️ ОПЦИОНАЛЬНО: Флаг полной неуязвимости (вместо nil-ХП!)
----@field action_bars table<number, (ActionSlotData|nil)[]>|nil 🌟 ОПЦИОНАЛЬНО: Панели способностей
----@field current_cast_ability_id string|nil Строковый ID кастуемой способности из БД ("frostbolt")
----@field current_cast_duration number|nil Полное эталонное время каста из базы (2.5)
----@field current_cast_time number|nil Текущее покадрово тикающее время каста в секундах
----@field gcd_current number|nil Текущий таймер глобального кулдауна в RAM
----@field ai_target vector3|nil
----@field base_aggro_radius number
----@field faction string
----@field paperdoll PaperdollInstance
----@field inventory InventoryInstance
----@field is_in_combat boolean Флаг нахождения в бою (активирует боевой реген маны/ХП)
----@field last_attacker_uid string|nil UID последнего существа, нанесшего урон в RAM
----@field combat_target_uid string|nil UID текущей боевой жертвы (кого юнит покадрово лупит)
----@field combat_start_time number|nil Таймстамп старта комбата в секундах
+-- =========================================================================
+-- 🧪 СЛОЙ РАСШИРЕНИЯ МУТАБЕЛЬНЫХ ДАННЫХ (НАСЛЕДОВАНИЕ WOW/BG3 КАНОН):
+-- =========================================================================
 
----@class UnitStatsTable
----@field strength number
----@field agility number
----@field intellect number
----@field stamina number
+---@class UnitResourceState : UnitResource
+---@field current number                  Текущее мутабельное значение маны/ярости прямо сейчас в бою
 
----@class UnitResourceData
----@field type "mana"|"rage"|"energy"|string Строковый тип энергии (индекс ресурса)
----@field current number Актуальное текущее значение в RAM (например, 45)
----@field max number Максимальный потолок пула в RAM (например, 100)
+---@class UnitParametersState : UnitParameters
+---@field current_speed number
+---@field max_health number
 
----@class ActionSlotData
+---@class UnitHealthResourceState         (Текущее и Потолок бафов)
+---@field current number                  Текущее живое ХП существа в этот кадр рантайма (health_resource.current)
+---@field max number                      Динамический потолок полоски HUD с учетом временных бафов и аур!
+
+---@class UnitCombatState
+---@field is_in_combat boolean            Флаг нахождения в бою (активирует боевой реген)
+---@field is_dead boolean                 Флаг смерти существа
+---@field is_invulnerable boolean         Флаг полной неуязвимости (вместо nil-ХП)
+---@field combat_start_time number|nil    Таймстамп старта комбата в секундах
+---@field last_attacker_uid string|nil    UID последнего существа, нанесшего урон в RAM
+---@field combat_target_uid string|nil    UID текущей боевой жертвы (кого юнит покадрово лупит)
+
+---@class UnitCastState
+---@field ability_id string|nil           Строковый ID кастуемой способности из БД ("frostbolt")
+---@field duration number|nil             Полное эталонное время каста из базы (1.7)
+---@field time number|nil                 Текущее покадрово тикающее время каста в секундах
+---@field gcd_current number              Текущий таймер глобального кулдауна в RAM
+
+-- =========================================================================
+-- 👑 ГЛАВНЫЙ СТEРИЛЬНЫЙ КOНТРAКТ ЖИВОЙ ДУШИ СУЩЕСТВА В RAM:
+-- =========================================================================
+---@class UnitInstance : UnitConfig       🚀 НАСЛЕДУЕМ ВСЮ СТАТИКУ (identity, visuals, progression, ai, abilities) ИЗ БД!
+---@field go_id hash                      Идентификатор игрового объекта на сцене Defold
+---@field name string|nil
+---@field uid string                      Уникальный строковый UID конкретной туши на карте
+---@field unit_id string                  Строковый ID вида ("skeleton_mage")
+---@field is_player boolean               Флаг: является ли инстанс живым игроком
+---@field level number
+---@field expirience number
+---@field saved_position vector3          Физические координаты существа со сцены
+---@field base_attributes UnitAttributes  🧬 СТАТИКА: Базовые голые статы из БД (Никогда не меняются)
+---@field attributes UnitAttributes       ⚔️ МУТАБЕЛЬНО: Текущие статы с учетом бафов и шмота в ОЗУ
+---@field parameters UnitParametersState  📊 МУТАБЕЛЬНО: Текущие боевые параметры (базовое и макс ХП, скорость, хитбокс, loot_table_id)
+---@field health_resource UnitHealthResourceState 🩸 МУТАБЕЛЬНО: Святая Троица ХП (Текущее и Потолок бафов!)
+---@field resource UnitResourceState      🧪 МУТАБЕЛЬНО: Динамические полоски ХП/Маны/Ярости с полем current!
+---@field combat UnitCombatState          💥 БОЁВКА: Флаги боя, агро-цели, вендетта и смерть существа
+---@field cast UnitCastState        🔮 МАГИЯ: Состояние кастбаров и ГКД на этом кадре
+---@field auras table                     🦠 АУРЫ: Таблица активных бафов, дебафов и стаков заморозки
+---@field paperdoll PaperdollInstance     👕 КУКЛА: Объект экипированного шмота
+---@field inventory InventoryInstance     🎒 СУМКИ: Объект инвентаря существа
+---@field action_bars table<number, ActionSlot>|nil 🌟 Панели способностей (Матрица слотов)
+---@field is_collected boolean            Флаг залутанности/сбора туши
+
+---@class ActionSlot
 ---@field action_type "ability"|"item"|"empty" Тип действия в слоте
 ---@field action_id string|nil            Строковый ID из базы способностей или предметов
 
 ---@class RankModifiers
 ---@field health_multiplier number       Множитель максимального здоровья
----@field damage_multiplier number      Множитель базового урона
----@field resists table<string, number> Задел под резисты к стихиям (fire, frost и т.д.)
----@field bonus_abilities string[] Список дополнительных способностей, открываемых рангом
+---@field damage_multiplier number       Множитель базового урона
+---@field resists table<string, number>  Задел под резисты к стихиям (fire, frost и т.д.)
+---@field bonus_abilities string[]       Список дополнительных способностей, открываемых рангом
 
 ---@class UnitState
----@field registry table<string, UnitInstanceData>
+---@field registry table<string, UnitInstance>
 ---@field instances table<hash, string>
 ---@field is_loaded_from_save boolean
 local M = {}
 
--- Главный реестр живых монстров в оперативной памяти [uid] = UnitInstanceData
----@type table<string, UnitInstanceData>
+-- Главный реестр живых монстров в оперативной памяти [uid] = UnitInstance
+---@type table<string, UnitInstance>
 M.registry = {}
 
 -- Быстрая телефонная книга связи физического go_id с бэкенд-уидом [go_id] = uid
@@ -146,65 +145,60 @@ function M.add(uid, props)
     local monster_cfg = (not props.is_player and uid ~= "player") and units_db.get_unit(props.unit_id) or nil
 
     local calculated_max_health = props.max_health or props.health or 100
-    local calculated_max_mana = props.max_mana or props.mana or 50
-    local source_stats = props.base_stats or props.stats or { strength = 10, agility = 10, intellect = 10, stamina = 10 }
+    local source_attributes = props.attributes or props.attributes or {
+        strength = 10,
+        agility = 10,
+        intellect = 10,
+        stamina = 10
+    }
     local source_abilities = props.abilities or { "melee_attack" }
 
     -- Если это фабричный монстр, прогоняем его через динамическое левел-скалирование ХП
     if monster_cfg then
-        source_stats = props.base_stats or monster_cfg.base_stats or source_stats
+        source_attributes = props.attributes or monster_cfg.attributes or source_attributes
         source_abilities = props.abilities or monster_cfg.abilities or source_abilities
 
-        local level_modifier = math.pow(monster_cfg.health_growth or 1, (props.level or 1) - 1)
-        calculated_max_health = math.floor((monster_cfg.base_health or 40) * level_modifier)
+        local level_modifier = math.pow(monster_cfg.progression.health_growth or 1, (props.level or 1) - 1)
+        calculated_max_health = math.floor((monster_cfg.parameters.base_health or 40) * level_modifier)
 
         if compute_rank_modifiers then
-            local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.default_rank)
+            local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.identity.default_rank)
             calculated_max_health = math.floor(calculated_max_health * rank_mods.health_multiplier)
         end
-        calculated_max_mana = monster_cfg.base_mana or calculated_max_mana
+        local db_resource = monster_cfg.resource
+        if db_resource then
+            calculated_max_mana = db_resource.max or calculated_max_mana
+        end
     end
 
-    local clean_stats = utils.deepcopy(source_stats)
-    local clean_current_stats = utils.deepcopy(source_stats)
+    local base_attributes = utils.deepcopy(source_attributes)
+    local current_attributes = utils.deepcopy(source_attributes)
     local clean_source_abilities = utils.deepcopy(source_abilities)
+
     local raw_bars = props.action_bars or {}
-    local raw_resource = props.resource or {}
+
+    -- =========================================================================
+    -- 🛡️ ЗРЯЧИЕ АAА-ГВAРДЫ ВХOДЯЩIХ СЛOEВ (ЗАЩИТА ОТ NIL И СЛИЯНИЕ СЕЙВОВ):
+    -- =========================================================================
+    -- Извлекаем вложенные объекты из props, если они есть (загрузка игрока / сейва).
+    -- Если их нет (спавн обычного волка), даем пустую скобку {}, и ифы шёлково уйдут в базу данных!
+    local props_identity   = props.identity or {}
+    local props_parameters = props.parameters or {}
+    local props_health_resoure         = props.health_resource or {}
+    local props_resource   = props.resource or {}
+    local props_ai         = props.ai or {}
 
     -- Сборка монолитной Души существа в RAM-реестре:
-    local instance_data = {
-        go_id = props.go_id or (props.is_player and hash("/player") or msg.url().path),
-        uid = uid,
-        unit_id = props.unit_id,
-        name_key = props.name_key or (monster_cfg and monster_cfg.name_key) or "unknown_unit",
-        is_player = (props.is_player == true or uid == "player"),
-        type = props.type or (monster_cfg and monster_cfg.type) or "humanoid",
-        rank = props.rank or (monster_cfg and monster_cfg.default_rank) or "common",
-        level = props.level or 1,
-        experience = props.experience or 0,
-        health = props.health or calculated_max_health,
-        max_health = calculated_max_health,
-        resource = {
-            type    = raw_resource.type or (monster_cfg and monster_cfg.resource and monster_cfg.resource.type) or "mana",
-            current = raw_resource.current or 100,
-            max     = raw_resource.max or 100
-        },
-        speed = props.speed or (props.is_player and 220 or (monster_cfg and monster_cfg.base_speed) or 90),
-        spellcast_range = props.spellcast_range or (monster_cfg and monster_cfg.spellcast_range) or (props.is_player and 0 or 120),
-        hitbox_size = props.hitbox_size or (monster_cfg and monster_cfg.hitbox_size) or 64,
-        loot_table_id = props.loot_table_id or (monster_cfg and monster_cfg.default_loot_table_id) or "empty",
-        ai_profile = props.ai_profile or (props.is_player and "none" or (monster_cfg and monster_cfg.ai_profile) or "aggressive_patrol"),
-        base_aggro_radius = props.base_aggro_radius or (props.is_player and 0 or (monster_cfg and monster_cfg.base_aggro_radius) or 350),
-        
-        -- 🚀 ЗРЯЧИЙ АAА-ВЗВОД ФРАКЦИИ (ТИ ПEРВЫЙ КOНТУР ПОЛНОСТЬЮ СМЫКАЕТСЯ):
-        -- Мы больше не гадаем вслепую! Если в props прилетел nil (из сейва или спавнера),
-        -- мы берем породистую фракцию прямо из его верхнего monster_cfg базы данных units_db!
-        -- И только если это чистокровный игрок, ставим "neutral_humanoid", а мобу — "undead".
-        faction = props.faction or (monster_cfg and monster_cfg.faction) or (props.is_player and "neutral_humanoid" or "undead"),
-        is_ranged = props.is_ranged or (monster_cfg and monster_cfg.is_ranged),
-        flee_range = props.flee_range or (monster_cfg and monster_cfg.flee_range),
-        tag_weights = props.tag_weights or (monster_cfg and monster_cfg.tag_weights),
+    local unit_instance = {
+        go_id       = props.go_id or (props.is_player and hash("/player") or msg.url().path),
+        uid         = uid,
+        unit_id     = props.unit_id,
+        name        = props.name or props_identity.name or nil,
+        is_player   = (props.is_player == true or uid == "player"),
+        level       = props.level or 1,
+        experience  = props.experience or 0,
 
+        -- 🎒 СИСТЕМЫ ИНВЕНТАРЯ И ОДЕЖДЫ:
         paperdoll = paperdoll_model.new(),
         inventory = inventory_model.new(),
         action_bars = {
@@ -212,31 +206,85 @@ function M.add(uid, props)
             [2] = raw_bars[2] or {},
             [3] = raw_bars[3] or {},
         },
-        is_in_combat = false
+
+        -- 🧪 МУТАБЕЛЬНЫЕ ВТОРИЧНЫЕ ПАРАМЕТРЫ (РЕФАКТОРИНГ НАМЕРТВО СИНХРОНИЗИРОВАН):
+        parameters = {
+            -- Базовое ХП левела берется либо из сейва, либо рассчитывается фабрикой
+            base_health  = props_parameters.base_health or calculated_max_health,
+            max_health   = props_parameters.max_health or calculated_max_health,
+
+            -- Скорость: смотрим сначала в сейв игрока (props_parameters.base_speed), 
+            -- если там пусто — лезем в базу данных моба (monster_cfg.parameters.base_speed),
+            -- и только на крайний случай ставим жесткий дефолт (220 игроку / 90 волку)!
+            base_speed   = props_parameters.base_speed or (monster_cfg and monster_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
+
+            -- ТЕКУЩАЯ ЖИВАЯ СКОРОСТЬ СИММЕТРИЧНО (ИСПРАВЛЕНО):
+            current_speed = props_parameters.current_speed or (monster_cfg and monster_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
+
+            hitbox_size  = props_parameters.hitbox_size or (monster_cfg and monster_cfg.parameters.hitbox_size) or 64,
+        },
+
+        -- 🧪 МУТАБЕЛЬНЫЕ ЖИВЫЕ РЕСУРСЫ:
+        health_resource = {
+            current = props_health_resoure.current or props.health or calculated_max_health, -- Поддержка и старых сейвов, и новых!
+            max     = props_health_resoure.max or calculated_max_health
+        },
+
+        resource = {
+            type    = props_resource.type or (monster_cfg and monster_cfg.resource and monster_cfg.resource.type) or "mana",
+            current = props_resource.current or ((props_resource.type == "rage") and 0 or calculated_max_mana),
+            max     = props_resource.max or calculated_max_mana,
+        },
+
+        -- 💥 БОЕВОЙ СИСТЕМНЫЙ БЛОК:
+        combat = {
+            is_in_combat      = false,
+            is_dead           = (props.is_dead == true),
+            is_invulnerable   = (props.is_invulnerable == true),
+            combat_start_time = nil,
+            last_attacker_uid = props.last_attacker_uid or nil,
+            combat_target_uid = props.combat_target_uid or nil,
+        },
+
+        -- 🔮 МАГИЧЕСКИЙ СИСТЕМНЫЙ БЛОК (КАСТБАРЫ И ГКД):
+        cast = {
+            ability_id  = nil,
+            duration    = 0,
+            time        = 0,
+            gcd_current = 0,
+        },
+
+        auras = {},
+
+        -- 🦾 ПЕРЕИСПОЛЬЗОВАНИЕ ДАННЫХ ИЗ БАЗЫ:
+        identity    = monster_cfg and monster_cfg.identity or props.identity,
+        visuals     = monster_cfg and monster_cfg.visuals or props.visuals,
+        progression = monster_cfg and monster_cfg.progression or props.progression,
+        ai          = monster_cfg and monster_cfg.ai or props.ai,
+
+        base_attributes    = base_attributes,
+        attributes         = current_attributes,
+        abilities          = clean_source_abilities,
+
+        loot_table_id   = props.loot_table_id or (monster_cfg and monster_cfg.identity.loot_table_id) or "empty",
+        is_collected    = (props.is_collected == true),
+        saved_position  = props.saved_position or vmath.vector3(0, 0, 1.0)
     }
 
     -- Накат данных сохранения шмота и сумок, если они прилетели из файла
-    if props.paperdoll_data and instance_data.paperdoll then
-        instance_data.paperdoll:load_save_data(props.paperdoll)
+    if props.paperdoll_data and unit_instance.paperdoll then
+        unit_instance.paperdoll:load_save_data(props.paperdoll)
     end
-    if props.inventory_data and instance_data.inventory then
-        instance_data.inventory:load_save_data(props.inventory)
+    if props.inventory_data and unit_instance.inventory then
+        unit_instance.inventory:load_save_data(props.inventory)
     end
 
-    -- 🦾 ЭТАЛОН 3: СКЛЕЙКА ОБЩИХ СИСТЕМНЫХ ПОЛЕЙ ЮНИТА
-    instance_data.is_collected = (props.is_collected == true)
-    instance_data.is_dead = (props.is_dead == true)
-    instance_data.saved_position = props.saved_position or vmath.vector3(0, 0, 1.0)
-    instance_data.base_stats = clean_stats
-    instance_data.current_stats = clean_current_stats
-    instance_data.abilities = clean_source_abilities
-
-    if instance_data.paperdoll then instance_data.paperdoll.owner = instance_data end
-    if instance_data.inventory then instance_data.inventory.owner = instance_data end
+    if unit_instance.paperdoll then unit_instance.paperdoll.owner = unit_instance end
+    if unit_instance.inventory then unit_instance.inventory.owner = unit_instance end
 
     -- Записываем готовую Душу Юнита в реестр RAM
-    M.registry[uid] = instance_data
-    return instance_data
+    M.registry[uid] = unit_instance
+    return unit_instance
 end
 
 
@@ -274,7 +322,7 @@ end
 
 
 ---@param uid string Уникальный строковый идентификатор ("player" или "c_X_Y")
----@return UnitInstanceData|nil Возвращает таблицу живого паспорта юнита из RAM
+---@return UnitInstance|nil Возвращает таблицу живого паспорта юнита из RAM
 function M.get_unit_by_uid(uid)
     if M.registry and M.registry[uid] then
         return M.registry[uid]
@@ -301,13 +349,13 @@ end
 
 ---Получить динамические данные монстра по его UID
 ---@param uid string
----@return UnitInstanceData|nil
+---@return UnitInstance|nil
 function M.get(uid)
     return M.registry[uid]
 end
 
 ---Получить весь реестр живых монстров (для сохранения игры)
----@return table<string, UnitInstanceData>
+---@return table<string, UnitInstance>
 function M.get_all()
     return M.registry
 end
@@ -344,7 +392,6 @@ function M.add_unit_item(uid, item_id, amount, item_uid, sub_items, is_looted, l
 
     -- Если шмотка шёлково легла в ячейку, и это был ИГРОК — взрываем шину реактивности!
     if success and (unit_data.is_player or uid == "player") then
-        local broadcast = require("main.modules.system.broadcast")
         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     end
 
@@ -361,14 +408,21 @@ end
 function M.set_action_bar_slot(uid, bar_index, slot_index, action_type, action_id)
     if not M.registry or not M.registry[uid] then return end
 
-    local unit_data = M.registry[uid]
-    if not unit_data or not unit_data.action_bars then return end
+    local unit = M.registry[uid]
+    if not unit or not unit.action_bars then return end
 
     -- Находим нужную плоскую таблицу панели внутри глобального RAM-паспорта Души
-    local current_bar = unit_data.action_bars[bar_index]
+    local current_bar = unit.action_bars[bar_index]
     if not current_bar then
-        unit_data.action_bars[bar_index] = {}
-        current_bar = unit_data.action_bars[bar_index]
+        -- 🚀 ЧИСТЫЙ АAА-МАССИВНЫЙ МОСТ (ИСПРАВЛЕНО НАМЕРТВО):
+        -- Сначала заявляем локальную пустую таблицу
+        ---@type ActionSlot[]
+        local new_bar = {}
+
+        -- Всаживаем её в экшен-бары юнита. Линтер сожрет это с потрохами, 
+        -- потому что типы new_bar и unit.action_bars[bar_index] совпадают байт-в-байт!
+        unit.action_bars[bar_index] = new_bar
+        current_bar = unit.action_bars[bar_index]
     end
 
     -- 🦾 АТОМАРНАЯ СИ-МУТАЦИЯ (СТРУКТУРА ПОЛНОСТЬЮ ВЫРОВНЕНА ПОД СЕТКУ):
@@ -386,7 +440,7 @@ function M.set_action_bar_slot(uid, bar_index, slot_index, action_type, action_i
         bar_index, slot_index, uid, action_type, tostring(action_id)))
 
     -- Реактивно пинаем HUD бродкастами, strictly только если изменился ИГРОК
-    if unit_data.is_player or uid == "player" then
+    if unit.is_player or uid == "player" then
         broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     end
@@ -400,15 +454,15 @@ function M.restore_all(data)
     print("🔬 [units_state restore_all] ДАННЫЕ ИЗ СЕЙВА:")
 
     -- 🎯 ЧИСТОКРОВНАЯ РЕГЕНЕРАЦИЯ ВЕКТОРОВ И ООП-МЕТАТАБЛИЦ ПРИ ЗАГРУЗКЕ СЕЙВА:
-    for uid, unit_data in pairs(M.registry) do
-        local saved_pos = unit_data.saved_position
+    for uid, unit in pairs(M.registry) do
+        local saved_position = unit.saved_position
         print(string.format("🔬   UID: %s | Жив: %s | Позиция в сейве: X=%s, Y=%s",
-            uid, tostring(not unit_data.is_dead),
-            tostring(saved_pos and saved_pos.x), tostring(saved_pos and saved_pos.y)))
+            uid, tostring(not unit.combat.is_dead),
+            tostring(saved_position and saved_position.x), tostring(saved_position and saved_position.y)))
 
         -- 1. ВОССТАНОВЛЕНИЕ ВЕКТОРОВ DEFOLD (Твой оригинальный рабочий код!)
-        if saved_pos and type(saved_pos) == "table" then
-            unit_data.saved_position = vmath.vector3(saved_pos.x, saved_pos.y, saved_pos.z or 1.0)
+        if saved_position and type(saved_position) == "table" then
+            unit.saved_position = vmath.vector3(saved_position.x, saved_position.y, saved_position.z or 1.0)
         end
 
         -- =========================================================================
@@ -416,7 +470,7 @@ function M.restore_all(data)
         -- =========================================================================
         -- В JSON-монолите сохранения шмот лежит в полях inventory_data / paperdoll_data,
         -- либо в твоих оригинальных полях inventory / paperdoll.
-        local raw_inventory = unit_data.inventory or unit_data.inventory
+        local raw_inventory = unit.inventory or unit.inventory
 
         if raw_inventory then
             -- Вычисляем размер сетки существа. Для мага — 49 слотов, для монстров — дефолт 24
@@ -424,30 +478,30 @@ function M.restore_all(data)
 
             -- Рождаем чистокровный, зрячий инстанс класса со всеми методами!
             -- Первым аргументом передаем 'unit' (паспорт хозяина), чтобы намертво зашить .owner!
-            local live_inventory = inventory_model.new(unit_data, max_slots)
+            local live_inventory = inventory_model.new(unit, max_slots)
 
             -- Вызываем твой роскошный, нетронутый метод наката шмоток из JSON!
             -- Он сочно пройдется циклом, переведет ID строк в Си-хэши и заполнит ячейки.
             live_inventory:load_save_data(raw_inventory)
 
             -- Намертво перезаписываем плоское поле юнита готовым объектным инстансом!
-            unit_data.inventory = live_inventory
+            unit.inventory = live_inventory
         end
 
         -- =========================================================================
         -- 🦾 3. AAA-РЕАНИМАЦИЯ КУКОЛ ШМОТА ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ДОБАВЛЕНО)
         -- =========================================================================
-        local raw_paperdoll = unit_data.paperdoll or unit_data.paperdoll
+        local raw_paperdoll = unit.paperdoll or unit.paperdoll
 
         if raw_paperdoll then
             -- Рождаем зрячий инстанс куклы шмота, привязывая паспорт хозяина в .owner!
-            local live_paperdoll = paperdoll_model.new(unit_data)
+            local live_paperdoll = paperdoll_model.new(unit)
 
             -- Вызываем метод наката экипированных вещей из JSON
             live_paperdoll:load_save_data(raw_paperdoll)
 
             -- Перезаписываем плоское поле юнита готовым объектным инстансом!
-            unit_data.paperdoll = live_paperdoll
+            unit.paperdoll = live_paperdoll
         end
     end
 
@@ -462,47 +516,61 @@ end
 
 ---Легкий бэкенд-мутатор для динамического обновления геймплейных данных монстра (WoW-канон)
 ---@param uid string Уникальный строковый UID существа ("c_1200_700")
----@param current_data table Новая таблица с измененными полями (saved_position, health и т.д.)
+---@param current_data table Новая плоская таблица с измененными полями (saved_position, health и т.д.)
 function M.update_data(uid, current_data)
     -- Мы работаем строго и только если паспорт моба реально существует в памяти RAM!
     if M.registry and M.registry[uid] then
-        -- 🧱 СИММЕТРИЧНАЯ КЛАДКА ДАННЫХ (Data Merge):
-        -- Мы аккуратно перезаписываем только то, что реально прилетело, защищая типы!
+        local unit_instance = M.registry[uid]
+
+        -- =========================================================================
+        -- 🛡️ 1. ГВАРД ОКРУГЛЕНИЯ ПИКСЕЛЕЙ КООРДИНАТ (X и Y):
+        -- =========================================================================
         if current_data.saved_position then
             local live_pos = current_data.saved_position
-
-            -- 🛡️ ПУЛЕНЕПРОБИВАЕМЫЙ ГВАРД ОКРУГЛЕНИЯ ПИКСЕЛЕЙ (X и Y):
-            -- Мы принудительно округляем покадровые X и Y до ближайшего целого числа.
-            -- Это полностью уничтожает дробные хвосты (вроде .4239), которые ломают 
-            -- математику генерации UID и чертежей в спавнере!
-            -- При этом ось Z мы ВООБЩЕ НЕ ТРОГАЕМ (работает как работала)!
-            M.registry[uid].saved_position = vmath.vector3(
+            unit_instance.saved_position = vmath.vector3(
                 math.floor(live_pos.x + 0.5),
                 math.floor(live_pos.y + 0.5),
-                live_pos.z -- Z оставляем в покое, создатели движка не идиоты!
+                live_pos.z -- Z оставляем в покое, сохраняем вертикальность
             )
         end
 
+        -- =========================================================================
+        -- 🩸 2. ЗРЯЧЕЕ ОБНОВЛЕНИЕ ТЕКУЩЕГО ХП В RAM (ИСПРАВЛЕНО НАМЕРТВО):
+        -- =========================================================================
+        -- Если прилетело плоское внешнее поле current_data.health (например, 50)
         if current_data.health then
-            M.registry[uid].health = current_data.health
+            -- Пишем strictly внутрь нашего нового ААА-ресурса здоровья в реестре!
+            unit_instance.health_resource.current = current_data.health
+
+            -- Си-гварды безопасности: ХП не может упасть ниже нуля и подняться выше потолка параметров!
+            if unit_instance.health_resource.current < 0 then
+                unit_instance.health_resource.current = 0
+            end
+            if unit_instance.health_resource.current > unit_instance.parameters.max_health then
+                unit_instance.health_resource.current = unit_instance.parameters.max_health
+            end
         end
 
+        -- =========================================================================
+        -- 💥 3. ПУЛЕНЕПРОБИВАЕМЫЙ ГВАРД СМЕРТИ (ИСПРАВЛЕНО НАМЕРТВО БЕЗ ОПЕЧАТОК):
+        -- =========================================================================
+        -- Читаем плоское внешнее поле current_data.is_dead, а пишем во вложенный блок combat!
         if current_data.is_dead ~= nil then
-            M.registry[uid].is_dead = current_data.is_dead
+            unit_instance.combat.is_dead = (current_data.is_dead == true)
         end
 
-        -- 🎯 ДОПОЛНИТЕЛЬНЫЙ ГВАРД ПАСПОРТА:
-        -- Если моб умер, принудительно страхуем здоровье на жесткий ноль,
-        -- чтобы оно никогда фантомно не сбросилось в nil!
-        if current_data.is_dead == true then
-            M.registry[uid].health = 0
+        -- 🎯 4. ДОПОЛНИТЕЛЬНЫЙ ГВАРД ДУШИ:
+        -- Если моб умер, принудительно страхуем текущее здоровье на жесткий ноль в ОЗУ,
+        -- чтобы оно никогда фантомно не сбросилось в nil или микро-минусы!
+        if current_data.is_dead == true or unit_instance.combat.is_dead == true then
+            unit_instance.health_resource.current = 0
         end
+        -- =========================================================================
     else
-        -- ❌ СТИРАЕМ ОТСЮДА НАФИГ СЛEПОE ЗА ТИРAНИE M.registry[uid] = current_data!
-        -- Интерфейс и ИИ больше никогда не потеряют паспортные данные моба!
         print("🚨 БЭКЕНД ГВАРД: Предотвращена попытка затереть паспорт моба пустышкой координат:", uid)
     end
 end
+
 
 ---Централизованный ААА-Мутатор боевого стейта существ в RAM
 ---@param unit_uid string UID существа ("skeleton_mage_4")
@@ -513,21 +581,21 @@ function M.set_combat_state(unit_uid, victim_uid)
 
     if victim_uid then
         -- ⚔️ ВЕТКА ВХОДА В БОЙ (АГРО):
-        unit.is_in_combat = true
-        unit.combat_target_uid = victim_uid
+        unit.combat.is_in_combat = true
+        unit.combat.combat_target_uid = victim_uid
         -- Запекаем тактовый миг старта комбата через нативное Си-время Defold
-        unit.combat_start_time = socket.gettime()
+        unit.combat.combat_start_time = socket.gettime()
 
         -- ЭТАЛОН 1: Если моб сагрился на игрока — маг ТОЖЕ мгновенно входит в комбат!
         -- Это сразу вешает комбат на HUD игрока, закрывает сумки и включает боевой реген.
         if victim_uid == "player" and M.registry["player"] then
-            M.registry["player"].is_in_combat = true
+            M.registry["player"].combat.is_in_combat = true
         end
     else
         -- 🏃‍♂️ ВЕТКА ВЫХОДА ИЗ БОЯ (ЭВЕЙД / СМЕРТЬ ИГРОКА):
-        unit.is_in_combat = false
-        unit.combat_target_uid = nil
-        unit.combat_start_time = nil
+        unit.combat.is_in_combat = false
+        unit.combat.combat_target_uid = nil
+        unit.combat.combat_start_time = nil
 
         -- ЭТАЛОН 2: Умный автоматический сброс комбата у Игрока-Мага!
         -- Если кастер, который только что сбросил бой — это моб, напавший на игрока,
@@ -536,7 +604,7 @@ function M.set_combat_state(unit_uid, victim_uid)
             local player_is_still_threatened = false
 
             for other_uid, other_unit in pairs(M.registry) do
-                if other_unit.is_in_combat and other_unit.combat_target_uid == "player" then
+                if other_unit.combat.is_in_combat and other_unit.combat.combat_target_uid == "player" then
                     player_is_still_threatened = true
                     break
                 end
@@ -545,7 +613,7 @@ function M.set_combat_state(unit_uid, victim_uid)
             -- Если Meadows-вселенная вокруг мага очистилась, и его больше никто не трогает —
             -- мага сочно и автоматически выпускает из режима боя!
             if not player_is_still_threatened and M.registry["player"] then
-                M.registry["player"].is_in_combat = false
+                M.registry["player"].combat.is_in_combat = false
                 print("🛡️ БЭКЕНД: Все враги повержены или отстали. Игрок вышел из боя!")
             end
         end
@@ -586,12 +654,12 @@ end
 ---@param uid string
 ---@return boolean
 function M.is_unit_in_combat(uid)
-    local unit_state = M.registry and M.registry[uid]
-    if not unit_state then return false end
+    local unit = M.registry and M.registry[uid]
+    if not unit then return false end
 
     -- Вся логика флагов ИИ и агро спрятана внутри синглтона стейта!
     -- Прямое, моментальное чтение полей без создания ООП-геттеров и метатаблиц!
-    return unit_state.is_in_combat == true or unit_state.ai_target ~= nil
+    return unit.combat.is_in_combat == true or unit.combat.combat_target_uid ~= nil
 end
 
 ---⏳ ЦЕНТРАЛЬНЫЕ ЧАСЫ Meadows: Покадрово тикаем ГКД и касты ВСЕХ существ в RAM-реестре!
@@ -606,14 +674,14 @@ function M.update_all_timers(dt)
 
     for uid, unit in pairs(registry) do
         -- 1. Покадрово гасим глобальный кулдаун (ГКД) для этого существа
-        if unit.gcd_current and unit.gcd_current > 0 then
-            unit.gcd_current = unit.gcd_current - dt
-            if unit.gcd_current < 0 then unit.gcd_current = 0 end
+        if unit.cast.gcd_current and unit.cast.gcd_current > 0 then
+            unit.cast.gcd_current = unit.cast.gcd_current - dt
+            if unit.cast.gcd_current < 0 then unit.cast.gcd_current = 0 end
         end
 
         -- 2. Покадрово тикаем время активного кастбара заклинания
-        if unit.current_cast_ability_id and unit.current_cast_time then
-            unit.current_cast_time = unit.current_cast_time + dt
+        if unit.cast.ability_id and unit.cast.time then
+            unit.cast.time = unit.cast.time + dt
         end
     end
 end

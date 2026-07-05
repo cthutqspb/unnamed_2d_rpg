@@ -20,6 +20,7 @@
 ---@field duration number|nil -- Для лучше или еще чего мгновенного
 
 ---@class AbilityConfig
+---@field tags string[]
 ---@field action_type string
 ---@field id string Уникальный строковый ID заклинания ("frostbolt")
 ---@field name_key string

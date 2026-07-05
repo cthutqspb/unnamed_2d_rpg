@@ -32,14 +32,15 @@ end
 
 
 ---🎯 ТВОЙ РЕАКТИВНЫЙ АПДЕЙТ СТЕЙТА (Оставляем без изменений):
-function M:update_state(unit_instance_data)
-    if not unit_instance_data then return end
+---@param unit_instance UnitInstance
+function M:update_state(unit_instance)
+    if not unit_instance then return end
 
-    local health_percent = unit_instance_data.health / unit_instance_data.max_health
+    local health_percent = unit_instance.health_resource.current / unit_instance.health_resource.max
     self.nameplate_instance_health_bar:update_health(health_percent)
 
-    if unit_instance_data.is_dead then
-        local dead_text = locales.get(unit_instance_data.name_key) .. " (" .. locales.get("unit_dead_suffix") .. ")"
+    if unit_instance.combat.is_dead then
+        local dead_text = locales.get(unit_instance.identity.name_key) .. " (" .. locales.get("unit_dead_suffix") .. ")"
 
         self.nameplate_instance_health_bar:set_visible(false)
         gui.set_text(self.nameplate_instance_name, dead_text)

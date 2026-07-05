@@ -1,5 +1,5 @@
 ---@class LoaderScriptInstance : table
----@field pending_position PlayerPosition|nil Отложенные координаты игрока для телепортации
+---@field pending_position vector3|nil Отложенные координаты игрока для телепортации
 ---@field pending_action_bars any[]|nil       Отложенный кэш панелей способностей
 
 ---@param self LoaderScriptInstance

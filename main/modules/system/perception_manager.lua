@@ -23,7 +23,7 @@ function M.update_threat_perception()
     -- Пробегаемся по ВСЕМ живым существам в RAM-реестре вселенной!
     for caster_uid, caster_unit in pairs(units_state.registry) do
         -- 🚀 Си-гвард базовой жизни: сканируем только живых не-игроков с ИИ-контуром
-        if not caster_unit.is_player and not caster_unit.is_dead then
+        if not caster_unit.is_player and not caster_unit.combat.is_dead then
             -- =========================================================================
             -- 🤬 ПОЛИМОРФНЫЙ АAА-ДЕТЕКТОР МЕСТИ НЕЙТРАЛОВ (ВЫНЕСЕНО НА САМЫЙ ВВЕРХ):
             -- =========================================================================
@@ -32,13 +32,13 @@ function M.update_threat_perception()
             -- в памяти какой-то старый таргет! Если боёвка всадила ему last_attacker_uid 
             -- в SSOT-реестр — Мозг ВЫШЕ И ТРEБOВAТEЛЬНO взводит агро на обидчика,
             -- очищает флаг и шёлково уходит на следующую итерацию через else!
-            if caster_unit.last_attacker_uid and caster_unit.last_attacker_uid ~= "" then
-                local current_attacker = caster_unit.last_attacker_uid
+            if caster_unit.combat.last_attacker_uid and caster_unit.combat.last_attacker_uid ~= "" then
+                local current_attacker = caster_unit.combat.last_attacker_uid
 
-                caster_unit.last_attacker_uid = nil -- Закрыли транзакцию
+                caster_unit.combat.last_attacker_uid = nil -- Закрыли транзакцию
                 game_state.set_unit_aggro_target(caster_uid, current_attacker)
 
-                print(string.format("🤬 МЕСТЬ [Perception]: Высокоуровневый нейтрал [%s] (Lvl %d) получил урон! Мозг перехватил агро на обидчика [%s]!", 
+                print(string.format("🤬 МЕСТЬ [Perception]: Высокоуровневый нейтрал [%s] (Lvl %d) получил урон! Мозг перехватил агро на обидчика [%s]!",
                     caster_uid, caster_unit.level or 1, current_attacker))
 
             else
@@ -47,19 +47,19 @@ function M.update_threat_perception()
                 -- =========================================================================
                 -- Сюда мы падаем, только если моба никто физически не бил!
                 -- И вот именно здесь встаёт твой законный гвард отсутствия боевой цели!
-                if not caster_unit.combat_target_uid or caster_unit.combat_target_uid == "" then
+                if not caster_unit.combat.combat_target_uid or caster_unit.combat.combat_target_uid == "" then
                     local source_unit_position = caster_unit.saved_position
-                    local source_unit_faction = caster_unit.faction or "undead"
+                    local source_unit_faction = caster_unit.identity.faction or "undead"
                     local source_unit_level = caster_unit.level or 1
 
                     if source_unit_position then
                         local db_cfg = units_db.get_unit(caster_unit.unit_id)
-                        local base_radius = db_cfg and db_cfg.base_aggro_radius or DEFAULT_BASE_RADIUS
+                        local base_radius = db_cfg and db_cfg.ai.base_aggro_radius or DEFAULT_BASE_RADIUS
 
                         -- Ищем потенциальных врагов среди ВСЕХ остальных существ в реестре RAM!
                         for target_unit_uid, target_unit in pairs(units_state.registry) do
-                            if target_unit_uid ~= caster_uid and not target_unit.is_dead then
-                                local target_unit_faction = target_unit.faction or "neutral_humanoid"
+                            if target_unit_uid ~= caster_uid and not target_unit.combat.is_dead then
+                                local target_unit_faction = target_unit.identity.faction or "neutral_humanoid"
 
                                 -- ААА-ФИЛЬТР ФРАКЦИЙ:
                                 if factions_db.is_hostile(source_unit_faction, target_unit_faction) then

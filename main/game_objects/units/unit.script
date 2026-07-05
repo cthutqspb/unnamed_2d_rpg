@@ -100,8 +100,6 @@ function init(self)
             units_state.add(string_uid, {
                 unit_id = string_id,
                 level = self.unit_level or 1,
-                type = string_type,
-                rank = string_rank,
                 loot_table_id = string_loot_table_id,
                 saved_position = self.spawn_position
             })
@@ -118,42 +116,42 @@ function init(self)
     units_state.register(self.go_id, string_uid)
 
     -- Читаем чистокровные, стопроцентно защищенные данные из RAM-памяти (или файла сохранения)
-    local unit_instance_data = units_state.get_unit_by_uid(string_uid)
+    local unit_instance = units_state.get_unit_by_uid(string_uid)
 
     -- 🛡️ 1. UNIT-КАНОН СИНХРОНИЗАЦИИ СТРОК (ДОБАВЛЕНО):
     -- берем чистокровную строку unit_id ("skeleton_warrior") НАПРЯМУЮ из RAM-паспорта!
     -- Перезаписываем string_id, полностью уничтожая мутацию в драконов!
-    if unit_instance_data and unit_instance_data.unit_id then
-        string_id = unit_instance_data.unit_id
+    if unit_instance and unit_instance.unit_id then
+        string_id = unit_instance.unit_id
     end
     self.unit_id = string_id -- Намертво сохраняем строку в контекст объекта для on_message!
 
     -- Стучимся в статичную базу units_db по ЧИСТОЙ, ИСПРАВЛЕННОЙ строке!
     local db_cfg = units_db.get_unit(string_id)
 
-    if unit_instance_data then
+    if unit_instance then
         -- 🌟 WOW-РЕАНИМАЦИЯ ТРУПА ИЗ СЕЙВА ПОСЛЕ СТРИМИНГА ЧАНКОВ:
         -- Возвращаем на место координаты, если это загрузка сейва
-        if unit_instance_data.saved_position then
-            go.set_position(unit_instance_data.saved_position)
+        if unit_instance.saved_position then
+            go.set_position(unit_instance.saved_position)
         end
 
         -- 🛡️ 2. ПРИНУДИТЕЛЬНЫЙ ПЕРЕКРАС И МАСШТАБ (ПЕРЕНЕСЕНО СЮДА, ДО ГВАРДА СМЕРТИ!):
         -- Срываем дефолтную шкуру дракона с прехаба до того, как сработает return трупа.
         -- Теперь объект гарантированно сменит визуал на скелета в первую же наносекунду!
-        local anim_name = db_cfg and db_cfg.animation or string_id
+        local anim_name = db_cfg and db_cfg.visuals.animation or string_id
         if sprite then
             sprite.play_flipbook("#sprite", hash(anim_name))
         end
 
-        if db_cfg and db_cfg.hitbox_size then
+        if db_cfg and db_cfg.parameters.hitbox_size then
             local base_prefab_size = 64
-            local scale_factor = db_cfg.hitbox_size / base_prefab_size
+            local scale_factor = db_cfg.parameters.hitbox_size / base_prefab_size
             go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
         end
 
-        if unit_instance_data.is_dead then
-            for k,v in pairs(unit_instance_data) do
+        if unit_instance.combat.is_dead then
+            for k,v in pairs(unit_instance) do
                 print("PAIRS", k,v)
             end
             -- Моб заспавнился из сейва мертвым! 
@@ -162,29 +160,29 @@ function init(self)
             -- труп набок на следующем тике кадра, когда все компоненты на 100% запекутся!
             msg.post(".", "apply_dead_state_after_spawn")
 
-            self.loot_table_id = unit_instance_data.loot_table_id
+            self.loot_table_id = unit_instance.identity.loot_table_id
             print(string.format("💀 СУЩЕСТВО [%s]: Поставили асинхронную реанимацию трупа в очередь кадра.", string_uid))
             return -- Отрезаем инициализацию живого ИИ, как у тебя и было!
         end
 
         -- Читаем сочные, уже посчитанные от уровня и ранга статы из возвращенной структуры сейва!
-        self.speed = unit_instance_data.speed or 90
-        self.hitbox_size = unit_instance_data.hitbox_size or 64
-        self.ai_profile = unit_instance_data.ai_profile or "aggressive_patrol"
-        self.loot_table_id = unit_instance_data.loot_table_id
-        self.faction = unit_instance_data.faction or "neutral_humanoid"
+        self.speed = unit_instance.parameters.current_speed or 90
+        self.hitbox_size = unit_instance.parameters.hitbox_size or 64
+        self.ai_profile = unit_instance.ai.profile or "aggressive_patrol"
+        self.loot_table_id = unit_instance.identity.loot_table_id
+        self.faction = unit_instance.identity.faction or "neutral_humanoid"
 
         -- (Отсюда блок смены спрайта и масштаба удален, так как мы выполнили его выше!)
     else
         -- Экстренный фоллбек, если бэкенд почему-то выдал nil
-        self.speed = db_cfg and db_cfg.base_speed or 90
-        self.hitbox_size = db_cfg and db_cfg.hitbox_size or 64
-        self.ai_profile = db_cfg and db_cfg.ai_profile or "aggressive_patrol"
+        self.speed = db_cfg and db_cfg.parameters.base_speed or 90
+        self.hitbox_size = db_cfg and db_cfg.parameters.hitbox_size or 64
+        self.ai_profile = db_cfg and db_cfg.ai.profile or "aggressive_patrol"
         self.loot_table_id = string_loot_table_id
-        self.faction = db_cfg and db_cfg.faction or "neutral_humanoid"
+        self.faction = db_cfg and db_cfg.identity.faction or "neutral_humanoid"
 
         -- Фоллбек перекраса на случай краша RAM-реестра
-        local anim_name = db_cfg and db_cfg.animation or string_id
+        local anim_name = db_cfg and db_cfg.visuals.animation or string_id
         if sprite then sprite.play_flipbook("#sprite", hash(anim_name)) end
     end
 
@@ -219,7 +217,7 @@ function update(self, dt)
         end
 
         local position = go.get_position()
-        
+
         -- 🎯 СЧИТАЕМ НОВУЮ ТОЧКУ ДЛЯ КАДРА
         local next_position = position + move_direction * current_speed * dt
 
@@ -241,7 +239,7 @@ function update(self, dt)
         units_state.update_data(self.uid, {
             saved_position = next_position,
         })
-    end    
+    end 
 end
 
 
@@ -255,8 +253,8 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("click") then
         interaction_manager.set_target(self.go_id, self.uid)
 
-        local unit_data = units_state.get(self.uid)
-        local is_unit_dead = unit_data and unit_data.is_dead or false
+        local unit = units_state.get(self.uid)
+        local is_unit_dead = unit and unit.combat.is_dead or false
 
         if is_unit_dead then
             interactions.handle_click(self, 50, function()
@@ -268,7 +266,7 @@ function on_message(self, message_id, message, sender)
                   uid = self.uid,
                   id = self.unit_id,
                   db_cfg = db_cfg,
-                  instance_data = unit_data, -- Передали живой стейт аргументом!
+                  instance_data = unit, -- Передали живой стейт аргументом!
                   position = go.get_position()
               })
             end)

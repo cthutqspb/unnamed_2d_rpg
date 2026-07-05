@@ -212,9 +212,11 @@ function on_message(self, message_id, message, sender)
 end
 
 function update(self, dt)
+    ---@type UnitInstance
     local player = character_data.player
 
     local target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
+    ---@type UnitInstance|nil
     local target = target_uid and game_state.get_entity_by_uid(target_uid)
 
     if self.action_bar and self.action_bar.update then

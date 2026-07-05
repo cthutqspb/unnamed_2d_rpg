@@ -121,8 +121,9 @@ end
 ---@param dt number
 function update(self, dt)
     -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
+    ---@type UnitInstance
     local player = character_data.player
-    if not player or not player.base_stats or not player.current_stats then
+    if not player or not player.base_attributes or not player.attributes then
         return
     end
 
@@ -318,6 +319,7 @@ function on_message(self, message_id, message, sender)
 
         -- Вытаскиваем Душу карманного сундука из ячейки инвентаря игрока
         local current_unit_uid = message.unit_uid or "player"
+        ---@type UnitInstance
         local unit_data = game_state.get_entity_by_uid(current_unit_uid)
 
         if not unit_data or not unit_data.inventory then
@@ -326,24 +328,24 @@ function on_message(self, message_id, message, sender)
         end
 
         local player_inv = unit_data.inventory
-        local item_data = player_inv:get_item(slot_index)
+        local item = player_inv:get_item(slot_index)
 
-         if item_data then
-            if not item_data.is_looted then
+         if item then
+            if not item.is_looted then
                 print('ХЕР ЕСЛИ ЛУТАЛИ')
-                local final_loot_id = item_data.loot_table_id or item_id or "empty"
+                local final_loot_id = item.loot_table_id or item_id or "empty"
                 if final_loot_id == "" or final_loot_id == "unknown" then
                     final_loot_id = item_id or "empty"
                 end
 
                 print("БЭКЕНД [Model]: Первая геймплейная генерация лута Матрёшки по таблице:", final_loot_id)
                 local loot_tables = require("main.modules.data.loot_tables")
-                item_data.items = loot_tables.get_loot(hash(final_loot_id)) or {}
-                item_data.is_looted = true
+                item.items = loot_tables.get_loot(hash(final_loot_id)) or {}
+                item.is_looted = true
             end
 
-            if not item_data.items then
-                item_data.items = {}
+            if not item.items then
+                item.items = {}
             end
 
             -- =========================================================================
@@ -359,8 +361,8 @@ function on_message(self, message_id, message, sender)
             local total_slots = (db_cfg and db_cfg.columns or 6) * (db_cfg and db_cfg.rows or 4)
 
             local container_instance = inventory_model.new(nil, total_slots)
-            container_instance.items = item_data.items
-            container_instance.uid = item_data.uid -- прокидываем UID для гварда аннигиляции!
+            container_instance.items = item.items
+            container_instance.uid = item.uid -- прокидываем UID для гварда аннигиляции!
 
             -- Регистрируем этот живой объектный инстанс внутренностей бочки в фокус интерфейсов!
             -- Теперь трансфер-менеджер подхватит его по Duck Typing через .get_item / .set_item!
@@ -371,7 +373,7 @@ function on_message(self, message_id, message, sender)
                 container_uid = uid,
                 container_id = hash(item_id),
                 container_name = hash(db_cfg and db_cfg.name_key or "container_common_chest_name"),
-                container_items = item_data.items,
+                container_items = item.items,
                 columns = db_cfg and db_cfg.columns or 6,
                 rows = db_cfg and db_cfg.rows or 4,
                 slot_index = slot_index,

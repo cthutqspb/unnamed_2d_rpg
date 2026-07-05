@@ -20,13 +20,13 @@ function M.set_target(go_id, uid)
     local player = units_state.get(character_data.PLAYER_UID)
     if not player then return end
 
-    if player.combat_target_uid == uid then return end
+    if player.combat.combat_target_uid == uid then return end
 
     print(string.format("🎯 ИНТEРAКШEН: Захвачен фокус цели! UID: [%s] | GO_ID: %s", uid, tostring(go_id)))
 
     -- 🦾 АТОМАРНАЯ ЗАПИСЬ В ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ:
     M.current_target_go_id = go_id
-    player.combat_target_uid = uid -- Запекли строковый UID прямо в Душу мага в RAM!
+    player.combat.combat_target_uid = uid -- Запекли строковый UID прямо в Душу мага в RAM!
 
     -- Оповещаем HUD-контроллер. Строго выверенное ААА-имя ивента!
     broadcast.send("target_events", {
@@ -39,11 +39,11 @@ end
 ---Сбросить текущую боевую цель (При клике на чистую траву)
 function M.clear_target()
     local player = units_state.get(character_data.PLAYER_UID)
-    if not player or not player.combat_target_uid or player.combat_target_uid == "" then return end
+    if not player or not player.combat.combat_target_uid or player.combat.combat_target_uid == "" then return end
 
     -- Стерильно выжигаем память из реестра мира
     M.current_target_go_id = nil
-    player.combat_target_uid = nil -- Стерли цель из Души мага!
+    player.combat.combat_target_uid = nil -- Стерли цель из Души мага!
 
     print("🎯 ИНТEРAКШEН: Боевая цель пуленепробиваемо сброшена в RAM.")
 
@@ -63,7 +63,7 @@ end
 ---@return string|nil
 function M.get_current_target_uid()
     local player = units_state.get(character_data.PLAYER_UID)
-    return player and player.combat_target_uid or nil
+    return player and player.combat.combat_target_uid or nil
 end
 
 -- =========================================================================

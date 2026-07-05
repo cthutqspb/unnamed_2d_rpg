@@ -24,7 +24,9 @@ function M.execute_ability(caster_uid, target_uid, ability_id)
         return
     end
 
+    ---@type UnitInstance
     local caster_unit = game_state.get_entity_by_uid(caster_uid)
+    ---@type UnitInstance
     local target_unit = game_state.get_entity_by_uid(target_uid)
     local is_possible, error_reason = unit_logic.check_cast_possibility(caster_unit, ability_id, target_unit)
 
@@ -81,17 +83,17 @@ function M.execute_ability(caster_uid, target_uid, ability_id)
     local final_damage = math.random(min_dmg, max_dmg)
 
     if caster_unit and cfg.damage.scaling_stats then
-        for stat_name, factor in pairs(cfg.damage.scaling_stats) do
-            local current_stat_value = caster_unit.current_stats[stat_name] or 0
-            final_damage = final_damage + math.floor(current_stat_value * factor)
+        for attribute_name, factor in pairs(cfg.damage.scaling_stats) do
+            local current_attribute_value = caster_unit.attributes[attribute_name] or 0
+            final_damage = final_damage + math.floor(current_attribute_value * factor)
         end
     end
 
     -- НАКАТЫВАЕМ ЭКСПОНЕНЦИАЛЬНЫЙ РОСТ ДЛЯ МОНСТРОВ:
     if caster_unit and not caster_unit.is_player then
         local db_cfg = units_db.get_unit(caster_unit.unit_id)
-        if db_cfg and db_cfg.health_growth then
-            local dmg_modifier = math.pow(db_cfg.damage_growth, caster_unit.level - 1)
+        if db_cfg and db_cfg.progression.health_growth then
+            local dmg_modifier = math.pow(db_cfg.progression.damage_growth, caster_unit.level - 1)
             final_damage = math.floor(final_damage * dmg_modifier)
         end
     end
@@ -294,8 +296,8 @@ end
 -- end
 
 ---Универсальный атомарный метод нанесения любого урона во вселенной Meadows (WoW / BG3 канон)
----@param caster_unit UnitInstanceData Живой RAM-паспорт атакующего существа
----@param target_unit UnitInstanceData Живой RAM-паспорт жертвы, которая принимает удар
+---@param caster_unit UnitInstance Живой RAM-паспорт атакующего существа
+---@param target_unit UnitInstance Живой RAM-паспорт жертвы, которая принимает удар
 ---@param raw_damage number Базовая величина урона до применения брони/рангов
 function M.apply_damage(caster_unit, target_unit, raw_damage)
     -- Жесткий Си-засов: если кто-то из участников испарился из памяти — рубим кадр
@@ -310,7 +312,7 @@ function M.apply_damage(caster_unit, target_unit, raw_damage)
     -- 0 сообщений в скрипты, 0 бродкастов — чистая, мгновенная мутация ядра памяти в RAM!
     if caster_unit.uid and caster_unit.uid ~= "" then
         print("АТАКА ЮНИТА", target_unit.unit_id)
-        target_unit.last_attacker_uid = caster_unit.uid
+        target_unit.combat.last_attacker_uid = caster_unit.uid
     end
     -- =========================================================================
 
@@ -325,7 +327,7 @@ function M.apply_damage(caster_unit, target_unit, raw_damage)
     -- СЛУЧАЙ А: Любой юнит (моб/босс/эффект) бьет нашего ИГРОКА
     -- =========================================================================
     if is_target_player then
-        if target_unit.is_dead then return end
+        if target_unit.combat.is_dead then return end
 
         -- 🦾 ЗРЯЧИЙ ЮНИТ-АБСОРБ: Скармливаем паспорт игрока напрямую в ядро логики!
         local final_damage = unit_logic.consume_absorb_shield(raw_damage, target_unit)
@@ -349,14 +351,14 @@ function M.apply_damage(caster_unit, target_unit, raw_damage)
     -- СЛУЧАЙ Б: Игрок (или летящий Фростболт) бьет Скелета/Дракона/Монстра
     -- =========================================================================
     else
-        if target_unit.is_dead then return end
+        if target_unit.combat.is_dead then return end
 
         -- 🦾 УЛЬТИМАТИВНЫЙ ПОЛИМОРФИЗМ: Скармливаем паспорт скелета в то же самое ядро!
         -- Метод вычтет ХП из RAM-карточки моба, а если здоровье упадет в ноль — сам взведет .is_dead = true!
         unit_logic.take_damage(raw_damage, target_unit)
 
         log_message = string.format("💥 БОЙ [combat_manager]: Юниту %s [%s] нанесено -%d урона! Живое ХП: %d/%d",
-            target_unit.unit_id, target_unit.uid, raw_damage, target_unit.health, target_unit.max_health)
+            target_unit.unit_id, target_unit.uid, raw_damage, target_unit.health_resource.current, target_unit.health_resource.max)
 
         -- Шлём бродкаст для рамки ховера и Nameplate целей, забирая go_id прямо из паспорта моба!
         broadcast.send("combat_events", {
@@ -368,7 +370,7 @@ function M.apply_damage(caster_unit, target_unit, raw_damage)
         -- 🚀 РЕАКЦИЯ НА СМЕРТЬ/РАНЕНИЕ СИ-ТЕЛ НА СЦЕНЕ (СВЯЗКА С ДВИЖКОМ):
         -- Нам больше не нужны локаторы! Мы шлем Си-пакет напрямую по запеченному target_unit.go_id!
         if target_unit.go_id then
-            if target_unit.is_dead then
+            if target_unit.combat.is_dead then
                 log_message = string.format("💀 БОЙ [combat_manager]: Юнит %s [%s] пал в бою!", target_unit.unit_id, target_unit.uid)
                 msg.post(target_unit.go_id, "on_unit_died")
             else

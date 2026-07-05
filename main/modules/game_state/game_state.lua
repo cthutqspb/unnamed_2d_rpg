@@ -77,14 +77,14 @@ function M.get_entity_by_uid(uid)
 
     -- 1. Сначала ищем в Юнитах (Игрок, Скелеты, Драконы, Боссы из Tiled)
     if units_state and units_state.get_unit_by_uid then
-        local unit_data = units_state.get_unit_by_uid(uid)
-        if unit_data then return unit_data end
+        local unit_instance = units_state.get_unit_by_uid(uid)
+        if unit_instance then return unit_instance end
     end
 
     -- 2. Если не нашли, заглядываем в Предметы на земле (Дроп и статические шмотки)
     if world_items_state and world_items_state.get_item_by_uid then
-        local item_data = world_items_state.get_item_by_uid(uid)
-        if item_data then return item_data end
+        local item_instance = world_items_state.get_item_by_uid(uid)
+        if item_instance then return item_instance end
     end
 
     -- -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
@@ -182,7 +182,7 @@ function M.set_unit_aggro_target(caster_uid, target_uid)
     local unit_data = units_state.registry[caster_uid]
     if unit_data then
         -- Пишем цель в глобальный RAM-паспорт Души (Для боёвки, ИИ и сейвов)
-        unit_data.combat_target_uid = target_uid
+        unit_data.combat.combat_target_uid = target_uid
 
         -- Включаем боевой режим для HUD-фреймов (Твой оригинальный код)
         if M.set_combat_state then
@@ -193,7 +193,7 @@ end
 
 ---Принудительно создать чистокровный Unit-паспорт для игрока в RAM при Новой Игра (ИСПРАВЛЕНО)
 ---@param default_props table Дефолтные характеристики (unit_id, stats и т.д.)
----@return UnitInstanceData|nil Возвращает созданную таблицу паспорта
+---@return UnitInstance|nil Возвращает созданную таблицу паспорта
 function M.create_player_unit(default_props)
     if units_state and units_state.add then
         -- Вызываем инкапсулированный метод add через Фасад!

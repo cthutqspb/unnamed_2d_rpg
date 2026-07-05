@@ -117,7 +117,7 @@ local function render_item(self, item_context, context)
     if cfg.required then
         -- Заголовок "Требования"
         add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
-  
+
         local check_result = unit_logic.check_item_requirements(cfg, character_data.player)
 
         for req_id, req_val in pairs(cfg.required) do
@@ -261,7 +261,7 @@ local function render_world_object(self, info, context)
         local unit_cfg = units_db.get_unit(info.unit_id)
 
         if unit_cfg then
-            display_name = locales.get(unit_cfg.name_key)
+            display_name = locales.get(unit_cfg.identity.name_key)
         else
             display_name = "Unknown Unit"
         end

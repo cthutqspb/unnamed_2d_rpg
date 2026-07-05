@@ -90,8 +90,9 @@ end
 ---@param self PlayerScriptInstance
 ---@param dt number
 function update(self, dt)
+    ---@type UnitInstance
     local player = character_data.player
-    if not player or not player.base_stats or not player.current_stats then
+    if not player or not player.base_attributes or not player.attributes then
         return
     end
 
@@ -101,40 +102,41 @@ function update(self, dt)
     -- 🛡️ ИДЕАЛЬНАЯ АРХИТЕКТУРА СКОРОСТИ (ИСПРАВЛЕНО):
     -- Скрипт больше не занимается самодеятельностью и не считает ХП!
     -- Он просто слепо берет готовую, выверенную бэкендом скорость юнита из RAM!
-    local current_speed = player.speed or 120
+    local current_speed = player.parameters.current_speed or 120
 
     -- =========================================================================
     -- 🔮 КAСТБAР МАГА В ЕДИНOM ИСТОЧНИКЕ ПРАВДЫ (ИСПРАВЛЕНО НАМЕРТВО):
     -- =========================================================================
     -- 🛡️ ГВАРД СРЫВА КАСТА ПРИ ДВИЖЕНИИ WASD:
-    if player.current_cast_ability_id and (self.move_input.x ~= 0 or self.move_input.y ~= 0) then
+    if player.cast.ability_id and (self.move_input.x ~= 0 or self.move_input.y ~= 0) then
         print("❄️ БЭКЕНД [Magic]: Каст ПРЕРВАН из-за движения мага ногами!")
-        player.current_cast_ability_id = nil
-        player.current_cast_time = 0
-        player.current_cast_duration = 0
+        player.cast.ability_id = nil
+        player.cast.time = 0
+        player.cast.duration = 0
         self.cast_payload = nil -- Очищаем боевой пакет, чтобы отмена не выстрелила!
         msg.post("main:/gui_manager#hud", "hide_castbar", { interrupted = true })
     end
 
     -- РЕАКТИВНЫЙ ОБСЧЁТ И ВЫКАЧКА ПРОГРЕССА В HUD:
-    if player.current_cast_ability_id then
+    if player.cast.ability_id then
         -- =========================================================================
         -- 🦾 ЗРЯЧИЙ КОНВОИР ДИСТАНЦИИ КАСТА (ДОБАВЛЕНО НАМЕРТВО ПО WoW-КАНОНУ):
         -- =========================================================================
         -- Каждый божий кадр, пока ползет полоска, мы заново спрашиваем нашего судью unit_logic!
         local current_target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
+        ---@type UnitInstance
         local current_target_unit = game_state.get_entity_by_uid(current_target_uid)
 
-        local is_possible, error_reason = unit_logic.check_cast_possibility(player, player.current_cast_ability_id, current_target_unit)
+        local is_possible, error_reason = unit_logic.check_cast_possibility(player, player.cast.ability_id, current_target_unit)
 
         -- 💥 МИГ ПРEРЫВAНИЯ НА ХОДУ: Скелет отбежал назад и вышел из ренжа!
         if not is_possible then
             print("🚨 БЭКЕНД [Cast Monitor]: Каст принудительно СОРВАН покадровым гвардом! Причина:", error_reason)
 
             -- Намертво выжигаем и очищаем ТТХ каста в оперативной памяти мага
-            player.current_cast_ability_id = nil
-            player.current_cast_time = 0
-            player.current_cast_duration = 0
+            player.cast.ability_id = nil
+            player.cast.time = 0
+            player.cast.duration = 0
             self.cast_payload = nil -- аннигилируем закешированный боевой пакет!
 
             -- Тушим полоску кастбара с экрана игрока с флагом прерывания
@@ -152,17 +154,17 @@ function update(self, dt)
         -- =========================================================================
 
         -- Шлем покадровый асинхронный прогресс в hud.gui_script для движения ползунка
-        local progress = player.current_cast_time / player.current_cast_duration
+        local progress = player.cast.time / player.cast.duration
         msg.post("main:/gui_manager#hud", "update_castbar", { progress = progress })
 
         -- ⚡ КАСТ БЕЗУПРЕЧНО ДОПЕЛ ДО КОНЦА НА ЦЕНТРАЛЬНЫХ ЧАСАХ!
-        if player.current_cast_time >= player.current_cast_duration then
+        if player.cast.time >= player.cast.duration then
             print("❄️ БЭКЕНД [Combat]: Каст завершен! Вызываем боевой редьюсер урона.")
 
             -- Стерильно очищаем глобальный стейт каста внутри реестра
-            player.current_cast_ability_id = nil
-            player.current_cast_time = 0
-            player.current_cast_duration = 0
+            player.cast.ability_id = nil
+            player.cast.time = 0
+            player.cast.duration = 0
             msg.post("main:/gui_manager#hud", "hide_castbar")
 
             -- Вызываем редьюсер диспетчера экшенов, скармливая ему сохраненный payload
@@ -379,6 +381,7 @@ function on_message(self, message_id, message, sender)
 
     if message_id == hash("player_action") then
         if message.event == "action" then
+            ---@type UnitInstance
             local player = character_data.player
             -- =========================================================================
             -- 🛡️ ТИТАНОВЫЙ ААА-ЗАСОВ ГКД ЧЕРЕЗ ПОСРЕДНИКА (ИСПРАВЛЕНО НАМЕРТВО):
@@ -395,6 +398,7 @@ function on_message(self, message_id, message, sender)
             local ability_cfg = abilities_db.get_ability(ability_id)
 
             local current_target_uid = interaction_manager.get_current_target_uid and interaction_manager.get_current_target_uid()
+            ---@type UnitInstance
             local current_target_unit = game_state.get_entity_by_uid(current_target_uid)
             -- =========================================================================
             -- 🛡️ ЦЕНТРАЛЬНЫЙ СИ-ЗАСОВ БОЯ + ВЫКАЧКА В БОЕВОЙ ЛОГ (ИСПРАВЛЕНО НАМЕРТВО):
@@ -435,15 +439,15 @@ function on_message(self, message_id, message, sender)
             -- =========================================================================
             if ability_cfg and ability_cfg.cast_time and ability_cfg.cast_time > 0 then
                 -- Читаем глобальный гвард: если маг уже кастует — рубим спам кнопки
-                if player and player.current_cast_ability_id then return true end
+                if player and player.cast.ability_id then return true end
 
                 -- Гасим движение мага мышкой, кастуем строго с места
                 self.move_target = nil
 
                 -- Запекаем ТТХ каста в RAM-паспорт мага
-                player.current_cast_ability_id = ability_cfg.id
-                player.current_cast_duration = ability_cfg.cast_time
-                player.current_cast_time = 0
+                player.cast.ability_id = ability_cfg.id
+                player.cast.duration = ability_cfg.cast_time
+                player.cast.time = 0
 
                 -- Кэшируем боевой пакет данных, приводя имена к ААА-стандарту диспетчера
                 self.cast_payload = {

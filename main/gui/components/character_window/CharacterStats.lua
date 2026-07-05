@@ -39,7 +39,7 @@ function M:init(template_id)
 end
 
 ---Динамически переключить виджет на рендеринг шмота СОВЕРШЕННО ДРУГОГО существа (WoW-канон!)
----@param unit UnitInstanceData Уникальный строковый UID цели ("player", "c_skeleton_1")
+---@param unit UnitInstance Уникальный строковый UID цели ("player", "c_skeleton_1")
 function M:set_inspect_target(unit)
     self.unit = unit
     self:update_display()
@@ -49,12 +49,12 @@ function M:update_display()
     -- 🛡️ ЗАЩИТА ЭКРАНА: Полностью блокируем отрисовку текста, если бэкенд пустой
     local unit = self.unit
 
-    if not unit or not unit.base_stats or not unit.current_stats then
+    if not unit or not unit.base_attributes or not unit.attributes then
         return
     end
 
     if not next(self.stat_nodes) then
-        for stat_id, _ in pairs(unit.base_stats) do
+        for stat_id, _ in pairs(unit.base_attributes) do
             local path = self.template_id .. "/unit_" .. stat_id .. "_value"
             local ok, node = pcall(gui.get_node, path)
             if ok then
@@ -72,18 +72,18 @@ function M:update_display()
     -- values
     -- Добавляем к строкам or "" или or "0" на случай, если поля паспорта еще пустые
     gui.set_text(self.nodes.name, unit.name or "Unknown")
-    gui.set_text(self.nodes.race, unit.race or "human")
-    gui.set_text(self.nodes.class, unit.class or "warrior")
+    gui.set_text(self.nodes.race, unit.identity.race or "human")
+    gui.set_text(self.nodes.class, unit.identity.unit_class[1] or "warrior")
     gui.set_text(self.nodes.level, tostring(unit.level or 1))
 
-    local current_health = unit.health or 100
-    local maximum_health = unit.max_health or 100
+    local current_health = unit.health_resource.current or 100
+    local maximum_health = unit.health_resource.max or 100
     gui.set_text(self.nodes.health, current_health .. " / " .. maximum_health)
 
     -- Обновляем только те статы, для которых нашлись ноды в GUI
-    for stat_id, node in pairs(self.stat_nodes) do
-        local current = unit.current_stats[stat_id] or 0
-        local base = unit.base_stats[stat_id] or 0
+    for attribute_id, node in pairs(self.stat_nodes) do
+        local current = unit.attributes[attribute_id] or 0
+        local base = unit.base_attributes[attribute_id] or 0
         local bonus = current - base
 
         if bonus > 0 then
