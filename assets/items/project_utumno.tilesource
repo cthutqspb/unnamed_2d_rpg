@@ -98,6 +98,11 @@ animations {
   end_tile: 829
 }
 animations {
+  id: "skeleton_mage"
+  start_tile: 4754
+  end_tile: 4754
+}
+animations {
   id: "skeleton_warrior"
   start_tile: 4755
   end_tile: 4755

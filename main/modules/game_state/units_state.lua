@@ -195,12 +195,15 @@ function M.add(uid, props)
         loot_table_id = props.loot_table_id or (monster_cfg and monster_cfg.default_loot_table_id) or "empty",
         ai_profile = props.ai_profile or (props.is_player and "none" or (monster_cfg and monster_cfg.ai_profile) or "aggressive_patrol"),
         base_aggro_radius = props.base_aggro_radius or (props.is_player and 0 or (monster_cfg and monster_cfg.base_aggro_radius) or 350),
-
+        
         -- 🚀 ЗРЯЧИЙ АAА-ВЗВОД ФРАКЦИИ (ТИ ПEРВЫЙ КOНТУР ПОЛНОСТЬЮ СМЫКАЕТСЯ):
         -- Мы больше не гадаем вслепую! Если в props прилетел nil (из сейва или спавнера),
         -- мы берем породистую фракцию прямо из его верхнего monster_cfg базы данных units_db!
         -- И только если это чистокровный игрок, ставим "neutral_humanoid", а мобу — "undead".
         faction = props.faction or (monster_cfg and monster_cfg.faction) or (props.is_player and "neutral_humanoid" or "undead"),
+        is_ranged = props.is_ranged or (monster_cfg and monster_cfg.is_ranged),
+        flee_range = props.flee_range or (monster_cfg and monster_cfg.flee_range),
+        tag_weights = props.tag_weights or (monster_cfg and monster_cfg.tag_weights),
 
         paperdoll = paperdoll_model.new(),
         inventory = inventory_model.new(),

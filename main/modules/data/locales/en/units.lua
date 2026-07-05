@@ -1,5 +1,6 @@
 return {
     ["unit_skeleton_warrior_name"] = "Skeleton-warrior",
+    ["unit_skeleton_mage_name"] = "Skeleton-mage",
 
     ["unit_elder_green_dragon_name"] = "Elder green dragon"
 }

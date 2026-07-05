@@ -44,6 +44,10 @@ local M = {}
 
 M.abilites_raw = {
     ["melee_attack"] = {
+        tags = {
+            "melee_attack",
+            "physical"
+        },
         action_type = "ability",
         name_key = "ability_melee_attack_name",
         desc_key = "ability_melee_attack_desc",
@@ -68,6 +72,11 @@ M.abilites_raw = {
         triggers_gcd = false              -- ВАЖНО: автоатака не запускает ГКД магии!
     },
     ["frostbolt"] = {
+        tags = {
+            "ranged_attack",
+            "damage",
+            "frost"
+        },
         action_type = "ability",
         name_key = "ability_frostbolt_name",
         desc_key = "ability_frostbolt_desc",
@@ -124,6 +133,11 @@ M.abilites_raw = {
         }
     },
     ["lightning_bolt"] = {
+        tags = {
+            "ranged_attack",
+            "damage",
+            "lightning"
+        },
         action_type = "ability",
         name_key = "ability_lightning_bolt_key",
         desc_key = "ability_lightning_bolt_desc",
@@ -164,7 +178,7 @@ M.abilites_raw = {
         on_hit_effects = {
             -- добавить заряди дебафа, заодно ауры потестить
         }
-    }
+    },
 }
 
 -- Быстрый кэш хэшированных ключей для мгновенного поиска из голых свойств Defold (go.property)

@@ -20,6 +20,9 @@
 ---@field faction string
 ---@field loot_table_id string|nil
 ---@field default_rank string
+---@field is_ranged boolean
+---@field flee_range number
+---@field tag_weights table
 ---@field abilities table<string>
 
 local M = {}
@@ -55,7 +58,112 @@ M.units = {
         base_aggro_radius = 450,
         faction = "undead",
         default_rank = "common",
+        is_ranged = false,
+        flee_range = 0,
+        tag_weights = {
+            ["damage"] = 1.5,
+            ["control"] = 1.0,
+            ["melee_attack"] = 1.5,
+            ["ranged_attack"] = 0.5
+        },
         abilities = { "melee_attack" }
+    },
+    ["skeleton_mage"] = {
+        identity = {
+            name_key = "unit_skeleton_mage_name",
+            race = "human",
+            faction = "undead",
+            type = "skeleton",
+            default_rank = "common",
+            unit_class = {
+                mage = true
+            },
+        },
+        stats = {
+            attributes = { -- Твои Сила, Ловкость, Интеллект, Стамина
+                strength  = 8,
+                agility   = 8,
+                intellect = 23,
+                stamina   = 15
+            },
+            parameters = { -- То, что вычисляется из основных (или задается базово)
+                base_health = 40,
+                base_speed  = 90,
+                hitbox_size = 64,
+            },
+            progression = {
+                health_growth = 1.12,     -- +12% здоровья за уровень
+                damage_growth = 1.06, -- +6% урона за уровень
+            },
+            resources = {
+                type    = "mana",
+                current = 100,
+                max     = 100
+            }
+        },                    
+        visuals = {
+            animation = "skeleton_mage",
+            texture = "project_utumno", 
+        },
+        ai = {
+            profile = "aggressive_patrol",
+            base_aggro_radius = 450,
+            is_ranged = true,
+            flee_range = 140,
+            tag_weights = {
+                ["damage"] = 1.5,
+                ["control"] = 1.0,
+                ["melee_attack"] = 0.5,
+                ["ranged_attack"] = 1.0
+            },
+        },
+        abilities = {
+            "melee_attack",
+            "lightning_bolt"
+        }
+    },
+
+    ["skeleton_mage"] = {
+        name_key = "unit_skeleton_mage_name",
+        race = "human",
+        type = "skeleton",
+        unit_class = {
+            mage = true
+        },
+        base_stats = {
+            strength = 8,
+            agility = 8,
+            intellect = 23,
+            stamina = 15
+        },
+        base_health = 40,
+        health_growth = 1.12,     -- +12% здоровья за уровень
+        resource = {
+            type = "mana",
+            current = 100,
+            max = 100
+        },
+        damage_growth = 1.06, -- +6% урона за уровень
+        base_speed = 90,      -- скелеты ходят чуть медленнее игрока
+        hitbox_size = 64,
+        animation = "skeleton_mage",
+        texture = "project_utumno",
+        ai_profile = "aggressive_patrol",
+        base_aggro_radius = 450,
+        faction = "undead",
+        default_rank = "common",
+        is_ranged = true,
+        flee_range = 140,
+        tag_weights = {
+            ["damage"] = 1.5,
+            ["control"] = 1.0,
+            ["melee_attack"] = 0.5,
+            ["ranged_attack"] = 1.0
+        },
+        abilities = {
+            "melee_attack",
+            "lightning_bolt"
+        }
     },
     ["dire_boar"] = {
         name_key = "unit_dire_boar_name",

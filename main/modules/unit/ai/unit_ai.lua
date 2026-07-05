@@ -1,5 +1,6 @@
 local game_state = require("main.modules.game_state.game_state")
 local combat_manager = require("main.modules.system.combat_manager")
+local abilities_db = require("main.modules.data.abilities_db")
 
 ---@alias AIUnitState "IDLE" | "PATROL" | "CHASE" | "ATTACK" | "DEAD"
 ---@alias AIUnitProfile "aggressive_patrol" | "passive_coward"
@@ -29,6 +30,70 @@ local M = {}
 ---@type table<AIUnitProfile, AIProfileStrategy>
 local PROFILES = {}
 
+-- 🦾 AAA-СЕЛЕКТОР НА ВЕСАХ ТЕГОВ (BG3 / PATHFINDER UTILITY AI КАНОН):
+local function select_best_ability(ctx, unit_passport, distance_to_target)
+    local available_abilities = unit_passport and unit_passport.abilities or { "melee_attack" }
+    
+    -- Личные весовые предпочтения этого конкретного моба (из его ai_combat_data в units_db)
+    local weights = unit_passport.ai_combat_data and unit_passport.ai_combat_data.tag_weights or {}
+
+    local best_ability_id = "melee_attack"
+    local best_ability_range = 12
+    local highest_score = -999999 -- Стартовый минимальный порог счёта
+
+    -- Хладнокровно перебираем все доступные мобу способности
+    for i = 1, #available_abilities do
+        local ability_id = available_abilities[i]
+        local cfg = abilities_db.get_ability(ability_id)
+        
+        if cfg then
+            local is_usable = true
+
+            -- 🔍 ПРОВЕРКА 1: РЕСУРСЫ (Хватает ли маны?)
+            if cfg.cost and cfg.cost.value then
+                local current_mana = unit_passport.resource and unit_passport.resource.current or 0
+                if current_mana < cfg.cost.value then
+                    is_usable = false -- Спелл высох по мане, вычёркиваем
+                end
+            end
+
+            -- 🔍 ПРОВЕРКА 2: ДИСТАНЦИЯ (Дотягиваемся ли до мага?)
+            if is_usable and cfg.range then
+                if distance_to_target > cfg.range then
+                    is_usable = false -- Цель слишком далеко, вычёркиваем
+                end
+            end
+
+            -- 🔍 ПРОВЕРКА 3: В будущем сюда шёлково врежется проверка КД (cooldown)
+            -- if is_usable and combat_manager.is_on_cooldown(ctx.uid, ability_id) then is_usable = false end
+
+            -- 🚀 МАТЕМАТИЧЕСКИЙ РАСЧЕТ ВЕСА (SCORING PHASE):
+            if is_usable then
+                -- Базовый дефолтный вес для любой прошедшей проверки абилки
+                local current_score = 1.0 
+
+                -- Сканируем теги способности и умножаем/плюсуем веса из личности моба!
+                if cfg.tags then
+                    for t = 1, #cfg.tags do
+                        local tag_name = cfg.tags[t]
+                        local multiplier = weights[tag_name] or 1.0 -- Если тег мобу нейтрален, множитель = 1
+                        current_score = current_score * multiplier
+                    end
+                end
+
+                -- Если итоговый счёт этой способности выше, чем у предыдущих — она побеждает!
+                if current_score > highest_score then
+                    highest_score = current_score
+                    best_ability_id = ability_id
+                    best_ability_range = cfg.range or 50
+                end
+            end
+        end
+    end
+
+    -- Возвращаем самую умную, тактически выгодную абилку под личность этого моба!
+    return best_ability_id, best_ability_range
+end
 
 ---Рассчитать движение монстра обратно к его родной точке спавна (домой)
 ---@param ctx AIUnitContext Контекст self конкретного существа
@@ -161,49 +226,72 @@ PROFILES["aggressive_patrol"] = {
         -- Вектор направления движения на этот кадр
         local move_direction = nil
 
+        -- Если у моба есть живая боевая цель и его собственный паспорт 'unit' прочитан из RAM
+        if ctx.ai_target_uid and unit then
+            -- Вызываем наш новый калькулятор! Он сканирует ману моба и дистанцию до игрока,
+            -- находит спелл с максимальным счётом (Score) и шёлково возвращает его Id и рендж!
+            local best_ability, current_range = select_best_ability(ctx, unit, distance_to_target)
+            
+            -- Нагло на лету перезаписываем прицел ИИ под тактическую ситуацию!
+            ctx.primary_ability = best_ability
+            ctx.attack_range = current_range
+        else
+            -- Если моб спит, его рендж по дефолту равен обычной мили-палке
+            ctx.attack_range = ctx.attack_range or 12
+        end
+
         -- =========================================================================
-        -- СТEЙТ 1: ATTACK (ФАЗА БЛИЖНEГО БОЯ)
+        -- СТEЙТ 1: ATTACK (ФАЗА БЛИЖНEГО / ДАЛЬНEГО БОЯ)
         -- =========================================================================
         if ctx.ai_state == "ATTACK" then
-            if distance_to_target > ctx.attack_range + 12 then
+            -- 🚀 ТАКТИЧЕСКИЙ СРЫВ КАСТА (WOW/BG3 КАНОН):
+            -- Если наглый маг подошёл к Скелету-Магу БЛИЖЕ, чем его зона страха (например, 80 < 140),
+            -- моб обязан ПРEРВAТЬ каст, испугаться и переключиться в CHASE, чтобы убежать!
+            if distance_to_target < unit.flee_range then
+                print(string.format("🏃‍♂️ ИИ: [%s] Враг подошёл слишком близко (%d < %d)! Рву дистанцию!", ctx.unit_id, distance_to_target, unit.flee_range))
+                ctx.ai_state = "CHASE"
+                -- Инвертируем вектор: бежим строго ОТ игрока (position - target_position)
+                move_direction = vmath.normalize(position - target_position)
+                
+            elseif distance_to_target > ctx.attack_range + 12 then
                 print(string.format("💥 ИИ: [%s] потерял дистанцию боя, возобновляю погоню!", ctx.unit_id))
                 ctx.ai_state = "CHASE"
                 move_direction = vmath.normalize(target_position - position)
             else
                 ctx.ai_timer = ctx.ai_timer - dt
                 if ctx.ai_timer <= 0 then
-                    -- Пинаем боевой менеджер по оригинальным рельсам
-                    combat_manager.execute_ability(
-                        ctx.uid,
-                        ctx.ai_target_uid,
-                        ctx.primary_ability
-                    )
-                    ctx.ai_timer = (ctx.unit_id == "elder_green_dragon") and 2.0 or 1.5
+                    combat_manager.execute_ability(ctx.uid, ctx.ai_target_uid, ctx.primary_ability)
+                    ctx.ai_timer = (ctx.primary_ability == "lightning_bolt") and 2.0 or 1.5
                 end
                 move_direction = nil
             end
 
         -- =========================================================================
-        -- СТEЙТ 2: CHASE (АГРЕССИВНАЯ ПОГОНЯ)
+        -- СТEЙТ 2: CHASE (АГРЕССИВНАЯ ПОГОНЯ ИЛИ ТАКТИЧЕСКИЙ КАЙТИНГ)
         -- =========================================================================
         elseif ctx.ai_state == "CHASE" then
             if distance_to_target > ctx.loose_range then
                 print(string.format("🏃‍♂️ ИИ: [%s] потерял цель, возвращаюсь домой...", ctx.unit_id))
                 ctx.ai_state = "IDLE"
                 ctx.ai_target = nil
-
                 game_state.set_combat_state(ctx.uid, nil)
-
-                -- (Проверка: если мага больше никто на карте не бьет - в будущем сбросим комбат и магу)
-
                 return return_to_spawn(ctx, position)
 
+            -- 🚀 РЕАКТИВНАЯ ЗОНА СТРАХА КАСТEРA (ИСПРАВЛЕНО НАМЕРТВО):
+            -- Если ты подошёл ближе 140 пикселей, моб НЕ ИМЕЕТ ПРАВА атаковать!
+            -- Он покадрово удерживает CHASE, но его move_direction шёлково разворачивается ОТ тебя!
+            elseif distance_to_target < unit.flee_range then
+                move_direction = vmath.normalize(position - target_position)
+
+            -- Садиться в атаку мы имеем право СТРОГО тогда, когда мы ЗА ПРЕДЕЛАМИ зоны страха,
+            -- но внутри зоны обстрела Молнии (например, 200 пикселей: 140 < 200 <= 750)!
             elseif distance_to_target <= ctx.attack_range then
-                print(string.format("⚔️ ИИ: [%s] догнал мага! Остановка для автоатаки!", ctx.unit_id))
+                print(string.format("⚔️ ИИ: [%s] вышел на позицию обстрела [%s]!", ctx.unit_id, ctx.primary_ability))
                 ctx.ai_state = "ATTACK"
                 ctx.ai_timer = 0.3
                 move_direction = nil
             else
+                -- Если игрок стоит совсем далеко (например, 800 пикселей), моб шёлково идет К нему вперед
                 move_direction = vmath.normalize(target_position - position)
             end
 

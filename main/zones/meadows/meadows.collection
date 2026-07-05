@@ -162,12 +162,40 @@ instances {
     }
   }
 }
+instances {
+  id: "skeleton_mage"
+  prototype: "/main/game_objects/units/unit.go"
+  position {
+    x: 4385.0
+    y: 3097.0
+    z: 1.0
+  }
+  component_properties {
+    id: "unit"
+    properties {
+      id: "unit_id"
+      value: "skeleton_mage"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
+      id: "unit_level"
+      value: "3.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "loot_table_id"
+      value: "unit_common"
+      type: PROPERTY_TYPE_HASH
+    }
+  }
+}
 scale_along_z: 0
 embedded_instances {
   id: "root"
   children: "dragon"
   children: "player_spawn_point"
   children: "sceleton_warrior"
+  children: "skeleton_mage"
   children: "world_item"
   children: "world_item1"
   children: "world_item2"
