@@ -42,17 +42,17 @@ function on_message(self, message_id, message, sender)
             timer.delay(0.01, false, function()
                 local map_config = require("main.modules.data.map_config")
                 -- Ищем в оперативной памяти точку, которую мы на прехабе Meadows обозвали hash("mage_start")
-                local spawn_data = map_config.get_spawn_point(hash("default_start"))
+                local spawn_point = map_config.get_spawn_point(hash("default_start"))
 
-                if spawn_data then
+                if spawn_point then
                     -- Нашли точку! Телепортируем игрока в её честные мировые координаты чанка!
-                    msg.post("game_scene:/player", "teleport_to", { position = spawn_data.position })
+                    msg.post("game_scene:/player", "teleport_to", { position = spawn_point.position })
 
                     -- Здесь у тебя есть ПОЛНЫЙ доступ ко всем твоим go.property!
-                    print("ЭВЕНТ СТАРТА: ID чанка =", spawn_data.zone_id, "Метка сюжета =", spawn_data.story_milestone)
+                    print("ЭВЕНТ СТАРТА: ID чанка =", spawn_point.zone_id, "Метка сюжета =", spawn_point.story_milestone)
 
                     -- Можешь запустить стартовый ролик или взвести квестовый флаг в бэкенд historias!
-                    if spawn_data.story_milestone == hash("prologue_done") then
+                    if spawn_point.story_milestone == hash("prologue_done") then
                         -- ...
                     end
                 else

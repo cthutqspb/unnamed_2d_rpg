@@ -1,6 +1,6 @@
 local interactions = require("main.modules.interactions")
 
----@class WorldItemInstanceData
+---@class WorldItemInstance
 ---@field item_id string|nil Строковый ID предмета из items_db
 ---@field uid string
 ---@field saved_position {x: number, y: number, z: number} Координаты предмета на игровой карте
@@ -10,7 +10,7 @@ local interactions = require("main.modules.interactions")
 ---@field zone_id string|nil Паспорт локации ("overworld" для материка, "necropolis" для данжей)
 
 ---@class WorldItemsState
----@field registry table<string, WorldItemInstanceData> Глобальный реестр ВСЕХ живых лут-объектов в мире
+---@field registry table<string, WorldItemInstance> Глобальный реестр ВСЕХ живых лут-объектов в мире
 ---@field instances table<hash, string> Быстрый маппинг для рейкаста [go_id(hash)] = строка_uid
 ---@field is_loaded_from_save boolean Флаг: загружена ли игра из сохранения
 local M = {}
@@ -74,7 +74,7 @@ function M.add(uid, props)
     local chunk_zone_id = props.zone_id or interactions.get_current_defold_chunk() or "overworld"
 
     ---@type table
-    local instance_data = {
+    local instance = {
         item_id = string_item_id,
         uid = uid,
         amount = props.amount or 1,
@@ -89,8 +89,8 @@ function M.add(uid, props)
         is_looted = (props.is_looted == true)
     }
 
-    M.registry[uid] = instance_data
-    return instance_data
+    M.registry[uid] = instance
+    return instance
 end
 
 
@@ -161,15 +161,15 @@ function M.restore_all(data)
     M.is_loaded_from_save = true
     print("--- 📥 [world_items_state] РЕСТАВРАЦИЯ ПРЕДМЕТОВ ИЗ СЕЙВА ---")
     -- 🎯 РЕГЕНЕРАЦИЯ ВЕКТОРОВ ПРЕДМЕТОВ ПРИ ЗАГРУЗКЕ СЕЙВА (Канон существ!):
-    for uid, item_data in pairs(M.registry) do
-        local saved_position = item_data.saved_position
+    for uid, item in pairs(M.registry) do
+        local saved_position = item.saved_position
         if saved_position and type(saved_position) == "table" then
             -- Превращаем плоскую таблицу JSON обратно в честный Си-вектор Defold!
-            item_data.saved_position = vmath.vector3(saved_position.x, saved_position.y, saved_position.z or 1.0)
+            item.saved_position = vmath.vector3(saved_position.x, saved_position.y, saved_position.z or 1.0)
         end
         -- Принт покажет точные строки-ключи из JSON
         print(string.format("  KEY В СЕЙВЕ: [%s] | ITEM_ID: [%s] | ПОЗИЦИЯ: X=%s, Y=%s", 
-            tostring(uid), tostring(item_data.item_id), tostring(item_data.saved_position.x), tostring(item_data.saved_position.y)))
+            tostring(uid), tostring(item.item_id), tostring(item.saved_position.x), tostring(item.saved_position.y)))
     end
 end
 

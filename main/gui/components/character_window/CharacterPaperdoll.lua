@@ -179,18 +179,18 @@ end
 function M:refresh()
     if not self.unit or not self.unit.paperdoll then return false end
 
-    for slot_type, slot_data in pairs(self.slots) do
+    for slot_type, slot in pairs(self.slots) do
         -- 🦾 ЧИТАЕМ ИЗ RAM ПАСПОРТА ТЕКУЩЕГО ЮНИТА:
         local data = self.unit.paperdoll:get_item(slot_type)
         if data and data.item_id then
             local item_cfg = items_db.get_item(data.item_id)
             if item_cfg then
-                gui.set_enabled(slot_data.icon, true)
-                gui.set_texture(slot_data.icon, item_cfg.texture)
-                gui.play_flipbook(slot_data.icon, hash(item_cfg.animation))
+                gui.set_enabled(slot.icon, true)
+                gui.set_texture(slot.icon, item_cfg.texture)
+                gui.play_flipbook(slot.icon, hash(item_cfg.animation))
             end
         else
-            gui.set_enabled(slot_data.icon, false)
+            gui.set_enabled(slot.icon, false)
         end
     end
 end
@@ -205,8 +205,6 @@ end
 ---@param my number
 ---@return table|nil
 function M:get_hover_data(mx, my)
-    -- local unit_data = game_state.get_entity_by_uid(self.unit_uid)
-    -- if not unit_data or not unit_data.paperdoll then return end
     if not self.unit or not self.unit.paperdoll then return end
 
     for slot_type, nodes in pairs(self.slots) do

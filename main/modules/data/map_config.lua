@@ -26,9 +26,9 @@ M.baked_entities = {
 ---@param zone_id string Имя чанка/зоны ("meadows")
 ---@param entity_uid string Сгенерированный по координатам UID ("c_1200_750")
 ---@param entity_type "item" | "unit"|"container"|"interactable" Мета-тип сущности
----@param entity_data table Кастомный мешок свойств из инспектора Defold {id, level, rank}
+---@param entity table Кастомный мешок свойств из инспектора Defold {id, level, rank}
 ---@param pos vector3 Мировые координаты спавна из редактора
-function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
+function M.bake_entity(zone_id, entity_uid, entity_type, entity, pos)
     print("ENTITY ID: ", entity_uid)
     if not M.baked_entities[zone_id] then
         M.baked_entities[zone_id] = {}
@@ -38,12 +38,12 @@ function M.bake_entity(zone_id, entity_uid, entity_type, entity_data, pos)
     table.insert(M.baked_entities[zone_id], {
         uid = entity_uid,
         type = entity_type,  -- "unit", "container"
-        data = entity_data,  -- { id = "skeleton", level = 1, rank = "common" }
+        data = entity,  -- { id = "skeleton", level = 1, rank = "common" }
         pos = pos            -- Точка дома
     })
 
     print(string.format("💾 БЭКЕНД [Bake]: Сущность [%s] запечена в %s! Тип: %s | ID: %s Позиция %s",
-        entity_uid, zone_id, entity_type, entity_data.id or "unknown", pos))
+        entity_uid, zone_id, entity_type, entity.id or "unknown", pos))
 end
 
 ---Полностью очистить кэш запекания сущностей конкретной зоны при её выгрузке

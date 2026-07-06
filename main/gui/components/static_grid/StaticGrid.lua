@@ -163,11 +163,11 @@ end
 ---Дефолтный триггер клика по заполненому слоту (например, для сплита стака)
 ---@param index number Числовой индекс нажатого слота
 function M:on_slot_click(index)
-    local item_data = self:get_data_source():get_item(index)
-    if item_data and item_data.amount > 1 then
+    local item = self:get_data_source():get_item(index)
+    if item and item.amount > 1 then
         print('SPLIT ON SLOT CLICK')
         msg.post("main:/split_window#gui", "open_split_window", {
-            item_data = item_data,
+            item = item,
             slot_index = index
         })
     end
@@ -189,7 +189,7 @@ end
 ---Универсальный геттер сырых данных ячейки (Инвентарь vs Экшен-бар)
 ---@param index number Числовой индекс слота
 ---@return table|nil
-function M:get_slot_data(index)
+function M:get_slot(index)
     local ds = self:get_data_source()
     if not ds then return nil end
 
@@ -280,15 +280,15 @@ function M:trigger_gcd(duration)
     if not self.slots then return end
 
     for index, slot in pairs(self.slots) do
-        local slot_data = self:get_slot_data(index)
+        local current_slot = self:get_slot(index)
 
         -- Достаем Си-ноду оверлея напрямую из нашего свежего, сочного кэша!
         local gcd_node = slot.gcd_overlay
 
-        if gcd_node and slot_data then
+        if gcd_node and current_slot then
             -- 🧠 ЧИТАЕМ СТЕРИЛЬНЫЙ DUCK TYPING (БЕЗ ЛEВЫХ ИМПOРТOВ):
             -- Модель инвентаря/экшен-бара сама знает, запускает ли эта шмотка ГКД!
-            if slot_data.triggers_gcd then
+            if current_slot.triggers_gcd then
                 --gui.cancel_animations(gcd_node, "size.y")
 
                 gui.set_fill_angle(gcd_node, 360)

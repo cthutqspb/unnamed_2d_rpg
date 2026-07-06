@@ -44,14 +44,14 @@ local function check_hover(self, gui_pos, world_pos)
     local active_id = self.current_hover_id
     if active_id then
         -- Вытаскиваем данные из бэкенд-телефонных книг ("container", "item_loot", "unit")
-        local kind, uid, state_data = game_state.get_inspect_info(active_id)
+        local kind, uid, state = game_state.get_inspect_info(active_id)
 
-        if kind and state_data then
+        if kind and state then
             local tooltip_type = "world_object"
 
             if kind == "world_item" then
                 CustomCursor.set_style("cursor_outline_yellow")
-                tooltip_type = state_data.is_dynamic and "world_item" or "world_object"
+                tooltip_type = state.is_dynamic and "world_item" or "world_object"
 
             elseif kind == "unit" then
                 CustomCursor.set_style("cursor_outline_red")
@@ -62,7 +62,7 @@ local function check_hover(self, gui_pos, world_pos)
                 tooltip_type = "world_object"
             end
 
-            tooltip_manager.show(tooltip_type, state_data, {
+            tooltip_manager.show(tooltip_type, state, {
                 uid = uid,
                 kind = kind
             })
@@ -274,10 +274,11 @@ function on_message(self, message_id, message, sender)
             tostring(source_type), tostring(item_id), tostring(message.item_uid)))
 
     elseif message_id == hash("item_pickup") then
-        local container_data = nil
+        ---@type WorldItemInstance|nil
+        local item = nil
         if message.uid then
-            -- 🎯 BG3-КАНОН: Перед тем как стереть вещь из МИРА, забираем её Душу (с лутом, если он уже был)
-            container_data = world_items_state.get_item_by_uid(message.uid)
+            -- 🎯 BG3-КАНОН: Перед тем как стереть вещь из МИРА, забираем её Душу (с лутом, если он уже был) 
+            item = world_items_state.get_item_by_uid(message.uid)
             world_items_state.remove(message.uid)
         end
 
@@ -285,8 +286,8 @@ function on_message(self, message_id, message, sender)
             item_id = message.item_id,
             amount = message.amount,
             uid = message.uid,
-            items = container_data and container_data.items or nil,
-            is_looted = container_data and container_data.is_looted or nil,
+            items = item and item.items or nil,
+            is_looted = item and item.is_looted or nil,
             loot_table_id = message.loot_table_id or "empty"
         })
 
@@ -320,14 +321,14 @@ function on_message(self, message_id, message, sender)
         -- Вытаскиваем Душу карманного сундука из ячейки инвентаря игрока
         local current_unit_uid = message.unit_uid or "player"
         ---@type UnitInstance
-        local unit_data = game_state.get_entity_by_uid(current_unit_uid)
+        local unit = game_state.get_entity_by_uid(current_unit_uid)
 
-        if not unit_data or not unit_data.inventory then
+        if not unit or not unit.inventory then
             print("🚨 БЭКЕНД: Не удалось найти рюкзак существа для открытия матрёшки! UID:", current_unit_uid)
             return
         end
 
-        local player_inv = unit_data.inventory
+        local player_inv = unit.inventory
         local item = player_inv:get_item(slot_index)
 
          if item then

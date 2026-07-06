@@ -169,10 +169,10 @@ end
 
 ---@param tab_name string Имя вкладки из TABS_CONFIG
 function M:switch_tab(tab_name)
-    local active_tab_data = self.tabs[tab_name]
-    if not active_tab_data then return end
+    local active_tab = self.tabs[tab_name]
+    if not active_tab then return end
 
-    self.set_title(self, locales.get(active_tab_data.window_title) or "No Title")
+    self.set_title(self, locales.get(active_tab.window_title) or "No Title")
 
     for name, tab in pairs(self.tabs) do
         local is_active = (name == tab_name)

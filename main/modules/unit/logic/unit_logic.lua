@@ -32,13 +32,9 @@ function M.get_total_stat(stat_name, unit)
     -- Если это маг — посчитает мага. Если это скелет — посчитает скелета!
     if unit.paperdoll and unit.paperdoll.slots then
 
-        for i, item_data in pairs(unit.paperdoll.slots) do
-            --print("TOTAL 2",i, item_data.item_id)
-            -- for k,v in pairs(item_data) do
-            --    print("AAA", k,v)
-            -- end
-            if item_data and item_data.item_id then
-                local item_cfg = items_db.get_item(item_data.item_id)
+        for i, item in pairs(unit.paperdoll.slots) do
+            if item and item.item_id then
+                local item_cfg = items_db.get_item(item.item_id)
 
                 if item_cfg and item_cfg.stats and item_cfg.stats[stat_name] then
                     total = total + item_cfg.stats[stat_name]

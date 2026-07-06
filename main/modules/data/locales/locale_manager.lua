@@ -49,14 +49,14 @@ end
 ---Принудительно загрузить язык локализации, пересобрать таблицы и кэш хэшей
 ---@param lang string Код языка ("ru", "en")
 function M.load_language(lang)
-    local lang_data = LOCALES[lang]
-    if not lang_data then return end
+    local locale = LOCALES[lang]
+    if not locale then return end
 
     M.data = {}
-    merge_tables(M.data, lang_data.ui)
-    merge_tables(M.data, lang_data.items)
-    merge_tables(M.data, lang_data.units)
-    merge_tables(M.data, lang_data.abilities)
+    merge_tables(M.data, locale.ui)
+    merge_tables(M.data, locale.items)
+    merge_tables(M.data, locale.units)
+    merge_tables(M.data, locale.abilities)
 
     current_lang = lang
     rebuild_hash_map() -- ОБЯЗАТЕЛЬНО обновляем карту после загрузки данных

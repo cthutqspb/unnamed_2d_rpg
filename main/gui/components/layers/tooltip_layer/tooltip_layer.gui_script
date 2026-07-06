@@ -18,7 +18,6 @@ function init(self)
     self.current_id = nil
     self.active_elements = {}
     self.current_y = 0
-    self.last_data_ref = nil
 
     gui.set_enabled(self.root, false)
     gui.set_enabled(self.row_wrapper, false)
@@ -319,7 +318,7 @@ function update(self, dt)
         if gui.is_enabled(self.root) then
             clear_tooltip(self)
             gui.set_enabled(self.root, false)
-            self.current_data_ref = nil
+            self.current_tooltip_ref = nil
         end
         return
     end
@@ -331,11 +330,11 @@ function update(self, dt)
     gui.set_render_order(constants_ui.LAYERS.TOOLTIP)
 
     -- 2. Сравнение по ссылке на таблицу данных (самый надежный способ)
-    if pack == self.current_data_ref then
+    if pack == self.current_tooltip_ref then
         return
     end
 
-    self.current_data_ref = pack
+    self.current_tooltip_ref = pack
     clear_tooltip(self)
     gui.set_enabled(self.root, true)
 

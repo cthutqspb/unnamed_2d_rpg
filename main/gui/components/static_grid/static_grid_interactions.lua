@@ -86,17 +86,17 @@ end
 ---@param x number Экранная координата X клика
 ---@param y number Экранная координата Y клика
 function M.handle_right_click(self, index, x, y)
-    local item_data = self:get_data_source():get_item(index)
+    local item = self:get_data_source():get_item(index)
 
-    if not item_data or not item_data.item_id then
+    if not item or not item.item_id then
         print("RIGHT CLICK: Слот пустой")
         return
     end
 
-    local item_cfg = items_db.get_item(item_data.item_id)
+    local item_cfg = items_db.get_item(item.item_id)
     if not item_cfg then return end
 
-    local can_split = item_data.amount and item_data.amount >= 2
+    local can_split = item.amount and item.amount >= 2
 
     msg.post("main:/context_menu_layer#gui", "show_menu", {
         x = x,
@@ -108,7 +108,7 @@ function M.handle_right_click(self, index, x, y)
         },
         data = {
             slot_index = index,
-            item_id = item_data.item_id,
+            item_id = item.item_id,
             source_url = msg.url()
         }
     })
@@ -118,16 +118,16 @@ end
 ---@param self StaticGrid
 ---@param index number
 function M.handle_drag_start(self, index)
-    local slot_data = self:get_slot_data(index)
-    if not slot_data then return end
+    local current_slot = self:get_slot(index)
+    if not current_slot then return end
 
     -- 🎯 ЧИСТЫЙ DATA-DRIVEN (Без посредников и угадываний):
     -- Если в данных ячейки есть поле action_type (это панель) — берем его. 
     -- Если поля нет (это инвентарь/кукла) — оператор 'or' выставит дефолтный "item"!
-    local current_type = slot_data.action_type or "item"
+    local current_type = current_slot.action_type or "item"
 
     -- Вытаскиваем целевой ID (или item_id для сумок, или action_id для панели)
-    local target_id = slot_data.action_id or slot_data.item_id
+    local target_id = current_slot.action_id or current_slot.item_id
 
     -- Прямой, моментальный хэш-запрос в нужную базу за 1 такт процессора!
     local cfg = nil
@@ -142,7 +142,7 @@ function M.handle_drag_start(self, index)
 
     -- 🧱 УЛЬТИМАТИВНЫЙ СЛEПOЙ ЗАПУСК ДРАГА:
     -- Мы убрали 5-й аргумент! Менеджер драга сам прочитает зашитый тип внутри cfg.action_type!
-    drag_manager.start(self, index, slot_data, cfg)
+    drag_manager.start(self, index, current_slot, cfg)
 
     -- Мгновенно гасим визуал ячейки на HUD
     local slot = self.slots[index]

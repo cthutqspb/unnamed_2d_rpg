@@ -47,16 +47,17 @@ function update(self, dt)
     if units_state and units_state.instances then
         for go_id, uid in pairs(units_state.instances) do
             if not self.created_plates[uid] then
-                local unit_data = units_state.get(uid)
-                if unit_data then
+                ---@type UnitInstance|nil
+                local unit = units_state.get(uid)
+                if unit then
                     local cloned_nodes = gui.clone_tree(gui.get_node("root"))
                     local root_node = cloned_nodes[hash("root")]
                     gui.set_enabled(root_node, true)
 
                     local plate_instance = self.druid:new(NameplateInstance, root_node, cloned_nodes)
-                    plate_instance:update_state(unit_data)
+                    plate_instance:update_state(unit)
                     -- Записываем стартовый текст имени
-                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(unit_data.identity.name_key or "unknown_unit"))
+                    gui.set_text(plate_instance.nameplate_instance_name, locales.get(unit.identity.name_key or "unknown_unit"))
 
                     self.created_plates[uid] = {
                         go_id = go_id,
@@ -128,12 +129,12 @@ function on_message(self, message_id, message, sender)
         if plate and plate.instance then
             -- 🧠 ЧИТАЕМ ИСТИННЫЙ СТEЙТ ИЗ ЦЕНТРАЛЬНОГО REЕСТРА RAM:
             -- Вытаскиваем стопроцентно свежие цифры из Single Source of Truth!
-            local unit_instance_data = units_state.get(message.uid)
+            local unit = units_state.get(message.uid)
 
-            if unit_instance_data then
+            if unit then
                 -- Монолитно синхронизируем полоску над головой! 
                 -- Теперь, когда скелеты будут пиздить мага, его плейт сочно поползет вниз!
-                plate.instance:update_state(unit_instance_data)
+                plate.instance:update_state(unit)
             end
         end
     end

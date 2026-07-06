@@ -30,14 +30,14 @@ M.mouse_x = 0
 M.mouse_y = 0
 
 ---@type TooltipSessionData|nil
-local current_data = nil
+local current_tooltip = nil
 
 ---Открыть сессию тултипа и сохранить данные ховера для слоя отображения (View)
 ---@param type string Строковый тип данных (используй константы M.TYPE_...)
 ---@param info table Чистая Lua-таблица состояния или статического конфига объекта
 ---@param context string|table|nil 🚩 ФИКС ТИПОВ №2: Синхронизируем типы с @field!
 function M.show(type, info, context)
-    current_data = {
+    current_tooltip = {
         type = type,
         info = info,
         context = context
@@ -46,34 +46,34 @@ end
 
 ---Принудительно закрыть тултип, ЕСЛИ он принадлежит игровому миру
 function M.hide_world_tooltips()
-    if not current_data then return end
+    if not current_tooltip then return end
 
     -- Просто проверяем: есть ли тип текущего тултипа в словаре WORLD_TYPES?
-    if M.WORLD_TYPES[current_data.type] then
-        current_data = nil
+    if M.WORLD_TYPES[current_tooltip.type] then
+        current_tooltip = nil
     end
 end
 
 ---Принудительно закрыть тултип, ЕСЛИ он принадлежит интерфейсу (GUI)
 function M.hide_gui_tooltips()
-    if not current_data then return end
+    if not current_tooltip then return end
 
     -- Просто проверяем: есть ли тип текущего тултипа в словаре GUI_TYPES?
-    if M.GUI_TYPES[current_data.type] then
-        current_data = nil
+    if M.GUI_TYPES[current_tooltip.type] then
+        current_tooltip = nil
     end
 end
 
 ---Получить полную структуру данных активной сессии тултипа
 ---@return TooltipSessionData|nil
 function M.get_current()
-    return current_data
+    return current_tooltip
 end
 
 ---Получить точный строковый тип активного тултипа для выбора рендерера
 ---@return string|nil
 function M.get_current_type()
-    return current_data and current_data.type
+    return current_tooltip and current_tooltip.type
 end
 
 ---Обновить экранные координаты мыши для плавного следования тултипа за курсором

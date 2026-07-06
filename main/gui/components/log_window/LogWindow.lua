@@ -181,10 +181,10 @@ function M:log_clear()
     -- 1. Физически удаляем все склонированные текстовые ноды с экрана Meadows
     if self.lines_registry then
         for i = 1, #self.lines_registry do
-            local line_data = self.lines_registry[i]
+            local line = self.lines_registry[i]
             -- line_data.node — это хэш-ссылка на Си-клон ноды
-            if line_data and line_data.node then
-                gui.delete_node(line_data.node)
+            if line and line.node then
+                gui.delete_node(line.node)
             end
         end
     end

@@ -347,40 +347,59 @@ function M.get_save_data()
     return data
 end
 
+---Восстановить содержимое сумки/сундука из таблицы сохранения JSON
 ---@param data table
-function M.load_save_data(data)
-    M.init()
+function M:load_save_data(data)
+    self:clear()
     if not data then return end
+    
+    print("🧪 [DEBUG INVENTORY CODE] --- НАЧАЛО ЦИКЛА ПАРСИНГА СЛОТОВ ИЗ JSON ---")
+    
     for index, saved in pairs(data) do
         local i = tonumber(index)
-        if i and saved and saved.id then
-            -- Восстанавливаем саму бочку
+        
+        -- 📊 Выводим в консоль вообще все, что лежит внутри этой ячейки JSON!
+        if saved then
+            print(string.format("   👉 JSON Слот [%s] | saved.id = %s | saved.item_id = %s | saved.amount = %s | saved.uid = %s", 
+                tostring(index), tostring(saved.id), tostring(saved.item_id), tostring(saved.amount), tostring(saved.uid)))
+        end
+
+        if i and saved and (saved.id or saved.item_id) then -- Временно расширили гвард для теста
+            
+            -- Собираем имя ключа зряче
+            local raw_id = saved.id or saved.item_id
+            
             local restored_item = {
-                item_id = hash(saved.id),
-                amount = saved.amount,
+                item_id = hash(raw_id),
+                amount = saved.amount or 1,
                 uid = saved.uid,
-                is_looted = saved.is_looted or nil
+                is_looted = saved.is_looted or nil,
+                loot_table_id = saved.loot_table_id or nil
             }
 
-            -- 🎯 КРИТИЧЕСКИЙ ФИКС: Восстанавливаем внутренности бочки
             if saved.items then
                 restored_item.items = {}
                 for sub_idx, sub_saved in pairs(saved.items) do
                     local idx = tonumber(sub_idx)
-                    if idx and sub_saved and sub_saved.id then
+                    if idx and sub_saved and (sub_saved.id or sub_saved.item_id) then
+                        local sub_raw_id = sub_saved.id or sub_saved.item_id
                         restored_item.items[idx] = {
-                            item_id = hash(sub_saved.id),
-                            amount = sub_saved.amount,
-                            uid = sub_saved.uid
+                            item_id = hash(sub_raw_id),
+                            amount = sub_saved.amount or 1,
+                            uid = sub_saved.uid,
+                            is_looted = sub_saved.is_looted or nil,
+                            loot_table_id = sub_saved.loot_table_id or nil
                         }
                     end
                 end
             end
 
-            M.items[i] = restored_item
+            self.items[i] = restored_item
         end
     end
+    print("🧪 [DEBUG INVENTORY CODE] --- КОНЕЦ ЦИКЛА ПАРСИНГА ---")
 end
+
 
 M.init()
 return M

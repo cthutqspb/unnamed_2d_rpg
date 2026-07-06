@@ -37,22 +37,22 @@ local RAW_DATA = {
 
 -- Создаем быстрый справочник хешей
 local HASH_TO_DATA = {}
-for name, data in pairs(RAW_DATA) do
-    HASH_TO_DATA[hash(name)] = data
+for name, loot_table in pairs(RAW_DATA) do
+    HASH_TO_DATA[hash(name)] = loot_table
 end
 
 function M.get_loot(table_id)
      -- table_id может прийти как hash (из сундука) или как string (из сейва)
-    local table_data = HASH_TO_DATA[table_id] or RAW_DATA[table_id]
+    local loot_table = HASH_TO_DATA[table_id] or RAW_DATA[table_id]
 
     local items = {}
     print("TABLE ID:", table_id)
-    if not table_data then
+    if not loot_table then
         print("LOOT_ERROR: Cannot find table for:", table_id)
         return items
     end
 
-    for _, entry in ipairs(table_data) do
+    for _, entry in ipairs(loot_table) do
         if math.random() <= entry.chance then
             local amount = entry.amount
             if type(amount) == "table" then

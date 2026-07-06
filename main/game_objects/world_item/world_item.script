@@ -91,20 +91,20 @@ function init(self)
 
         local dynamic_chunk_id = interactions.get_current_defold_chunk()
 
-        local saved_data = world_items_state.get_item_by_uid(string_uid)
+        local saved_item = world_items_state.get_item_by_uid(string_uid)
 
         local baked_position = position
 
-        if saved_data and saved_data.saved_position then
-            baked_position = saved_data.saved_position
+        if saved_item and saved_item.saved_position then
+            baked_position = saved_item.saved_position
         end
 
-        local entity_data = {
+        local entity = {
             id = self.item_id,
             amount = self.amount or 1
         }
 
-        map_config.bake_entity(dynamic_chunk_id, string_uid, "item", entity_data, baked_position)
+        map_config.bake_entity(dynamic_chunk_id, string_uid, "item", entity, baked_position)
 
         if not world_items_state.exists(string_uid) then
             local string_loot_table_id = interactions.clean_id(self.loot_table_id) or "empty"
@@ -206,13 +206,13 @@ function on_message(self, message_id, message, sender)
         -- Вместо пустого Си-свойства self.loot_table_id мы лезем в Единую Базу world_items_state
         -- по нашему бессмертному self.uid! И забираем оттуда ту самую строковую таблицу лута,
         -- которую маркер бережно запек туда при старте Новой Игры!
-        local item_data = world_items_state.get_item_by_uid(self.uid)
+        local item = world_items_state.get_item_by_uid(self.uid)
 
         -- Если Душа помнит таблицу из инспектора Tiled — берем её! 
         -- А если Души нет (вещь дропнули из сумки), подстрахуемся дефолтом из items_db
         local string_loot_table_id = "empty"
-        if item_data and item_data.loot_table_id and item_data.loot_table_id ~= "empty" then
-            string_loot_table_id = item_data.loot_table_id
+        if item and item.loot_table_id and item.loot_table_id ~= "empty" then
+            string_loot_table_id = item.loot_table_id
         else
             local db_cfg = items_db.get_item(self.item_id)
             string_loot_table_id = db_cfg and db_cfg.loot_table_id or "empty"
@@ -255,15 +255,15 @@ function on_message(self, message_id, message, sender)
             else
                 print("GUI: Игрок обыскивает контейнер-предмет на земле! UID:", self.uid)
 
-                local item_data = world_items_state.get_item_by_uid(self.uid)
+                local item = world_items_state.get_item_by_uid(self.uid)
 
-                if item_data then
+                if item then
                     actions_dispatcher.REDUCERS["container_open"]({
                         entity_type = "world_item",
                         uid = self.uid,
                         id = self.item_id,
                         db_cfg = db_cfg,
-                        instance_data = item_data, -- Передали живой стейт аргументом!
+                        instance = item, -- Передали живой стейт аргументом!
                         position = go.get_position()
                     })
                 else

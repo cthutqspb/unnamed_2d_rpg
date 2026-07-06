@@ -50,16 +50,16 @@ function M.get_full_save_data()
         world_items_state = world_items_state.get_all(),
 -- containers_state = containers_state.get_all(),
         -- 🦾 Скелеты и Дракон теперь честно запечатываются в файл сохранения!
-        units_state = units_state.get_all()
+        units_state = units_state.get_save_snapshot(),
     }
 end
 
 ---Покадрово зафиксировать координаты игрока во внутреннем стейте юнитов (WoW-Фасад)
 ---@param position vector3 Си-вектор координат из player.script
 function M.update_player_position(position)
-    if units_state and units_state.update_data then
+    if units_state and units_state.update_unit then
         -- Фасад сам зряче командует стейту обновить данные для ключа "player"
-        units_state.update_data("player", {
+        units_state.update_unit("player", {
             saved_position = position
         })
     end
@@ -77,14 +77,14 @@ function M.get_entity_by_uid(uid)
 
     -- 1. Сначала ищем в Юнитах (Игрок, Скелеты, Драконы, Боссы из Tiled)
     if units_state and units_state.get_unit_by_uid then
-        local unit_instance = units_state.get_unit_by_uid(uid)
-        if unit_instance then return unit_instance end
+        local unit = units_state.get_unit_by_uid(uid)
+        if unit then return unit end
     end
 
     -- 2. Если не нашли, заглядываем в Предметы на земле (Дроп и статические шмотки)
     if world_items_state and world_items_state.get_item_by_uid then
-        local item_instance = world_items_state.get_item_by_uid(uid)
-        if item_instance then return item_instance end
+        local world_item = world_items_state.get_item_by_uid(uid)
+        if world_item then return world_item end
     end
 
     -- -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
@@ -139,7 +139,7 @@ end
 
 ---Получить список всех зарегистрированных на сцене физических Game Object ID юнитов
 ---@return table<hash, string> -- Мапа, где ключ - go_id движка, а значение - строковый uid
-function M.get_active_unit_instances()
+function M.get_active_units()
     if units_state and units_state.instances then
         return units_state.instances
     end
@@ -179,10 +179,10 @@ end
 function M.set_unit_aggro_target(caster_uid, target_uid)
     if not caster_uid or not units_state or not units_state.registry then return end
 
-    local unit_data = units_state.registry[caster_uid]
-    if unit_data then
+    local unit = units_state.registry[caster_uid]
+    if unit then
         -- Пишем цель в глобальный RAM-паспорт Души (Для боёвки, ИИ и сейвов)
-        unit_data.combat.combat_target_uid = target_uid
+        unit.combat.combat_target_uid = target_uid
 
         -- Включаем боевой режим для HUD-фреймов (Твой оригинальный код)
         if M.set_combat_state then
@@ -204,17 +204,17 @@ function M.create_player_unit(default_props)
 end
 
 ---Раздача прилетевших из JSON данных обратно в оперативную память Lua
----@param full_data table Таблица данных из сейва
-function M.restore_all(full_data)
+---@param save_data table Таблица данных из сейва
+function M.restore_all(save_data)
     print("--- DEBUG: RESTORE ALL START ---")
 
-    if not full_data then
+    if not save_data then
         print("🚨 БЭКЕНД [GameState]: ОШИБКА! Данные сохранения равны NIL!")
         return
     end
 
     -- Твой родной зрячий дебаг-вывод ключей верхнего уровня
-    for k, v in pairs(full_data) do
+    for k, v in pairs(save_data) do
         local count = 0
         if type(v) == "table" then
             for _ in pairs(v) do count = count + 1 end
@@ -223,9 +223,9 @@ function M.restore_all(full_data)
     end
 
     -- 1. Реставрация Предметов на земле
-    if full_data.world_items_state and world_items_state.restore_all then
+    if save_data.world_items_state and world_items_state.restore_all then
         print("Restoring world_items_state...")
-        world_items_state.restore_all(full_data.world_items_state)
+        world_items_state.restore_all(save_data.world_items_state)
     end
 
     -- -- 2. Реставрация Контейнеров
@@ -236,9 +236,9 @@ function M.restore_all(full_data)
 
     -- 3. 🦾 РEСТAВРAЦИЯ МОНСТРОВ (Породоистый WoW-канон):
     -- Возвращаем Скелетов в живую память бэкенда при загрузке сейва!
-    if full_data.units_state and units_state.restore_all then
+    if save_data.units_state and units_state.restore_all then
         print("Restoring units_state...")
-        units_state.restore_all(full_data.units_state)
+        units_state.restore_all(save_data.units_state)
     end
 
     print("--- DEBUG: RESTORE ALL END ---")

@@ -322,7 +322,7 @@ function on_message(self, message_id, message, sender)
                     -- =========================================================================
                     -- Проверяем: не пытается ли массовый лут засунуть текущий контейнер в самого себя?
                     local is_self_loot = (_item.items and data_source.items and _item.items == data_source.items)
-                    local source_uid = data_source.uid or (data_source.item_data and data_source.item_data.uid)
+                    local source_uid = data_source.uid or (data_source.item and data_source.item.uid)
                     local is_same_uid = (_item.uid and source_uid and _item.uid == source_uid)
 
                     if is_self_loot or is_same_uid then

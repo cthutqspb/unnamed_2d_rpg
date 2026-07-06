@@ -117,7 +117,7 @@ function on_message(self, message_id, message, sender)
         -- Запоминаем отправителя, чтобы отправить "split_confirmed" строго по адресу!
         self.sender_url = sender
         self.source_slot = message.slot_index
-        self.max_amount = message.item_data.amount or 1
+        self.max_amount = message.item.amount or 1
 
         -- По классике открываемся ровно на половине стака
         self.current_amount = math.floor(self.max_amount / 2)
@@ -132,7 +132,7 @@ function on_message(self, message_id, message, sender)
         end
 
         -- Отрисовка текстуры шмотки из базы данных
-        local item_cfg = items_db.get_item(message.item_data.item_id)
+        local item_cfg = items_db.get_item(message.item.item_id)
         if item_cfg and item_cfg.texture then
             local anim = item_cfg.animation or item_cfg.icon
             gui.set_texture(self.icon_from, item_cfg.texture)

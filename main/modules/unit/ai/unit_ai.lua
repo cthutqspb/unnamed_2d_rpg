@@ -351,12 +351,12 @@ PROFILES["aggressive_patrol"] = {
             local avoidance_direction = vmath.vector3(0, 0, 0)
 
             -- 🎯 РAЗРЫВ ЛAПШИ: Бежим по инстансам через чистый Фасад game_state!
-            local active_instances = game_state.get_active_unit_instances()
+            local active_units = game_state.get_active_units()
 
-            for other_go_id, _ in pairs(active_instances) do
+            for other_go_id, _ in pairs(active_units) do
                 if other_go_id ~= ctx.go_id then
 
-                    local other_uid = active_instances[other_go_id]
+                    local other_uid = active_units[other_go_id]
 
                     -- 🎯 СИММЕТРИЧНЫЙ ВЫЗОВ: Достаем паспорт соседа через наш новый каскадный get_entity_by_uid!
                     ---@type UnitInstance

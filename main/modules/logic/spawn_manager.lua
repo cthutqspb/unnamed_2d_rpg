@@ -20,10 +20,10 @@ local active_items = {}
 
 ---Внутренний метод материализации физического тела существа на сцене
 ---@param uid string Уникальный строковый UID монстра
----@param unit_instance_data table Паспортные данные существа из RAM-реестра
-local function materialize_unit(uid, unit_instance_data)
+---@param unit UnitInstance Паспортные данные существа из RAM-реестра
+local function materialize_unit(uid, unit)
     -- Гвард: если существо уже мертво или полностью зачищено (разлутано) — игнорируем спавн
-    -- if unit_instance_data.is_dead or unit_instance_data.is_collected then
+    -- if unit.combat.is_dead or unit.is_collected then
     --     return
     -- end
 
@@ -43,14 +43,14 @@ local function materialize_unit(uid, unit_instance_data)
     -- Если тела в мире нет — со спокойной душой спавним его из фабрики
     if not has_physical_body then
         -- Берём чистокровный вектор координат из переданных паспортных данных
-        local final_position = unit_instance_data.saved_position
+        local final_position = unit.saved_position
 
         local factory_url = "game_scene:/world_controller#unit_factory"
         local game_object_id = factory.create(factory_url, final_position, nil, {
             uid = hash(uid),
-            unit_id = hash(unit_instance_data.unit_id),
-            unit_level = unit_instance_data.level or 1,
-            unit_rank = hash(unit_instance_data.rank or "common"),
+            unit_id = hash(unit.unit_id),
+            unit_level = unit.level or 1,
+            unit_rank = hash(unit.identity.default_rank or "common"),
             is_from_factory = true,
         })
 
@@ -71,12 +71,12 @@ function M.spawn_zone(zone_name)
     -- 🛡️ ИНВЕРСИЯ СПАВНА: Если игра загружена из сейва, мы ВООБЩЕ игнорируем map_config!
     -- Мы спавним мир по чистокровным паспортам RAM, полностью исключая гонку потоков.
     if units_state.is_loaded_from_save then
-        for uid, unit_instance in pairs(units_state.get_all()) do
-            if uid == character_data.PLAYER_UID or unit_instance.is_player == true then
+        for uid, unit in pairs(units_state.get_all()) do
+            if uid == character_data.PLAYER_UID or unit.is_player == true then
                -- Просто пропускаем шаг и идем к следующему юниту в реестре
             else
             -- Вызываем наш единый вынесенный метод материализации
-                materialize_unit(uid, unit_instance)
+                materialize_unit(uid, unit)
             end
         end
         return
@@ -93,10 +93,10 @@ function M.spawn_zone(zone_name)
 
         if entity_node.type == "unit" then
             -- Вытаскиваем паспорт, созданный в Фазе 1 встроенным мобом
-            local unit_instance_data = units_state.get(uid)
-            if unit_instance_data then
+            local unit = units_state.get(uid)
+            if unit then
                 -- Вызываем этот же самый метод! Дублирование полностью устранено.
-                materialize_unit(uid, unit_instance_data)
+                materialize_unit(uid, unit)
             end
         end
     end
@@ -166,16 +166,16 @@ function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
     local survivors = {}
     for item_go, item_uid in pairs(active_items) do
         if go.exists(item_go) then
-            local item_data = world_items_state.get_item_by_uid(item_uid)
-            if item_data and item_data.saved_position then
-                local item_x = item_data.saved_position.x
-                local item_y = item_data.saved_position.y
-                local item_zone = item_data.zone_id or "overworld"
+            local item = world_items_state.get_item_by_uid(item_uid)
+            if item and item.saved_position then
+                local item_x = item.saved_position.x
+                local item_y = item.saved_position.y
+                local item_zone = item.zone_id or "overworld"
 
                 local is_inside_view = item_x >= x_min and item_x <= x_max and
                                        item_y >= y_min and item_y <= y_max
 
-                if item_zone == current_zone and is_inside_view and not item_data.is_collected then
+                if item_zone == current_zone and is_inside_view and not item.is_collected then
                     survivors[item_go] = item_uid
                 else
                     go.delete(item_go)

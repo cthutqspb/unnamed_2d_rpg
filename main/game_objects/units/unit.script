@@ -73,7 +73,7 @@ function init(self)
         local dynamic_chunk_id = interactions.get_current_defold_chunk()
 
         -- Запекаем чертеж монстра в конфигуратор карты
-        local entity_data = {
+        local entity = {
             id = string_id,
             level = self.unit_level or 1,
             rank = string_rank
@@ -91,7 +91,7 @@ function init(self)
             dynamic_chunk_id,
             string_uid,
             "unit",
-            entity_data,
+            entity,
             baked_position or self.spawn_position
         )
 
@@ -116,24 +116,24 @@ function init(self)
     units_state.register(self.go_id, string_uid)
 
     -- Читаем чистокровные, стопроцентно защищенные данные из RAM-памяти (или файла сохранения)
-    local unit_instance = units_state.get_unit_by_uid(string_uid)
+    local unit = units_state.get_unit_by_uid(string_uid)
 
     -- 🛡️ 1. UNIT-КАНОН СИНХРОНИЗАЦИИ СТРОК (ДОБАВЛЕНО):
     -- берем чистокровную строку unit_id ("skeleton_warrior") НАПРЯМУЮ из RAM-паспорта!
     -- Перезаписываем string_id, полностью уничтожая мутацию в драконов!
-    if unit_instance and unit_instance.unit_id then
-        string_id = unit_instance.unit_id
+    if unit and unit.unit_id then
+        string_id = unit.unit_id
     end
     self.unit_id = string_id -- Намертво сохраняем строку в контекст объекта для on_message!
 
     -- Стучимся в статичную базу units_db по ЧИСТОЙ, ИСПРАВЛЕННОЙ строке!
     local db_cfg = units_db.get_unit(string_id)
 
-    if unit_instance then
+    if unit then
         -- 🌟 WOW-РЕАНИМАЦИЯ ТРУПА ИЗ СЕЙВА ПОСЛЕ СТРИМИНГА ЧАНКОВ:
         -- Возвращаем на место координаты, если это загрузка сейва
-        if unit_instance.saved_position then
-            go.set_position(unit_instance.saved_position)
+        if unit.saved_position then
+            go.set_position(unit.saved_position)
         end
 
         -- 🛡️ 2. ПРИНУДИТЕЛЬНЫЙ ПЕРЕКРАС И МАСШТАБ (ПЕРЕНЕСЕНО СЮДА, ДО ГВАРДА СМЕРТИ!):
@@ -150,8 +150,8 @@ function init(self)
             go.set_scale(vmath.vector3(scale_factor, scale_factor, 1))
         end
 
-        if unit_instance.combat.is_dead then
-            for k,v in pairs(unit_instance) do
+        if unit.combat.is_dead then
+            for k,v in pairs(unit) do
                 print("PAIRS", k,v)
             end
             -- Моб заспавнился из сейва мертвым! 
@@ -160,17 +160,17 @@ function init(self)
             -- труп набок на следующем тике кадра, когда все компоненты на 100% запекутся!
             msg.post(".", "apply_dead_state_after_spawn")
 
-            self.loot_table_id = unit_instance.identity.loot_table_id
+            self.loot_table_id = unit.identity.loot_table_id
             print(string.format("💀 СУЩЕСТВО [%s]: Поставили асинхронную реанимацию трупа в очередь кадра.", string_uid))
             return -- Отрезаем инициализацию живого ИИ, как у тебя и было!
         end
 
         -- Читаем сочные, уже посчитанные от уровня и ранга статы из возвращенной структуры сейва!
-        self.speed = unit_instance.parameters.current_speed or 90
-        self.hitbox_size = unit_instance.parameters.hitbox_size or 64
-        self.ai_profile = unit_instance.ai.profile or "aggressive_patrol"
-        self.loot_table_id = unit_instance.identity.loot_table_id
-        self.faction = unit_instance.identity.faction or "neutral_humanoid"
+        self.speed = unit.parameters.current_speed or 90
+        self.hitbox_size = unit.parameters.hitbox_size or 64
+        self.ai_profile = unit.ai.profile or "aggressive_patrol"
+        self.loot_table_id = unit.identity.loot_table_id
+        self.faction = unit.identity.faction or "neutral_humanoid"
 
         -- (Отсюда блок смены спрайта и масштаба удален, так как мы выполнили его выше!)
     else
@@ -236,10 +236,10 @@ function update(self, dt)
         go.set_position(next_position)
 
         -- Синхронизация стейта с плашками имен (WoW-канон)
-        units_state.update_data(self.uid, {
+        units_state.update_unit(self.uid, {
             saved_position = next_position,
         })
-    end 
+    end
 end
 
 
@@ -266,7 +266,7 @@ function on_message(self, message_id, message, sender)
                   uid = self.uid,
                   id = self.unit_id,
                   db_cfg = db_cfg,
-                  instance_data = unit, -- Передали живой стейт аргументом!
+                  instance = unit, -- Передали живой стейт аргументом!
                   position = go.get_position()
               })
             end)
@@ -293,7 +293,7 @@ function on_message(self, message_id, message, sender)
         local dead_body_pos = vmath.vector3(current_position.x, current_position.y, 0.9)
         go.set_position(dead_body_pos)
 
-        units_state.update_data(self.uid, {
+        units_state.update_unit(self.uid, {
             health = 0,
             is_dead = true,
             saved_position = dead_body_pos

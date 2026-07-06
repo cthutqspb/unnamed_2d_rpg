@@ -88,7 +88,7 @@ function M:create_menu_button(action, index, data, config)
     gui.set_position(btn_node, vmath.vector3(x_pos, y_pos, 0))
     gui.set_size(btn_node, vmath.vector3(config.btn_width, config.btn_height, 0))
     -- 2. ЛОГИКА КЛИКА
-    local btn_instance = self.druid:new_button(btn_node, function()
+    local btn = self.druid:new_button(btn_node, function()
         -- Создаем зрячий, объединенный payload для нашего gui_script!
         -- Мы берем исходные данные клика (data) и намертво вшиваем в них 
         -- сгенерированные базой меню контексты (item_id, slot_index, unit_uid)!
@@ -110,16 +110,16 @@ function M:create_menu_button(action, index, data, config)
         self:hide()
     end)
     -- 3. ЖЕСТКОЕ ОТКЛЮЧЕНИЕ СТИЛЯ (Чтобы не было анимации увеличения)
-    btn_instance.style.set_color = function() end
-    btn_instance.style.set_scale = function() end
-    btn_instance.style.on_click_pulse = function() end
+    btn.style.set_color = function() end
+    btn.style.set_scale = function() end
+    btn.style.on_click_pulse = function() end
     -- btn_instance.style.on_pressed = function() end -- Если нужно убрать эффект нажатия
     -- btn_instance.style.on_hover = function() end   -- Если нужно убрать наведение из стиля
-    btn_instance.style.on_pressed = function() end
-    btn_instance.style.set_scale()
+    btn.style.on_pressed = function() end
+    btn.style.set_scale()
 
     -- 4. КАСТОМНЫЙ ХОВЕР (Красивое затемнение/высветление черной кнопки)
-    btn_instance.style.on_mouse_hover = function(self_btn, node, state)
+    btn.style.on_mouse_hover = function(self_btn, node, state)
         -- Отменяем старые анимации, чтобы они не конфликтовали
         if state then
             -- При наведении: делаем кнопку более видимой (0.95)
@@ -134,7 +134,7 @@ function M:create_menu_button(action, index, data, config)
     -- Сохраняем в кэш
     table.insert(self.nodes_cache, {
         nodes = nodes,
-        btn = btn_instance
+        btn = btn
     })
 end
 

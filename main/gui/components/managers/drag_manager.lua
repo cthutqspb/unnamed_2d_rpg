@@ -164,7 +164,7 @@ function M.finish(target_component, target_slot)
                 target_idx  = target_slot
                 target_type = d.drag_type
                 target_id   = d.item.item_id or d.item.action_id
-                old_data    = target_component:get_slot_data(target_slot)
+                old_data    = target_component:get_slot(target_slot)
             else
                 -- Страховка на случай непредвиденного домена
                 target_bar  = d.source.bar_index or 1

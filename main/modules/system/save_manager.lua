@@ -154,17 +154,17 @@ function M.new_game(creation_package)
     character_data.bind_to_units_registry()
 
     -- Вытаскиваем живую Душу игрока из свежесозданного реестра RAM стейта
-    local player_data = game_state.get_entity_by_uid(character_data.PLAYER_UID)
+    local player = game_state.get_entity_by_uid(character_data.PLAYER_UID)
 
-    if player_data then
+    if player then
         -- 🎯 НАВАЛИВАЕМ СТАРТОВЫЙ ЛУТ В ОБЪЕКТНЫЙ ИНСТАНС ИЗ РЕЕСТРА:
-        if player_data.inventory then
-            player_data.inventory:clear()
-            player_data.inventory:add_item("iron_sword", 1)
-            player_data.inventory:add_item("lesser_mana_potion", 10)
-            player_data.inventory:add_item("leather_helmet", 1)
-            player_data.inventory:add_item("clown_hat", 1)
-            player_data.inventory:add_item("crystal_sword", 1)
+        if player.inventory then
+            player.inventory:clear()
+            player.inventory:add_item("iron_sword", 1)
+            player.inventory:add_item("lesser_mana_potion", 10)
+            player.inventory:add_item("leather_helmet", 1)
+            player.inventory:add_item("clown_hat", 1)
+            player.inventory:add_item("crystal_sword", 1)
             print("💾 БЭКЕНД: Стартовый лут Новой Игры успешно засыпан в RAM-паспорт мага!")
         end
 
@@ -173,7 +173,7 @@ function M.new_game(creation_package)
         -- =========================================================================
         -- Никаких левых character_data.player! Мы пишем экшен-бары strictly внутрь
         -- легального RAM-паспорта игрока player_data, который прочитает HUD-интерфейс!
-        player_data.action_bars = {
+        player.action_bars = {
             [1] = {
                 [1] = { action_type = "ability", action_id = "melee_attack" },
                 [2] = { action_type = "ability", action_id = "frostbolt" },
@@ -245,59 +245,67 @@ function M.load_game()
     local content = file:read("*all")
     file:close()
 
-    local data = json.decode(content)
-    if not data then return false end
+    local save_data = json.decode(content)
+    if not save_data then return false end
 
     -- 1. Стерильно очищаем оперативку RAM перед накатом новой вселенной
     game_state.clear_all()
 
-    -- 2. 🦾 ТОТАЛЬНАЯ РЕАНИМАЦИЯ ВСЕЛЕННОЙ (ИСПРАВЛЕНО НАМЕРТВО):
-    -- Этот метод за один Си-такт накатывает весь JSON обратно в ОЗУ.
-    -- Игрок со всеми его мутабельными ХП, маной, атрибутами, сумками и шмотом
-    -- АВТОМАТИЧЕСКИ воскресает внутри game_state.registry по своему UID!
-    game_state.restore_all(data.world)
+    -- 2. Реанимируем в RAM динамические чанки мира и юнитов через restore_all
+    -- Твой РОДНОЙ метод restore_all() внутри units_state АВТОМАТИЧЕСКИ
+    -- создаст live_inventory, выкачает предметы по твоему старому канону и положит в ОЗУ!
+    game_state.restore_all(save_data.world)
 
     -- Восстанавливаем токен сессии, за кого играли
-    character_data.PLAYER_UID = data.player_uid or "player"
+    character_data.PLAYER_UID = save_data.player_uid or "player"
 
     -- 3. Намертво привязываем кэшированный мост-ссылку character_data.player в ОЗУ
     character_data.bind_to_units_registry()
 
-    -- Достаем живой рантайм-паспорт игрока, который только что материализовался из JSON
+    -- 4. Достаем живую Душу игрока из реестра RAM стейта
     local player_unit = game_state.get_entity_by_uid(character_data.PLAYER_UID)
     if not player_unit then
-        print("🚨 Critical Error БЭКЕНД: Игрок не найден в реестре после десериализации JSON!")
+        print("🚨 Critical Error БЭКЕНД: Игрок не найден в реестре после работы restore_all!")
         return false
     end
 
     -- =========================================================================
-    -- 📐 ФАЗА 3: ВОССТАНОВЛЕНИЕ СИ-ВЕКТОРОВ И ПЕРЕЗАПУСК КОЛЛЕКЦИИ:
+    -- 📐 ФАЗА 3: ВОССТАНОВЛЕНИЕ СИ-ВЕКТОРОВ И ПЕРЕЗАПУСК КОЛЛЕКЦИИ (ИСПРАВЛЕНО):
     -- =========================================================================
+    -- Вытаскиваем координаты, которые restore_all прочитал из JSON как таблицу
     local saved_position = player_unit.saved_position
 
-    -- Восстанавливаем Си-вектор Defold из плоских координат JSON
+    -- 🚀 ТИТАНОВЫЙ ФИКС ПEРЦEПЦИИ: 
+    -- Принудительно переводим плоские JSON-координаты игрока в честный Си-вектор vmath.vector3!
+    -- Теперь perception_manager.lua на строке 69 шёлково выполнит вычитание векторов без крэша!
     local base_x = saved_position and saved_position.x or 1126
     local base_y = saved_position and saved_position.y or 725
     local base_z = saved_position and saved_position.z or 1.0
 
     local live_vector_position = vmath.vector3(base_x, base_y, base_z)
+
+    -- Запекаем честный Си-вектор обратно в паспорт игрока в ОЗУ!
     player_unit.saved_position = live_vector_position
+    if character_data.player then
+        character_data.player.saved_position = live_vector_position
+    end
 
     -- Передаем Си-вектор в движковый прокси-лоадер Defold для стриминга сцены
     msg.post("main:/loader#script", "reload_game", {
         is_load = true,
         saved_position = live_vector_position,
-        action_bars = player_unit.action_bars -- Панели шёлково летят на HUD из стейта!
+        action_bars = player_unit.action_bars
     })
 
-    -- Синхронно пинаем HUD-интерфейс сочными бродкастами
+    -- Реактивно пинаем интерфейс бродкастами
     broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     broadcast.send("action_bar_events", { message_id = hash("action_bars_changed") })
     broadcast.send("ui_events", { message_id = hash("clear_world_ui") })
 
-    print(string.format("💾 БЭКЕНД [SaveManager]: Сейв персонажа [%s] успешно развернут из общего стейта. Векторы восстановлены!", character_data.PLAYER_UID))
+    print(string.format("💾 БЭКЕНД [SaveManager]: Сейв персонажа [%s] успешно развернут. Векторы восстановлены!", character_data.PLAYER_UID))
     return true
 end
+
 
 
 -- ---Засейвить игру на жесткий диск ПК (JSON-монолит)
@@ -353,7 +361,7 @@ end
 --     end
 --     return false
 -- end
---
+
 -- ---Загрузить игру из файла сохранения JSON
 -- ---@return boolean
 -- function M.load_game()

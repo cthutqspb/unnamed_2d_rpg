@@ -142,7 +142,7 @@ function M.add(uid, props)
     -- 🚀 ПОРОДИСТОЕ ААА-ОБЪЯВЛЕНИЕ БАЗЫ ДАННЫХ (ИСПРАВЛЕНО НАМЕРТВО):
     -- Вытаскиваем статический конфиг существа из базы данных на самом верху метода,
     -- чтобы вся цепочка вычислений ниже видела его паспорт из units_db!
-    local monster_cfg = (not props.is_player and uid ~= "player") and units_db.get_unit(props.unit_id) or nil
+    local unit_cfg = (not props.is_player and uid ~= "player") and units_db.get_unit(props.unit_id) or nil
 
     local calculated_max_health = props.max_health or props.health or 100
     local source_attributes = props.attributes or props.attributes or {
@@ -154,26 +154,26 @@ function M.add(uid, props)
     local source_abilities = props.abilities or { "melee_attack" }
 
     -- Если это фабричный монстр, прогоняем его через динамическое левел-скалирование ХП
-    if monster_cfg then
-        source_attributes = props.attributes or monster_cfg.attributes or source_attributes
-        source_abilities = props.abilities or monster_cfg.abilities or source_abilities
+    if unit_cfg then
+        source_attributes = props.attributes or unit_cfg.attributes or source_attributes
+        source_abilities = props.abilities or unit_cfg.abilities or source_abilities
 
-        local level_modifier = math.pow(monster_cfg.progression.health_growth or 1, (props.level or 1) - 1)
-        calculated_max_health = math.floor((monster_cfg.parameters.base_health or 40) * level_modifier)
+        local level_modifier = math.pow(unit_cfg.progression.health_growth or 1, (props.level or 1) - 1)
+        calculated_max_health = math.floor((unit_cfg.parameters.base_health or 40) * level_modifier)
 
         if compute_rank_modifiers then
-            local rank_mods = compute_rank_modifiers(props.rank or monster_cfg.identity.default_rank)
+            local rank_mods = compute_rank_modifiers(props.rank or unit_cfg.identity.default_rank)
             calculated_max_health = math.floor(calculated_max_health * rank_mods.health_multiplier)
         end
-        local db_resource = monster_cfg.resource
+        local db_resource = unit_cfg.resource
         if db_resource then
             calculated_max_mana = db_resource.max or calculated_max_mana
         end
     end
 
     local base_attributes = utils.deepcopy(source_attributes)
-    local current_attributes = utils.deepcopy(source_attributes)
-    local clean_source_abilities = utils.deepcopy(source_abilities)
+    local attributes = utils.deepcopy(source_attributes)
+    local abilities = utils.deepcopy(source_abilities)
 
     local raw_bars = props.action_bars or {}
 
@@ -184,7 +184,7 @@ function M.add(uid, props)
     -- Если их нет (спавн обычного волка), даем пустую скобку {}, и ифы шёлково уйдут в базу данных!
     local props_identity   = props.identity or {}
     local props_parameters = props.parameters or {}
-    local props_health_resoure         = props.health_resource or {}
+    local props_health_resource = props.health_resource or {}
     local props_resource   = props.resource or {}
     local props_ai         = props.ai or {}
 
@@ -216,22 +216,22 @@ function M.add(uid, props)
             -- Скорость: смотрим сначала в сейв игрока (props_parameters.base_speed), 
             -- если там пусто — лезем в базу данных моба (monster_cfg.parameters.base_speed),
             -- и только на крайний случай ставим жесткий дефолт (220 игроку / 90 волку)!
-            base_speed   = props_parameters.base_speed or (monster_cfg and monster_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
+            base_speed   = props_parameters.base_speed or (unit_cfg and unit_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
 
             -- ТЕКУЩАЯ ЖИВАЯ СКОРОСТЬ СИММЕТРИЧНО (ИСПРАВЛЕНО):
-            current_speed = props_parameters.current_speed or (monster_cfg and monster_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
+            current_speed = props_parameters.current_speed or (unit_cfg and unit_cfg.parameters.base_speed) or (props.is_player and 220 or 90),
 
-            hitbox_size  = props_parameters.hitbox_size or (monster_cfg and monster_cfg.parameters.hitbox_size) or 64,
+            hitbox_size  = props_parameters.hitbox_size or (unit_cfg and unit_cfg.parameters.hitbox_size) or 64,
         },
 
         -- 🧪 МУТАБЕЛЬНЫЕ ЖИВЫЕ РЕСУРСЫ:
         health_resource = {
-            current = props_health_resoure.current or props.health or calculated_max_health, -- Поддержка и старых сейвов, и новых!
-            max     = props_health_resoure.max or calculated_max_health
+            current = props_health_resource.current or props.health or calculated_max_health, -- Поддержка и старых сейвов, и новых!
+            max     = props_health_resource.max or calculated_max_health
         },
 
         resource = {
-            type    = props_resource.type or (monster_cfg and monster_cfg.resource and monster_cfg.resource.type) or "mana",
+            type    = props_resource.type or (unit_cfg and unit_cfg.resource and unit_cfg.resource.type) or "mana",
             current = props_resource.current or ((props_resource.type == "rage") and 0 or calculated_max_mana),
             max     = props_resource.max or calculated_max_mana,
         },
@@ -257,30 +257,39 @@ function M.add(uid, props)
         auras = {},
 
         -- 🦾 ПЕРЕИСПОЛЬЗОВАНИЕ ДАННЫХ ИЗ БАЗЫ:
-        identity    = monster_cfg and monster_cfg.identity or props.identity,
-        visuals     = monster_cfg and monster_cfg.visuals or props.visuals,
-        progression = monster_cfg and monster_cfg.progression or props.progression,
-        ai          = monster_cfg and monster_cfg.ai or props.ai,
+        identity    = unit_cfg and unit_cfg.identity or props.identity,
+        visuals     = unit_cfg and unit_cfg.visuals or props.visuals,
+        progression = unit_cfg and unit_cfg.progression or props.progression,
+        ai          = unit_cfg and unit_cfg.ai or props.ai,
 
-        base_attributes    = base_attributes,
-        attributes         = current_attributes,
-        abilities          = clean_source_abilities,
+        base_attributes    = props.base_attributes and utils.deepcopy(props.base_attributes) or base_attributes,
+        attributes         = attributes,
+        abilities          = abilities,
 
-        loot_table_id   = props.loot_table_id or (monster_cfg and monster_cfg.identity.loot_table_id) or "empty",
+        loot_table_id   = props.loot_table_id or (unit_cfg and unit_cfg.identity.loot_table_id) or "empty",
         is_collected    = (props.is_collected == true),
         saved_position  = props.saved_position or vmath.vector3(0, 0, 1.0)
     }
 
-    -- Накат данных сохранения шмота и сумок, если они прилетели из файла
-    if props.paperdoll_data and unit_instance.paperdoll then
-        unit_instance.paperdoll:load_save_data(props.paperdoll)
-    end
-    if props.inventory_data and unit_instance.inventory then
-        unit_instance.inventory:load_save_data(props.inventory)
+    -- Вытаскиваем сохраненный JSON-слепок сумок и куклы, который выжил в реестре
+    local saved_inventory  = props.inventory
+    local saved_paperdoll = props.paperdoll
+
+    if saved_inventory and unit_instance.inventory then
+        -- Наш объектный метод гарантированно СУЩЕСТВУЕТ в RAM по вечному адресу!
+        -- Он с потрохами сожрет плоскую JSON-карту и наполнит слоты шмотом!
+        unit_instance.inventory:load_save_data(saved_inventory)
     end
 
+    if saved_paperdoll and unit_instance.paperdoll then
+        -- Восстанавливаем куклу шмота
+        unit_instance.paperdoll:load_save_data(saved_paperdoll)
+    end
+
+    -- Намертво цементируем ссылки обратной связи owner
     if unit_instance.paperdoll then unit_instance.paperdoll.owner = unit_instance end
     if unit_instance.inventory then unit_instance.inventory.owner = unit_instance end
+    -- =========================================================================
 
     -- Записываем готовую Душу Юнита в реестр RAM
     M.registry[uid] = unit_instance
@@ -369,19 +378,19 @@ end
 ---@param is_looted boolean|nil Флаг обыска
 ---@param loot_table_id string|nil ID таблицы лута
 ---@return boolean @Успешность операции (хватило ли места в сумках)
-function M.add_unit_item(uid, item_id, amount, item_uid, sub_items, is_looted, loot_table_id)
+function M.unit_item_add(uid, item_id, amount, item_uid, sub_items, is_looted, loot_table_id)
     if not M.registry or not M.registry[uid] then return false end
 
-    local unit_data = M.registry[uid]
+    local unit = M.registry[uid]
     -- Гвард защиты: проверяем, что у существа физически существует объект рюкзака в памяти
-    if not unit_data or not unit_data.inventory then
+    if not unit or not unit.inventory then
         print("🚨 БЭКЕНД [UnitsState]: Не удалось выдать предмет, инвентарь отсутствует у UID:", uid)
         return false
     end
 
     -- 🦾 ЧЕСТНЫЙ, ЗРЯЧИЙ НАЛИВ ЧЕРЕЗ ДВOЕTOЧIЕ:
     -- Вызываем метод прямо на живом ООП-инстансе рюкзака из глобального реестра RAM!
-    local success = unit_data.inventory:add_item(
+    local success = unit.inventory:add_item(
         item_id,
         amount,
         item_uid,
@@ -391,7 +400,7 @@ function M.add_unit_item(uid, item_id, amount, item_uid, sub_items, is_looted, l
     )
 
     -- Если шмотка шёлково легла в ячейку, и это был ИГРОК — взрываем шину реактивности!
-    if success and (unit_data.is_player or uid == "player") then
+    if success and (unit.is_player or uid == "player") then
         broadcast.send("inventory_events", { message_id = hash("inventory_changed") })
     end
 
@@ -446,6 +455,37 @@ function M.set_action_bar_slot(uid, bar_index, slot_index, action_type, action_i
     end
 end
 
+---Собрать стерильный, чистокровный АAА-слепок всего реестра юнитов для JSON-сохранения (БЕЗ ДИПКОПИ И БЕЗ БРЕДЯТИНЫ)
+---@return table<string, table> flat_registry_snapshot
+function M.get_save_snapshot()
+    local registry_snapshot = {}
+    if not M.registry then return registry_snapshot end
+
+    -- 🚀 УЛЬТИМАТИВНЫЙ ПОЛИМОРФНЫЙ ШЭЛЛОУ-КОНВЕЙЕР:
+    for uid, live_unit in pairs(M.registry) do
+        if live_unit then
+            -- 1. За 1 такт CPU делаем плоский слепок карточки юнита (копируем все поля оптом!)
+            -- Этот цикл никогда не вызовет stack overflow, так как он не лезет в рекурсию!
+            local flat_unit = {}
+            for field_name, field_value in pairs(live_unit) do
+                flat_unit[field_name] = field_value
+            end
+
+            -- 2. 🦾 ПЕРЕЗАПИСЫВАЕМ СТРОГО ПОЛЯ-МОДЕЛИ (ИСПРАВЛЕНО НАМЕРТВО):
+            -- Вызываем объектные методы сохранения сумок и куклы шмота у живых моделей в ОЗУ.
+            -- Они сочно переведут Си-хэши в строки и вернут плоские таблицы без owner-линков!
+            flat_unit.inventory = (live_unit.inventory and live_unit.inventory.get_save_data) and live_unit.inventory:get_save_data() or {}
+            flat_unit.paperdoll = (live_unit.paperdoll and live_unit.paperdoll.get_save_data) and live_unit.paperdoll:get_save_data() or {}
+
+            -- Запекаем этот чистый, автоматически собранный паспорт юнита в итоговый снапшот
+            registry_snapshot[uid] = flat_unit
+        end
+    end
+
+    -- Отдаем абсолютно сухую карту вселенной. json.encode сожрет её за 0 наносекунд!
+    return registry_snapshot
+end
+
 ---Раздача прилетевших из JSON данных обратно в оперативную память Lua монстров
 ---@param data table Таблица реестра монстров из файла сохранения
 function M.restore_all(data)
@@ -466,42 +506,29 @@ function M.restore_all(data)
         end
 
         -- =========================================================================
-        -- 🦾 2. AAA-РЕАНИМАЦИЯ ИНВЕНТАРЕЙ ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ДОБАВЛЕНО)
+        -- 🦾 2. AAA-РЕАНИМАЦИЯ ИНВЕНТАРЕЙ ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ИСПРАВЛЕНО):
         -- =========================================================================
-        -- В JSON-монолите сохранения шмот лежит в полях inventory_data / paperdoll_data,
-        -- либо в твоих оригинальных полях inventory / paperdoll.
-        local raw_inventory = unit.inventory or unit.inventory
+        -- Временная локалка raw_ здесь полезна, чтобы не мутировать unit.inventory до наката
+        local raw_inventory = unit.inventory
 
         if raw_inventory then
-            -- Вычисляем размер сетки существа. Для мага — 49 слотов, для монстров — дефолт 24
-            local max_slots = (uid == "player") and 49 or 24
-
-            -- Рождаем чистокровный, зрячий инстанс класса со всеми методами!
-            -- Первым аргументом передаем 'unit' (паспорт хозяина), чтобы намертво зашить .owner!
-            local live_inventory = inventory_model.new(unit, max_slots)
-
-            -- Вызываем твой роскошный, нетронутый метод наката шмоток из JSON!
-            -- Он сочно пройдется циклом, переведет ID строк в Си-хэши и заполнит ячейки.
-            live_inventory:load_save_data(raw_inventory)
-
-            -- Намертво перезаписываем плоское поле юнита готовым объектным инстансом!
-            unit.inventory = live_inventory
+            -- 🚀 ШЁЛКОВЫЙ КОНТУР НА ЛЕТУ:
+            -- Мы убрали все "live_" переменные. Мы сразу создаем зрячий инстанс класса,
+            -- накатываем на него сырой JSON-мешок и запекаем прямо в паспорт юнита!
+            unit.inventory = inventory_model.new(unit, (uid == "player") and 49 or 24)
+            unit.inventory:load_save_data(raw_inventory)
         end
 
         -- =========================================================================
-        -- 🦾 3. AAA-РЕАНИМАЦИЯ КУКОЛ ШМОТА ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ДОБАВЛЕНО)
+        -- 🦾 3. AAA-РЕАНИМАЦИЯ КУКОЛ ШМОТА ДЛЯ ВСЕЙ ВСЕЛЕННОЙ ЮНИТОВ (ИСПРАВЛЕНО):
         -- =========================================================================
-        local raw_paperdoll = unit.paperdoll or unit.paperdoll
+        local raw_paperdoll = unit.paperdoll
 
         if raw_paperdoll then
-            -- Рождаем зрячий инстанс куклы шмота, привязывая паспорт хозяина в .owner!
-            local live_paperdoll = paperdoll_model.new(unit)
-
-            -- Вызываем метод наката экипированных вещей из JSON
-            live_paperdoll:load_save_data(raw_paperdoll)
-
-            -- Перезаписываем плоское поле юнита готовым объектным инстансом!
-            unit.paperdoll = live_paperdoll
+            -- 🚀 ШЁЛКОВЫЙ КОНТУР НА ЛЕТУ:
+            -- Никакого мусора в именах. Создали куклу, скормили сейв, запечатали в ОЗУ!
+            unit.paperdoll = paperdoll_model.new(unit)
+            unit.paperdoll:load_save_data(raw_paperdoll)
         end
     end
 
@@ -517,17 +544,17 @@ end
 ---Легкий бэкенд-мутатор для динамического обновления геймплейных данных монстра (WoW-канон)
 ---@param uid string Уникальный строковый UID существа ("c_1200_700")
 ---@param current_data table Новая плоская таблица с измененными полями (saved_position, health и т.д.)
-function M.update_data(uid, current_data)
+function M.update_unit(uid, current_data)
     -- Мы работаем строго и только если паспорт моба реально существует в памяти RAM!
     if M.registry and M.registry[uid] then
-        local unit_instance = M.registry[uid]
+        local unit = M.registry[uid]
 
         -- =========================================================================
         -- 🛡️ 1. ГВАРД ОКРУГЛЕНИЯ ПИКСЕЛЕЙ КООРДИНАТ (X и Y):
         -- =========================================================================
         if current_data.saved_position then
             local live_pos = current_data.saved_position
-            unit_instance.saved_position = vmath.vector3(
+            unit.saved_position = vmath.vector3(
                 math.floor(live_pos.x + 0.5),
                 math.floor(live_pos.y + 0.5),
                 live_pos.z -- Z оставляем в покое, сохраняем вертикальность
@@ -540,14 +567,14 @@ function M.update_data(uid, current_data)
         -- Если прилетело плоское внешнее поле current_data.health (например, 50)
         if current_data.health then
             -- Пишем strictly внутрь нашего нового ААА-ресурса здоровья в реестре!
-            unit_instance.health_resource.current = current_data.health
+            unit.health_resource.current = current_data.health
 
             -- Си-гварды безопасности: ХП не может упасть ниже нуля и подняться выше потолка параметров!
-            if unit_instance.health_resource.current < 0 then
-                unit_instance.health_resource.current = 0
+            if unit.health_resource.current < 0 then
+                unit.health_resource.current = 0
             end
-            if unit_instance.health_resource.current > unit_instance.parameters.max_health then
-                unit_instance.health_resource.current = unit_instance.parameters.max_health
+            if unit.health_resource.current > unit.parameters.max_health then
+                unit.health_resource.current = unit.parameters.max_health
             end
         end
 
@@ -556,14 +583,14 @@ function M.update_data(uid, current_data)
         -- =========================================================================
         -- Читаем плоское внешнее поле current_data.is_dead, а пишем во вложенный блок combat!
         if current_data.is_dead ~= nil then
-            unit_instance.combat.is_dead = (current_data.is_dead == true)
+            unit.combat.is_dead = (current_data.is_dead == true)
         end
 
         -- 🎯 4. ДОПОЛНИТЕЛЬНЫЙ ГВАРД ДУШИ:
         -- Если моб умер, принудительно страхуем текущее здоровье на жесткий ноль в ОЗУ,
         -- чтобы оно никогда фантомно не сбросилось в nil или микро-минусы!
-        if current_data.is_dead == true or unit_instance.combat.is_dead == true then
-            unit_instance.health_resource.current = 0
+        if current_data.is_dead == true or unit.combat.is_dead == true then
+            unit.health_resource.current = 0
         end
         -- =========================================================================
     else

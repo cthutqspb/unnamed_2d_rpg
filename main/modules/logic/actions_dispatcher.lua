@@ -70,7 +70,7 @@ M.REDUCERS = {
             -- 🛡️ АБСОЛЮТНАЯ ЗАЩИТА ОТ АННИГИЛЯЦИИ (Твой оригинальный код матрешки)
             -- =========================================================================
             if target.items and item then
-                local target_uid = target.uid or (target.item_data and target.item_data.uid)
+                local target_uid = target.uid or (target.item and target.item.uid)
                 local is_same_array = (item.items and item.items == target.items)
                 local is_same_uid = (item.uid and target_uid and item.uid == target_uid)
 
@@ -194,10 +194,10 @@ M.REDUCERS = {
         end
 
         -- 🧱 1. ЗРЯЧЕЕ ИЗВЛЕЧЕНИЕ ИНСТАНСА ИЗ ОБОИХ КОНТEКСТОВ (Твой оригинальный код!):
-        local instance = data.instance_data
+        local instance = data.instance
 
         if not instance and data.slot_index then
-            -- ВЕТКА Б: МАТРЁШКА В КАРМАНЕ (Прилетел слот, но нет instance_data)
+            -- ВЕТКА Б: МАТРЁШКА В КАРМАНЕ (Прилетел слот, но нет instance)
             -- Легально через мост character_data лезем в живой рюкзак мага в RAM 
             -- и вынимаем оттуда «Душу» нашей карманной бочки строго по слоту!
             local player_inv = character_data and character_data.player and character_data.player.inventory
@@ -249,7 +249,7 @@ M.REDUCERS = {
         -- Диспетчер выполняет свой контракт импортов! Он просто берет плоский payload
         -- и перенаправляет его в легальный метод памяти units_state, скармливая ему
         -- токен активного героя сессии character_data.PLAYER_UID!
-        units_state.add_unit_item(
+        units_state.unit_item_add(
             character_data.PLAYER_UID, -- Наш контролируемый маг ("player" / "Arthas")
             payload.item_id,
             payload.amount,

@@ -150,9 +150,9 @@ local hash_to_string_map = {}
 -- Функция, которая строит карту хешей ДЛЯ ТЕКУЩЕГО ЯЗЫКА
 function M.rebuild_cache()
     hash_to_string_map = {}
-    local lang_data = M.data[current_lang]
-    if lang_data then
-        for key, value in pairs(lang_data) do
+    local lang = M.data[current_lang]
+    if lang then
+        for key, value in pairs(lang) do
             hash_to_string_map[hash(key)] = value
         end
     end
@@ -175,7 +175,7 @@ function M.get(key)
         if value then
             return value
         end
-        
+
         -- Если не нашли (хот-релод), пробуем обновить кэш
         M.rebuild_cache()
         return hash_to_string_map[key] or tostring(key)

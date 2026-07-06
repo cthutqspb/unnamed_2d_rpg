@@ -40,17 +40,17 @@ function M:get_item(slot_type)
 end
 
 ---@param slot_type string
----@param item_data Item|nil
-function M:set_item(slot_type, item_data)
+---@param item Item|nil
+function M:set_item(slot_type, item)
     print("➡️ МУТАЦИЯ: self.slots адрес =", self.slots)
-    if not item_data or not item_data.item_id then
+    if not item or not item.item_id then
         print("⚠️ БЭКЕНД: Кто-то принудительно ОБНУЛИЛ слот куклы:", slot_type)
         self.slots[slot_type] = { item_id = nil, amount = 0, uid = nil }
     else
         self.slots[slot_type] = {
-            item_id = item_data.item_id,
-            amount = math.floor(item_data.amount or 1),
-            uid = item_data.uid
+            item_id = item.item_id,
+            amount = math.floor(item.amount or 1),
+            uid = item.uid
         }
     end
     print("SLOT", slot_type, self.slots[slot_type].item_id)
@@ -59,7 +59,7 @@ end
 ---@param item Item Требуемый предмет
 ---@param slot_type string Слот экипировки
 ---@return boolean
-function M:can_equip_item(item, slot_type) -- 🛡️ ИСПРАВЛЕНО: УБРАЛИ unit_data! Сигнатура чиста!
+function M:can_equip_item(item, slot_type)
     if not self.slots[slot_type] or not item.item_id then
         return false
     end
@@ -70,14 +70,15 @@ function M:can_equip_item(item, slot_type) -- 🛡️ ИСПРАВЛЕНО: УБ
     end
 
     -- 🦾 ЗРЯЧИЙ ЮНИТ-КАНОН: Кукла сама берет паспорт своего хозяина из своего поля self.owner!
-    local unit_data = self.owner
-    if not unit_data then return false end
+    ---@type UnitInstance
+    local unit = self.owner
+    if not unit then return false end
 
     ---@type RequirementResult
-    local check_result = unit_logic.check_item_requirements(cfg, unit_data)
-    print('RES', check_result, check_result.is_ok)
+    local check_result = unit_logic.check_item_requirements(cfg, unit)
+
     if not check_result.is_ok then
-        if unit_data.is_player then
+        if unit.is_player then
             print("CANNOT EQUIP: " .. (check_result.reason or "low stats"))
         end
         return false
@@ -96,10 +97,10 @@ function M:load_save_data(data)
     self:clear()
     if not data then return end
 
-    for slot_type, slot_data in pairs(data) do
+    for slot_type, slot in pairs(data) do
         local current_slot = self.slots[slot_type]
-        if current_slot and slot_data.item_id then
-            local id = slot_data.item_id
+        if current_slot and slot.item_id then
+            local id = slot.item_id
 
             if type(id) == "string" then
                 id = id:match("%[(.-)%]") or id
@@ -108,8 +109,8 @@ function M:load_save_data(data)
                 current_slot.item_id = id
             end
 
-            current_slot.amount = math.floor(slot_data.amount or 0)
-            current_slot.uid = slot_data.uid
+            current_slot.amount = math.floor(slot.amount or 0)
+            current_slot.uid = slot.uid
         end
     end
 end

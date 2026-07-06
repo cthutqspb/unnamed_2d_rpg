@@ -21,12 +21,12 @@ local function get_id(template_id, node_name)
 end
 
 ---@param index number
----@param slot_data table Таблица ячейки бэкенда {action_type, action_id}
-local function send_player_action(index, slot_data)
-    if not slot_data or not slot_data.action_id or not slot_data.action_type then return end
+---@param slot table Таблица ячейки бэкенда {action_type, action_id}
+local function send_player_action(index, slot)
+    if not slot or not slot.action_id or not slot.action_type then return end
 
     print(string.format("🔮 БОЙ [ActionBar]: Активация слота №%d -> [%s: %s]",
-        index, slot_data.action_type, slot_data.action_id))
+        index, slot.action_type, slot.action_id))
 
     -- Шлем Си-команду напрямую в физическое тело игрока! [C]
     -- "." означает текущий игровой объект, где висит HUD, 
@@ -35,9 +35,9 @@ local function send_player_action(index, slot_data)
         event = "action",
         data = {
             slot_index = index,
-            action_type = slot_data.action_type, -- Наш вчерашний ААА-стандарт: "ability" или "item"
-            action_id = slot_data.action_id,      -- "melee_attack" / "frostbolt" / "lesser_mana_potion"
-            triggers_gcd = slot_data.triggers_gcd
+            action_type = slot.action_type, -- Наш вчерашний ААА-стандарт: "ability" или "item"
+            action_id = slot.action_id,      -- "melee_attack" / "frostbolt" / "lesser_mana_potion"
+            triggers_gcd = slot.triggers_gcd
         }
     })
 end
@@ -57,7 +57,7 @@ function M:init(template_id, config)
         item_size = config.item_size or 40,
         spacing = config.spacing or 2,
         on_click = function(index, item)
-            -- item здесь — это то, что наш глупый StaticGrid достал из self:get_slot_data(index)
+            -- item здесь — это то, что наш глупый StaticGrid достал из self:get_slot(index)
             send_player_action(index, item)
         end
     })
@@ -70,8 +70,8 @@ function M:on_slot_click(index)
     if not self.static_grid then return end
 
     -- 1. Вежливо просим наш глупый StaticGrid выдать сырые данные из памяти сорса
-    local slot_data = self.static_grid:get_slot_data(index)
-    if not slot_data then return end
+    local current_slot = self.static_grid:get_slot(index)
+    if not current_slot then return end
 
     -- 2. 🧱 ЗАПУСКАЕМ ДЕФОЛТНУЮ ВИЗУАЛЬНУЮ АНИМАЦИЮ СЖАТИЯ ДРУИДА:
     local slot = self.static_grid.slots[index]
@@ -88,7 +88,7 @@ function M:on_slot_click(index)
     end
 
     -- 3. ОТПРАВЛЯЕМ НАШЕ БОЕВОЕ ДЕЙСТВИЕ В МИР ЧЕРЕЗ РОДНОЙ КОНВЕЙЕР:
-    send_player_action(index, slot_data)
+    send_player_action(index, current_slot)
 end
 
 ---🎯 РЕАКТИВНЫЙ WoW-ОБРАБОТЧИК: Синхронизация графики с Глобальным Реестром RAM
@@ -144,11 +144,15 @@ function M:update(dt, player, target)
     local color_bind_red = vmath.vector4(1.0, 0.1, 0.1, 1.0) -- Out of Range красный!
 
     for index = 1, #self.static_grid.slots do
-        local slot_data = self.static_grid:get_slot_data(index)
+        local slot = self.static_grid:get_slot(index)
 
-        if slot_data and slot_data.action_id and slot_data.action_type == "ability" then
+        if slot and slot.action_id and slot.action_type == "ability" then
             -- 🦾 ДЁРГАЕМ ЦЕНТРАЛЬНОГО СУДЬЮ НАПРЯМУЮ ЧЕРЕЗ ПРИЛЕТЕВШИЕ ОБЪЕКТЫ (БЕЗ ПРОСЛОЕК):
-            local is_possible, error_reason = unit_logic.check_cast_possibility(player, slot_data.action_id, target)
+            local is_possible, error_reason = unit_logic.check_cast_possibility(
+                player,
+                slot.action_id,
+                target
+            )
 
             local final_icon_color = color_normal
             local final_bind_color = color_bind_normal
