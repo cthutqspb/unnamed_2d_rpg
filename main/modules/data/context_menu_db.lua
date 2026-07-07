@@ -44,11 +44,11 @@ M.data = {
     },
 
     -- Чистокровные атомарные типы для игрового мира Meadows (Никакой каши!)
-    ["world_item"] = {
+    ["item"] = {
         { name_key = "menu_pickup",  event = "item_pickup" },
         { name_key = "menu_examine", event = "object_examine" },
     },
-    ["world_object"] = {
+    ["object"] = {
         { name_key = "menu_open",    event = "container_open" },
         { name_key = "menu_examine", event = "object_examine" },
     },
@@ -58,8 +58,8 @@ M.data = {
 }
 
 ---Собрать динамический список доступных действий для объекта (БГ3/WoW-канон)
----@param object_type string Главный тип инспекции ("gui_item", "world_item", "world_object", "unit")
----@param item_cfg table|nil Конфиг из items_db (для существ nil)
+---@param object_type string Главный тип инспекции ("gui_item", "item", "object", "unit")
+---@param item_cfg ItemConfig|nil Конфиг из items_db (для существ nil)
 ---@param flags ContextMenuFlags|nil Флаги состояния (is_equipped, can_split)
 ---@param data ContextMenuPayload|nil Дополнительный пейлод (slot_index, source_url)
 ---@return ContextMenuAction[] Список сформированных кнопок для меню
@@ -72,7 +72,7 @@ function M.get_actions(object_type, item_cfg, flags, data)
     -- СЦЕНАРИЙ 1: ПРЕДМЕТЫ ВНУТРИ СУМОК И КУКЛЫ (Есть slot_index!)
     -- =========================================================================
     if d.slot_index ~= nil and item_cfg then
-        local item_type = item_cfg.type or "default"
+        local item_type = item_cfg.identity.type or "default"
         local specific = M.data[item_type] or {}
 
         for _, action in ipairs(specific) do
@@ -116,7 +116,7 @@ function M.get_actions(object_type, item_cfg, flags, data)
         -- 🎯 ТВОЙ ГЕНИАЛЬНЫЙ ДИНАМИЧЕСКИЙ СИ-ФИКС (Прихуяриваем доп-кнопки на ходу):
         -- Если мы кликнули ПКМ по шмотке на земле, и её action_type в базе — "container_item",
         -- мы прямо посреди кадра динамически расширяем массив result нашими тремя кнопками!
-        if object_type == "world_item" and item_cfg and item_cfg.action_type == "container_item" then
+        if object_type == "item" and item_cfg and item_cfg.action_type == "container_item" then
 
             -- Удаляем базовую кнопку "menu_pickup" (Подобрать), так как для бочки 
             -- нам нужна кастомная кнопка "Забрать коробку целиком"!

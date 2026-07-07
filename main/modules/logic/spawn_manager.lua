@@ -1,7 +1,7 @@
 local map_config = require("main.modules.data.map_config")
 local character_data = require("main.modules.character.character_data")
 local units_state = require("main.modules.game_state.units_state")
-local world_items_state = require("main.modules.game_state.world_items_state")
+local items_state = require("main.modules.game_state.items_state")
 
 ---@class SpawnManagerModule
 local M = {}
@@ -108,10 +108,10 @@ end
 ---@param x_max number Правая граница экрана
 ---@param y_min number Нижняя граница экрана
 ---@param y_max number Верхняя граница экрана
-function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
-    if not world_items_state or not world_items_state.get_all then return end
+function M.spawn_items(current_zone, x_min, x_max, y_min, y_max)
+    if not items_state or not items_state.get_all then return end
 
-    local registry = world_items_state.get_all()
+    local registry = items_state.get_all()
     local factory_url = "game_scene:/world_controller#item_factory"
 
     -- =========================================================================
@@ -146,7 +146,7 @@ function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
 
                         if item_go then
                             active_items[item_go] = uid
-                            world_items_state.register(item_go, uid)
+                            items_state.register(item_go, uid)
 
                             msg.post(item_go, "set_item_id", {
                                 item_id = data.item_id,
@@ -166,7 +166,7 @@ function M.spawn_world_items(current_zone, x_min, x_max, y_min, y_max)
     local survivors = {}
     for item_go, item_uid in pairs(active_items) do
         if go.exists(item_go) then
-            local item = world_items_state.get_item_by_uid(item_uid)
+            local item = items_state.get_item_by_uid(item_uid)
             if item and item.saved_position then
                 local item_x = item.saved_position.x
                 local item_y = item.saved_position.y

@@ -65,7 +65,7 @@ function M:can_equip_item(item, slot_type)
     end
 
     local cfg = items_db.get_item(item.item_id)
-    if not cfg or cfg.equip_slot ~= slot_type then
+    if not cfg or cfg.properties.equip_slot ~= slot_type then
         return false
     end
 

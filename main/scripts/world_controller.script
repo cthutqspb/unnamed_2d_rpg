@@ -102,6 +102,6 @@ function update(self, dt)
     -- Передаем в спавнер ЧЕСТНОЕ имя активной зоны чанка ("meadows") вместо захардкоженного "overworld"!
     -- Теперь 'item_zone == current_zone' вернет 'true' ("meadows" == "meadows"), 
     -- и фабрика сочно материализует все сундуки и бочки на Meadows-земле!
-    spawn_manager.spawn_world_items(active_zone_id, view_x_min, view_x_max, view_y_min, view_y_max)    
+    spawn_manager.spawn_items(active_zone_id, view_x_min, view_x_max, view_y_min, view_y_max)    
 end
 

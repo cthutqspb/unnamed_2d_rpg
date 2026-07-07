@@ -102,24 +102,24 @@ local function render_item(self, item_context, context)
     local amount = item_context.amount or 1
 
     -- [БЛОК 1: ШАПКА]
-    local name = locales.get(cfg.name_key)
-    local name_color = colors_db.QUALITY_COLORS[cfg.quality] or colors_db.QUALITY_COLORS.common
-    if cfg.stackable and amount > 1 then
+    local name = locales.get(cfg.identity.name_key)
+    local name_color = colors_db.QUALITY_COLORS[cfg.identity.quality] or colors_db.QUALITY_COLORS.common
+    if cfg.properties.stackable and amount > 1 then
         name = name .. " (x" .. amount .. ")"
     end
     add_line(self, name, nil, name_color, true)
 
-    local type_key = cfg.weapon_type or cfg.armor_type or cfg.type
-    local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.equip_slot) .. ")"
+    local type_key = cfg.properties.weapon_type or cfg.properties.armor_type or cfg.identity.type
+    local sub_header = locales.get(type_key) .. " (" .. locales.get(cfg.properties.equip_slot) .. ")"
     add_line(self, sub_header, nil, colors_db.STATS_COLOR)
 
-    if cfg.required then
+    if cfg.requirements then
         -- Заголовок "Требования"
         add_line(self, locales.get("required") .. ":", nil, vmath.vector4(1, 1, 1, 1))
 
         local check_result = unit_logic.check_item_requirements(cfg, character_data.player)
 
-        for req_id, req_val in pairs(cfg.required) do
+        for req_id, req_val in pairs(cfg.requirements) do
 
             local is_fail = check_result.errors[req_id]
 
@@ -138,75 +138,77 @@ local function render_item(self, item_context, context)
     end
 
     -- [БЛОК 2: БОЕВЫЕ ХАРАКТЕРИСТИКИ] (Крупно и ярко)
-    if cfg.damage then
-        local dmg_text = cfg.damage.min .. "-" .. cfg.damage.max .. " " .. locales.get(cfg.damage.type)
-        -- Желтоватый цвет для урона
-        add_line(self, dmg_text, nil, vmath.vector4(1, 0.85, 0.2, 1))
-    end
+    if cfg.combat_stats then
+        if cfg.combat_stats.damage then
+            local dmg_text = cfg.combat_stats.damage.min .. "-" .. cfg.combat_stats.damage.max .. " " .. locales.get(cfg.combat_stats.damage.type)
+            -- Желтоватый цвет для урона
+            add_line(self, dmg_text, nil, vmath.vector4(1, 0.85, 0.2, 1))
+        end
 
-    if cfg.bonus_damage then
-        for _, bonus in ipairs(cfg.bonus_damage) do
-            local b_text = "+" .. bonus.min .. "-" .. bonus.max .. " " .. locales.get(bonus.type)
-            add_line(self, b_text, nil, vmath.vector4(0.4, 0.6, 1, 1))
+        if cfg.combat_stats.bonus_damage then
+            for _, bonus in ipairs(cfg.combat_stats.bonus_damage) do
+                local b_text = "+" .. bonus.min .. "-" .. bonus.max .. " " .. locales.get(bonus.type)
+                add_line(self, b_text, nil, vmath.vector4(0.4, 0.6, 1, 1))
+            end
+        end
+
+        if cfg.combat_stats.armor_rating then
+            local armor_text = cfg.combat_stats.armor_rating .. " " .. locales.get("armor_rating")
+            add_line(self, armor_text, nil, vmath.vector4(0.7, 0.8, 1, 1))
+        end
+
+        -- [БЛОК 3: ПАРАМЕТРЫ] (Сила, Ловкость и т.д.)
+        if cfg.combat_stats.attributes then
+            for attribute, value in pairs(cfg.combat_stats.attributes) do
+                local sign = value > 0 and "+" or ""
+                local stat_text = sign .. value .. " " .. locales.get("stat_" .. attribute)
+                add_line(self, stat_text, nil, colors_db.STATS_COLOR)
+            end
+        end
+
+        -- [БЛОК 4: РЕЗИСТЫ]
+        if cfg.combat_stats.resists then
+            for res_id, res_val in pairs(cfg.combat_stats.resists) do
+                local res_text = "+" .. res_val .. "% " .. locales.get(res_id) .. " " .. locales.get("resists")
+                add_line(self, res_text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+            end
+        end
+
+        -- [БЛОК 5: ЭФФЕКТЫ И ОПИСАНИЕ]
+        if cfg.effects then
+            for _, eff in ipairs(cfg.effects) do
+                local pattern = locales.get("effect_" .. eff.aura_id)
+                local text = string.format(pattern, eff.value or "")
+                add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+            end
+        end
+
+        if cfg.use_effects then
+            for _, use_eff in ipairs(cfg.use_effects) do
+                local pattern = locales.get("use_effect_" .. use_eff.ability_id)
+                local text = string.format(pattern, use_eff.value or "")
+                add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
+            end
         end
     end
 
-    if cfg.armor_rating then
-        local armor_text = cfg.armor_rating .. " " .. locales.get("armor_rating")
-        add_line(self, armor_text, nil, vmath.vector4(0.7, 0.8, 1, 1))
-    end
-
-    -- [БЛОК 3: ПАРАМЕТРЫ] (Сила, Ловкость и т.д.)
-    if cfg.stats then
-        for id, val in pairs(cfg.stats) do
-            local sign = val > 0 and "+" or ""
-            local stat_text = sign .. val .. " " .. locales.get("stat_" .. id)
-            add_line(self, stat_text, nil, colors_db.STATS_COLOR)
-        end
-    end
-
-    -- [БЛОК 4: РЕЗИСТЫ]
-    if cfg.resists then
-        for res_id, res_val in pairs(cfg.resists) do
-            local res_text = "+" .. res_val .. "% " .. locales.get(res_id) .. " " .. locales.get("resists")
-            add_line(self, res_text, nil, vmath.vector4(0.4, 1, 0.4, 1))
-        end
-    end
-
-    -- [БЛОК 5: ЭФФЕКТЫ И ОПИСАНИЕ]
-    if cfg.effects then
-        for _, eff in ipairs(cfg.effects) do
-            local pattern = locales.get("effect_" .. eff.aura_id)
-            local text = string.format(pattern, eff.value or "")
-            add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
-        end
-    end
-
-    if cfg.use_effects then
-        for _, use_eff in ipairs(cfg.use_effects) do
-            local pattern = locales.get("use_effect_" .. use_eff.ability_id)
-            local text = string.format(pattern, use_eff.value or "")
-            add_line(self, text, nil, vmath.vector4(0.4, 1, 0.4, 1))
-        end
-    end
-
-    if cfg.desc_key then
+    if cfg.identity.desc_key then
         -- Описание обычно выводится курсивом и приглушенным цветом
-        add_line(self, locales.get(cfg.desc_key), nil, vmath.vector4(0.8, 0.7, 0.5, 1))
+        add_line(self, locales.get(cfg.identity.desc_key), nil, vmath.vector4(0.8, 0.7, 0.5, 1))
     end
 
     -- [БЛОК 6: ТЕХНИЧЕСКАЯ ИНФО] (Вес слева, Цена справа)
     -- 1. Подготовка Веса
-    local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.weight)
-    if cfg.stackable and amount > 1 then
-        local total_w = string.format("%.1f", amount * cfg.weight)
+    local w_label = locales.get("weight") .. ": " .. string.format("%.1f", cfg.identity.weight)
+    if cfg.properties.stackable and amount > 1 then
+        local total_w = string.format("%.1f", amount * cfg.identity.weight)
         w_label = w_label .. " (" .. total_w .. ")"
     end
 
     -- 2. Подготовка Цены
-    local p_label = locales.get("price") .. ": " .. cfg.price
-    if cfg.stackable and amount > 1 then
-        local total_p = amount * cfg.price
+    local p_label = locales.get("price") .. ": " .. cfg.identity.price
+    if cfg.properties.stackable and amount > 1 then
+        local total_p = amount * cfg.identity.price
         p_label = p_label .. " (" .. total_p .. ")"
     end
 
@@ -222,27 +224,27 @@ local function render_item(self, item_context, context)
 end
 
 -- Выносим отрисовку объектов мира
-local function render_world_object(self, info, context)
+local function render_object(self, info, context)
     if not info then return end
 
     local display_name = "Unknown"
 
     -- 1. Если это ПРЕДМЕТ (item_loot)
-    if context.kind == "world_item" then
+    if context.kind == "item" then
         local cfg = items_db.get_item(info.item_id)
         if not cfg then return end
 
         if cfg then
-            display_name = locales.get(cfg.name_key)
+            display_name = locales.get(cfg.identity.name_key)
         end
-        local name_color = colors_db.QUALITY_COLORS[cfg.quality] or colors_db.QUALITY_COLORS.common
+        local name_color = colors_db.QUALITY_COLORS[cfg.identity.quality] or colors_db.QUALITY_COLORS.common
         -- Рисуем название предмета (например, Белым)
         add_line(self, display_name, nil, name_color)
         --self:add_text(display_name, self.colors.WHITE)
         -- self:add_text("Количество: " .. (info.amount or 1))
 
     -- 2. Если это КОНТЕЙНЕР
-    elseif context.kind == "world_object" then
+    elseif context.kind == "object" then
         -- local item_cfg = items_db.get_item(info.item_id)
         -- if item_cfg then
         --     display_name = locales.get(item_cfg.container_name)
@@ -355,7 +357,7 @@ function update(self, dt)
     -- =========================================================================
     -- СЛОЙ ИГРОВОГО МИРА (БЕСШОВНЫЕ КООРДИНАТЫ Meadows)
     -- =========================================================================
-    elseif pack.type == "world_item" then
+    elseif pack.type == "item" then
         local action_type = pack.context and pack.context.action_type or "item"
         if action_type == "ability" then
             -- render_ability(self, pack.info, pack.context) -- Пока закомментировано
@@ -363,13 +365,13 @@ function update(self, dt)
             render_item(self, pack.info, pack.context)
         end
 
-    elseif pack.type == "world_object" then
+    elseif pack.type == "object" then
         -- 🎯 ТВОЙ ААА-КАНОН: Стационарные гробницы и дупла рендерим ТЕМ ЖЕ методом!
-        render_world_object(self, pack.info, pack.context)
+        render_object(self, pack.info, pack.context)
 
     elseif pack.type == "world_unit" then
         -- Скелеты, кабаны и шакальный Дракон 128х128
-        render_world_object(self, pack.info, pack.context)
+        render_object(self, pack.info, pack.context)
     end
 
     -- ПОДГОНКА ФОНА

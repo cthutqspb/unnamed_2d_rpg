@@ -26,9 +26,9 @@ local is_over_any_gui = false
 ---@param source InventoryInstance|PaperdollInstance|table @Модель-источник, откуда забираем вещь
 ---@param slot number|string @Индекс слота или тип слота куклы
 ---@param item table @Данные предмета
----@param item_cfg table @Конфиг предмета из БД
+---@param item_cfg ItemConfig @Конфиг предмета из БД
 function M.start(source, slot, item, item_cfg)
-    local animation_name = item_cfg.animation or item_cfg.icon
+    local animation_name = item_cfg.visuals.animation or item_cfg.visuals.icon
 
     active_drag = {
         drag_type = item_cfg.action_type,
@@ -37,7 +37,7 @@ function M.start(source, slot, item, item_cfg)
         item = item,
         item_cfg = item_cfg,
         amount = item.amount or 0,
-        texture = item_cfg.texture,
+        texture = item_cfg.visuals.texture,
         animation = hash(animation_name),
         x = 0, y = 0
     }

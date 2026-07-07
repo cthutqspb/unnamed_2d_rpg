@@ -133,12 +133,12 @@ function on_message(self, message_id, message, sender)
 
         -- Отрисовка текстуры шмотки из базы данных
         local item_cfg = items_db.get_item(message.item.item_id)
-        if item_cfg and item_cfg.texture then
-            local anim = item_cfg.animation or item_cfg.icon
-            gui.set_texture(self.icon_from, item_cfg.texture)
+        if item_cfg and item_cfg.visuals.texture then
+            local anim = item_cfg.visuals.animation or item_cfg.visuals.icon
+            gui.set_texture(self.icon_from, item_cfg.visuals.texture)
             gui.play_flipbook(self.icon_from, hash(anim))
 
-            gui.set_texture(self.icon_to, item_cfg.texture)
+            gui.set_texture(self.icon_to, item_cfg.visuals.texture)
             gui.play_flipbook(self.icon_to, hash(anim))
         end
 

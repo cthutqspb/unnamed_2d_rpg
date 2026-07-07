@@ -102,7 +102,7 @@ function M.handle_right_click(self, index, x, y)
         x = x,
         y = y,
         type = "gui_item",
-        sub_type = item_cfg.type,
+        sub_type = item_cfg.identity.type,
         flags = {
             can_split = can_split,
         },

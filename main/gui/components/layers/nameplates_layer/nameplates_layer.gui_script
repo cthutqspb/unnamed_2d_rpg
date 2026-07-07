@@ -2,7 +2,7 @@ local druid = require("druid.druid")
 local broadcast = require("main.modules.system.broadcast")
 local camera = require("orthographic.camera")
 local units_state = require("main.modules.game_state.units_state")
-local world_items_state = require("main.modules.game_state.world_items_state")
+local items_state = require("main.modules.game_state.items_state")
 local locales = require("main.modules.data.locales.locale_manager")
 local NameplateInstance = require("main.gui.components.layers.nameplates_layer.NameplateInstance")
 

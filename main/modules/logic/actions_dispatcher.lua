@@ -124,7 +124,7 @@ M.REDUCERS = {
                     if not target_slot then print("Инвентарь полон!") return end
                 else
                     -- 🛡️ Если метода нет — это наша универсальная объектная КУКЛА ШМОТА (Paperdoll)!
-                    target_slot = item_cfg.equip_slot
+                    target_slot = item_cfg.properties.equip_slot
                 end
             end
 
@@ -218,10 +218,10 @@ M.REDUCERS = {
         msg.post("main:/container_window#gui", "open_container_window", {
             container_uid = data.uid or data.target_uid or instance.uid,
             container_id = hash(data.id or "container"),
-            container_name = hash(cfg and cfg.name_key or "container_common_chest_name"),
-            entity_type = data.entity_type or "world_item",
-            columns = cfg and cfg.columns or (data.columns) or 6,
-            rows = cfg and cfg.rows or (data.rows) or 4,
+            container_name = hash(cfg and cfg.identity.name_key or "container_common_chest_name"),
+            entity_type = data.entity_type or "item",
+            columns = cfg and cfg.properties.columns or (data.columns) or 6,
+            rows = cfg and cfg.properties.rows or (data.rows) or 4,
             position = data.position,
             player_pos = character_data and character_data.player and character_data.player.saved_position,
 
@@ -290,34 +290,6 @@ M.REDUCERS = {
             combat_manager.execute_ability(data.caster_uid, data.target_uid, data.action_id)
         end
     end,
-
-    -- ["action_bar_use"] = function(data)
-    --     -- 1. Вытаскиваем, какую способность или предмет активировали
-    --     local action_id = data.action_id      -- Например, "melee_attack"
-    --     local drag_type = data.drag_type      -- "ability" или "item"
-    --
-    --     -- 2. Достаем текущую цель (выделенный таргет)
-    --     -- Подставь свой метод, которым ты забираешь ID выделенного монстра
-    --     local target_id = interaction_manager.get_current_target and interaction_manager.get_current_target()
-    --
-    --     print("--- ОТЛАДКА БОЯ ---")
-    --     print("Активирован слот панели! Тип:", tostring(drag_type), "| ID:", tostring(action_id))
-    --     print("Текущая цель в таргете (ID):", tostring(target_id))
-    --
-    --     -- 3. Если цель выделена — считаем расстояние между векторами
-    --     if target_id then
-    --         local player_pos = go.get_position("game_scene:/player") -- Путь к твоему плееру
-    --         local target_pos = go.get_position(target_id)
-    --
-    --         -- Вычисляем длину вектора разницы между игроком и целью
-    --         local distance = vmath.length(player_pos - target_pos)
-    --         
-    --         print(string.format("Дистанция до цели: %.2f пикселей", distance))
-    --     else
-    --         print("Расстояние посчитать нельзя: цель отсутствует.")
-    --     end
-    --     print("-------------------")
-    -- end,
 
     ["unit_attack"] = function(data)
         -- ⚔️ ЗАДЕЛ НА БУДУЩЕЕ: Сюда прилетит клик "Атаковать кабана" из меню!

@@ -50,15 +50,15 @@ end
 ---@param is_looted boolean|nil Статус обыска бочки
 ---@return boolean
 function M.add_item(item_id, amount, uid, items, is_looted)
-    local data = items_db.get_item(item_id)
-    if not data then return false end
+    local item = items_db.get_item(item_id)
+    if not item then return false end
 
     local remaining = amount
     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
-    local max_stack = data.max_stack or 1
+    local max_stack = item.properties.max_stack or 1
 
     -- 1. ЛОГИКА ДЛЯ СТАКАЕМЫХ (Зелья, стрелы)
-    if data.stackable then
+    if item.properties.stackable then
         for i = 1, M.max_slots do
             local slot = M.items[i]
             if slot and slot.item_id == item_hash and slot.amount < max_stack then
@@ -88,7 +88,7 @@ function M.add_item(item_id, amount, uid, items, is_looted)
             }
 
             -- 🎯 СТРАХОВКА: Если бочка поднята из редактора (без UID), генерируем паспорт прямо на лету!
-            if not new_item.uid and data.action_type == "container_item" then
+            if not new_item.uid and item.action_type == "container_item" then
                 local s_id = interactions.clean_id(item_id) or "container"
                 new_item.uid = string.format("%s_%d_%d", s_id, os.time(), math.random(1000, 9999))
             end
@@ -306,100 +306,90 @@ function M.clear()
     M.init()
 end
 
----@return table
+---@return table flat_save_snapshot
 function M.get_save_data()
-    local data = {}
+    local saved_data = {}
     for i = 1, M.max_slots do
         local item = M.items[i]
         if item and item.item_id then
             local id_str = interactions.clean_id(item.item_id)
 
-            -- Создаем слепок предмета
-            data[i] = {
-                id = id_str,
-                amount = item.amount,
-                uid = item.uid
+            -- 🚀 ЧИСТЫЙ ФЛЭТ ЛОСК: Сохраняем strictly только плоский паспорт ячейки!
+            saved_data[i] = {
+                item_id = id_str, -- Перевыровнено на чистый ААА-нейминг без легаси .id!
+                amount  = item.amount or 1,
+                uid     = item.uid
             }
 
-            -- 🎯 КРИТИЧЕСКИЙ ФИКС: Если это сундук/бочка, забираем в сейв её статус и шмотки!
-            if item.is_looted then
-                data[i].is_looted = item.is_looted
-            end
+            -- Если это матрешка (сундук/бочка в сумке), забираем её статус обыска и кишки лута!
+            if item.is_looted then saved_data[i].is_looted = item.is_looted end
+            if item.loot_table_id then saved_data[i].loot_table_id = item.loot_table_id end
 
             if item.items then
-                -- Рекурсивно сохраняем вложенные шмотки. 
-                -- Так как они тоже таблицы, мы подготавливаем их структуру
-                data[i].items = {}
-                for sub_idx, sub_item in pairs(item.items) do
+                saved_data[i].items = {}
+                for sub_item_idx, sub_item in pairs(item.items) do
                     if sub_item then
-                        data[i].items[sub_idx] = {
-                            id = interactions.clean_id(sub_item.item_id),
-                            amount = sub_item.amount,
-                            uid = sub_item.uid
+                        saved_data[i].items[sub_item_idx] = {
+                            item_id = interactions.clean_id(sub_item.item_id),
+                            amount  = sub_item.amount or 1,
+                            uid     = sub_item.uid
                         }
                     end
                 end
             end
         else
-            data[i] = { id = nil, amount = 0, uid = nil }
+            -- Пустой слот запекается стерильной дефолтной заглушкой пустоты
+            saved_data[i] = { item_id = nil, amount = 0, uid = nil }
         end
     end
-    return data
+    return saved_data
 end
 
 ---Восстановить содержимое сумки/сундука из таблицы сохранения JSON
----@param data table
-function M:load_save_data(data)
-    self:clear()
-    if not data then return end
-    
-    print("🧪 [DEBUG INVENTORY CODE] --- НАЧАЛО ЦИКЛА ПАРСИНГА СЛОТОВ ИЗ JSON ---")
-    
-    for index, saved in pairs(data) do
-        local i = tonumber(index)
-        
-        -- 📊 Выводим в консоль вообще все, что лежит внутри этой ячейки JSON!
-        if saved then
-            print(string.format("   👉 JSON Слот [%s] | saved.id = %s | saved.item_id = %s | saved.amount = %s | saved.uid = %s", 
-                tostring(index), tostring(saved.id), tostring(saved.item_id), tostring(saved.amount), tostring(saved.uid)))
-        end
+---@param saved_data table
+function M:load_save_data(saved_data)
+    self:clear() -- Всплываем девственно чистой сеткой слотов
+    if not saved_data then return end
 
-        if i and saved and (saved.id or saved.item_id) then -- Временно расширили гвард для теста
-            
-            -- Собираем имя ключа зряче
-            local raw_id = saved.id or saved.item_id
-            
+    for index, saved_item in pairs(saved_data) do
+        local i = tonumber(index)
+
+        -- Читаем имя шмотки strictly по нашему новому породистому ключу item_id!
+        local raw_id = saved_item and saved_item.item_id
+
+        if i and saved_item and raw_id and raw_id ~= "" and raw_id ~= "null" then
+            -- 🚀 ООП-РЕАНИМАЦИЯ ЯЧЕЙКИ: Переводим строки JSON обратно в Си-хэши Defold!
             local restored_item = {
-                item_id = hash(raw_id),
-                amount = saved.amount or 1,
-                uid = saved.uid,
-                is_looted = saved.is_looted or nil,
-                loot_table_id = saved.loot_table_id or nil
+                item_id       = hash(raw_id),
+                amount        = saved_item.amount or 1,
+                uid           = saved_item.uid,
+                is_looted     = (saved_item.is_looted == true),
+                loot_table_id = saved_item.loot_table_id or nil
             }
 
-            if saved.items then
+            -- Накат вложенных матрешек (сумка в сумке)
+            if saved_item.items then
                 restored_item.items = {}
-                for sub_idx, sub_saved in pairs(saved.items) do
-                    local idx = tonumber(sub_idx)
-                    if idx and sub_saved and (sub_saved.id or sub_saved.item_id) then
-                        local sub_raw_id = sub_saved.id or sub_saved.item_id
+                for sub_item_idx, sub_saved_item in pairs(saved_item.items) do
+                    local idx = tonumber(sub_item_idx)
+                    local sub_item_raw_id = sub_saved_item and sub_saved_item.item_id
+                    if idx and sub_saved_item and sub_item_raw_id then
                         restored_item.items[idx] = {
-                            item_id = hash(sub_raw_id),
-                            amount = sub_saved.amount or 1,
-                            uid = sub_saved.uid,
-                            is_looted = sub_saved.is_looted or nil,
-                            loot_table_id = sub_saved.loot_table_id or nil
+                            item_id       = hash(sub_item_raw_id),
+                            amount        = sub_saved_item.amount or 1,
+                            uid           = sub_saved_item.uid,
+                            is_looted     = (sub_saved_item.is_looted == true),
+                            loot_table_id = sub_saved_item.loot_table_id or nil
                         }
                     end
                 end
             end
 
+            -- Записываем живой, зрячий ООП-предмет в массив ячейки рантайма!
             self.items[i] = restored_item
         end
     end
-    print("🧪 [DEBUG INVENTORY CODE] --- КОНЕЦ ЦИКЛА ПАРСИНГА ---")
 end
-
 
 M.init()
 return M

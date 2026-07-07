@@ -15,9 +15,9 @@ local M = {}
 
 -- АТОМАРНЫЕ ТИПЫ ДАННЫХ ДЛЯ ШАБЛОНОВ ТУЛТИПОВ
 M.WORLD_TYPES = {
-    ["world_unit"] = "WORLD_UNIT", -- существа, NPC
-    ["world_object"] = "WORLD_OBJECT", -- сундуки, двери, интеракты
-    ["world_item"]   = "WORLD_ITEM", -- лут на земле (когда он в мире)
+    ["unit"] = "UNIT", -- существа, NPC
+    ["object"] = "OBJECT", -- сундуки, двери, интеракты
+    ["item"]   = "ITEM", -- лут на земле (когда он в мире)
 }
 
 M.GUI_TYPES = {

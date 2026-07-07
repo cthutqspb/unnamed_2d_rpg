@@ -27,7 +27,7 @@ end
 
 ---@param x number Экранная координата X курсора
 ---@param y number Экранная координата Y курсора
----@param type string Главный тип инспекции ("gui_item", "world_item", "world_object", "unit")
+---@param type string Главный тип инспекции ("gui_item", "item", "object", "unit")
 ---@param sub_type string|nil Устаревший подтип (Игнорируем, теперь все рулится через data и конфиги)
 ---@param flags table|nil Флаги состояния (is_equipped, can_split)
 ---@param data table|nil Полный пейлод метаданных (item_id, slot_index, target_uid)

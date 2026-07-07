@@ -73,15 +73,15 @@ end
 ---@param is_looted boolean|nil Статус обыска бочки
 ---@return boolean
 function M:add_item(item_id, amount, uid, sub_items, is_looted, loot_table_id) -- 🎯 ИСПРАВЛЕНО: Теперь метод вызывается через двоеточие!
-    local data = items_db.get_item(item_id)
-    if not data then return false end
+    local item = items_db.get_item(item_id)
+    if not item then return false end
 
     local remaining = amount
     local item_hash = type(item_id) == "string" and hash(item_id) or item_id
-    local max_stack = data.max_stack or 1
+    local max_stack = item.properties.max_stack or 1
 
     -- 1. ЛОГИКА ДЛЯ СТАКАЕМЫХ (Читаем и пишем strictly в self.items!)
-    if data.stackable then
+    if item.properties.stackable then
         for i = 1, self.max_slots do
             local slot = self.items[i]
             if slot and slot.item_id == item_hash and slot.amount < max_stack then
@@ -109,7 +109,7 @@ function M:add_item(item_id, amount, uid, sub_items, is_looted, loot_table_id) -
                 loot_table_id = loot_table_id
             }
 
-            if not new_item.uid and data.action_type == "container_item" then
+            if not new_item.uid and item.action_type == "container_item" then
                 local s_id = interactions.clean_id(item_id) or "container"
                 new_item.uid = string.format("%s_%d_%d", s_id, os.time(), math.random(1000, 9999))
             end

@@ -107,8 +107,8 @@ function M.draw_slot(self, index, data)
             local item_cfg = items_db.get_item(data.action_id)
             if item_cfg then
                 gui.set_enabled(slot.icon, true)
-                if item_cfg.texture then gui.set_texture(slot.icon, item_cfg.texture) end
-                gui.play_flipbook(slot.icon, hash(item_cfg.animation or data.action_id))
+                if item_cfg.visuals.texture then gui.set_texture(slot.icon, item_cfg.visuals.texture) end
+                gui.play_flipbook(slot.icon, hash(item_cfg.visuals.animation or data.action_id))
 
                 -- 🧱 СИ-ЗАЩИТА И ЗАТЕМНЕНИЕ НЕЮЗАБЕЛЬНЫХ ПРЕДМЕТОВ (WoW-канон):
                 -- Проверяем, есть ли у шмотки активный прожимаемый use_effects в базе данных
@@ -139,12 +139,12 @@ function M.draw_slot(self, index, data)
         local item_cfg = items_db.get_item(data.item_id)
         if item_cfg then
             gui.set_enabled(slot.icon, true)
-            gui.set_color(slot.icon, item_cfg.color or vmath.vector4(1, 1, 1, 1))
+            gui.set_color(slot.icon, item_cfg.visuals.color or vmath.vector4(1, 1, 1, 1))
 
-            if item_cfg.texture then
-                gui.set_texture(slot.icon, item_cfg.texture)
+            if item_cfg.visuals.texture then
+                gui.set_texture(slot.icon, item_cfg.visuals.texture)
             end
-            gui.play_flipbook(slot.icon, hash(item_cfg.animation or data.item_id))
+            gui.play_flipbook(slot.icon, hash(item_cfg.visuals.animation or data.item_id))
 
             -- Твой родной вывод количества предметов
             local is_stack = data.amount and data.amount > 1

@@ -1,4 +1,4 @@
-local world_items_state = require("main.modules.game_state.world_items_state")
+local items_state = require("main.modules.game_state.items_state")
 local units_state = require("main.modules.game_state.units_state")
 
 ---@class GameStateFacade
@@ -8,24 +8,24 @@ local M = {}
 
 ---Узнать тип объекта и получить его чистые данные по go_id из мира (из рейкаста)
 ---@param go_id hash Идентификатор игрового объекта из физического луча мыши
----@return string|nil kind Тип объекта ("world_object", "world_item", "unit")
+---@return string|nil kind Тип объекта ("object", "item", "unit")
 ---@return string|nil uid Уникальный строковый UID объекта в реестре состояний
 ---@return table|nil data Таблица чистых данных объекта
 function M.get_inspect_info(go_id)
     -- print('get_inspect_info', go_id)
 
     ---@type any
-    -- local world_object_uid = world_objects_state.instances[go_id]
-    -- if world_object_uid then
-    --     local data = world_objects_state.get(world_object_uid)
-    --     return "world_object", world_object_uid, data
+    -- local object_uid = objects_state.instances[go_id]
+    -- if object_uid then
+    --     local data = objects_state.get(object_uid)
+    --     return "object", object_uid, data
     -- end
 
     ---@type any
-    local world_item_uid = world_items_state.instances[go_id]
-    if world_item_uid then
-        local data = world_items_state.get_item_by_uid(world_item_uid)
-        return "world_item", world_item_uid, data
+    local item_uid = items_state.instances[go_id]
+    if item_uid then
+        local data = items_state.get_item_by_uid(item_uid)
+        return "item", item_uid, data
     end
 
     ---@type any
@@ -47,7 +47,7 @@ end
 function M.get_full_save_data()
     print("БЭКЕНД [GameState]: Сбор снапшота вселенной RPG...")
     return {
-        world_items_state = world_items_state.get_all(),
+        items_state = items_state.get_all(),
 -- containers_state = containers_state.get_all(),
         -- 🦾 Скелеты и Дракон теперь честно запечатываются в файл сохранения!
         units_state = units_state.get_save_snapshot(),
@@ -82,9 +82,9 @@ function M.get_entity_by_uid(uid)
     end
 
     -- 2. Если не нашли, заглядываем в Предметы на земле (Дроп и статические шмотки)
-    if world_items_state and world_items_state.get_item_by_uid then
-        local world_item = world_items_state.get_item_by_uid(uid)
-        if world_item then return world_item end
+    if items_state and items_state.get_item_by_uid then
+        local item = items_state.get_item_by_uid(uid)
+        if item then return item end
     end
 
     -- -- 3. Если и там глухо, проверяем интерактивные Контейнеры/Сундуки карты
@@ -123,8 +123,8 @@ function M.get_uid_by_go_id(go_id)
     end
 
     -- 2. Если не нашли, проверяем, не Предмет ли это на земле (Оружие, мешки с лутом)
-    if world_items_state and world_items_state.instances and world_items_state.instances[go_id] then
-        return world_items_state.instances[go_id]
+    if items_state and items_state.instances and items_state.instances[go_id] then
+        return items_state.instances[go_id]
     end
 
     -- -- 3. Если и там глухо, проверяем, не интерактивный ли это Контейнер (Сундук, Бочка, Шкаф)
@@ -223,9 +223,9 @@ function M.restore_all(save_data)
     end
 
     -- 1. Реставрация Предметов на земле
-    if save_data.world_items_state and world_items_state.restore_all then
-        print("Restoring world_items_state...")
-        world_items_state.restore_all(save_data.world_items_state)
+    if save_data.items_state and items_state.restore_all then
+        print("Restoring items_state...")
+        items_state.restore_all(save_data.items_state)
     end
 
     -- -- 2. Реставрация Контейнеров
@@ -247,7 +247,7 @@ end
 ---Полная стерильная очистка всех доменов памяти для Новой Игры
 function M.clear_all()
     print("БЭКЕНД [GameState]: Тотальное выжигание реестров для Новой Игры...")
-    if world_items_state.clear then world_items_state.clear() end
+    if items_state.clear then items_state.clear() end
     -- if containers_state.clear then containers_state.clear() end
     -- 🦾 Чистим Скелетов, страхуя рантайм от фантомных ранений прошлого прохождения!
     if units_state.clear then units_state.clear() end

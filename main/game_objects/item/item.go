@@ -1,6 +1,6 @@
 components {
-  id: "world_item"
-  component: "/main/game_objects/world_item/world_item.script"
+  id: "item"
+  component: "/main/game_objects/item/item.script"
 }
 embedded_components {
   id: "sprite"

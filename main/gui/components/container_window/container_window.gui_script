@@ -250,7 +250,7 @@ function on_message(self, message_id, message, sender)
         local live_paperdoll = player and player.paperdoll
 
         if item and item_cfg then
-            local is_equippable = item_cfg.equip_slot and item_cfg.equip_slot ~= ""
+            local is_equippable = item_cfg.properties.equip_slot and item_cfg.properties.equip_slot ~= ""
 
             -- Напрямую надеть вещь из контейнера на тело можно СТРОГО при трех условиях:
             --   - Прилетело событие экипировки ("item_transfer")
@@ -263,7 +263,7 @@ function on_message(self, message_id, message, sender)
                 -- 🎒 КЕЙС А: МАТРЁШКА В КАРМАНЕ -> НАДЕВАЕМ НА ТЕЛО (BG3 КАНОН)
                 -- =====================================================================
                 -- Проверяем, надето ли уже что-то на кукле мага в этом слоте
-                local current_equipped = live_paperdoll:get_item(item_cfg.equip_slot)
+                local current_equipped = live_paperdoll:get_item(item_cfg.properties.equip_slot)
 
                 if current_equipped and current_equipped.item_id then
                     -- 🛡️ ТИТАНОВЫЙ ГВАРД ПЕРЕПОЛНЕНИЯ (Твоя заложенная механика!):
@@ -273,7 +273,7 @@ function on_message(self, message_id, message, sender)
                     if free_slot_in_bag then
                         -- Снимаем топор в рюкзак мага
                         live_inventory:set_item(free_slot_in_bag, current_equipped)
-                        live_paperdoll:set_item(item_cfg.equip_slot, nil)
+                        live_paperdoll:set_item(item_cfg.properties.equip_slot, nil)
                         print("⚔️ БЭКЕНД [Loot]: Старый предмет с куклы успешно снят и убран в основной рюкзак.")
                     else
                         print("🚨 БЭКЕНД: Не удалось надеть вещь из бочки, основной инвентарь мага ПОЛОН!")
@@ -287,7 +287,7 @@ function on_message(self, message_id, message, sender)
                     data_source,
                     slot_index,
                     live_paperdoll,
-                    item_cfg.equip_slot,
+                    item_cfg.properties.equip_slot,
                     item,
                     item_cfg
                 )

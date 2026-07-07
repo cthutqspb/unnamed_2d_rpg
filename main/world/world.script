@@ -3,7 +3,7 @@ local tooltip_manager = require("main.gui.components.managers.tooltip_manager")
 local broadcast = require("main.modules.system.broadcast")
 local actions_dispatcher = require("main.modules.logic.actions_dispatcher")
 local items_db = require("main.modules.data.items_db")
-local world_items_state = require("main.modules.game_state.world_items_state")
+local items_state = require("main.modules.game_state.items_state")
 local game_state = require("main.modules.game_state.game_state")
 local settings = require("main.modules.data.settings")
 local gui_utils = require("main.gui.gui_utils")
@@ -47,19 +47,19 @@ local function check_hover(self, gui_pos, world_pos)
         local kind, uid, state = game_state.get_inspect_info(active_id)
 
         if kind and state then
-            local tooltip_type = "world_object"
+            local tooltip_type = "object"
 
-            if kind == "world_item" then
+            if kind == "item" then
                 CustomCursor.set_style("cursor_outline_yellow")
-                tooltip_type = state.is_dynamic and "world_item" or "world_object"
+                tooltip_type = state.is_dynamic and "item" or "object"
 
             elseif kind == "unit" then
                 CustomCursor.set_style("cursor_outline_red")
                 tooltip_type = "world_unit"
 
-            elseif kind == "world_object" then
+            elseif kind == "object" then
                 CustomCursor.set_style("cursor_outline_yellow")
-                tooltip_type = "world_object"
+                tooltip_type = "object"
             end
 
             tooltip_manager.show(tooltip_type, state, {
@@ -204,16 +204,17 @@ function on_message(self, message_id, message, sender)
     if message_id == hash("player_direction") then
         self.player_direction = message.direction
 
-    elseif message_id == hash("spawn_world_item") then
+    elseif message_id == hash("spawn_item") then
         -- Базовые параметры, общие для ВСЕХ типов спавна
         local item_id = message.item_id       -- Для плеера: "iron_sword", для моба: "unit_loot_bag"
         local drop_pos = message.position     -- Готовая точка на Meadows-земле
         local source_type = message.source    -- "player", "unit", "object"
+        local source_uid  = message.source_uid
 
         -- 1. 🎯 ЕДИНАЯ РЕГИСТРАЦИЯ ДУШИ В RAM (ИСПРАВЛЕНО):
         -- Метод add возвращает готовую таблицу паспорта из RAM-реестра.
-        -- Мы записываем её ПРЯМО в переменную world_item, минуя лишние поиски!
-        local world_item = world_items_state.add(message.item_uid, {
+        -- Мы записываем её ПРЯМО в переменную item, минуя лишние поиски!
+        local item = items_state.add(message.item_uid, {
             item_id = item_id,
             saved_position = drop_pos,
             amount = message.amount or 1,
@@ -225,42 +226,43 @@ function on_message(self, message_id, message, sender)
         -- Переменная final_uid (если она нужна ниже по коду) хранит чистокровную строку!
         local final_uid = message.item_uid
 
-        if world_item then
-            world_item.source_type = source_type -- Запекаем тип источника в Душу на будущее
+        if item then
+            item.source_type = source_type -- Запекаем тип источника в Душу на будущее
+            item.source_uid  = source_uid
 
             -- 2. 🌲 ДEРEВO ВAРИAНТOВ ПO ФЛAГУ SOURCE
             -- =====================================================================
             -- ВЕТКА А: Дроп из кармана Игрока (Переносим готовый живой массив шмоток)
             -- =====================================================================
             if source_type == character_data.PLAYER_UID or source_type == "player" then
-                world_item.items = message.items
-                world_item.is_looted = message.is_looted or false
-                world_item.loot_table_id = "empty"
+                item.items = message.items
+                item.is_looted = message.is_looted or false
+                item.loot_table_id = "empty"
 
             -- =====================================================================
             -- ВЕТКА Б: Лут из поверженного Монстра (Включаем ленивую генерацию WoW)
             -- =====================================================================
             -- elseif source_type == "unit" then
             --     print("SPAWN ITEM")
-            --     world_item.items = nil -- Оставляем пустым для Lazy Evaluation при клике ногами!a
-            --     world_item.is_looted = false
-            --     world_item.loot_table_id = message.loot_table_id
-            --     world_item.source_unit_id = message.unit_id
+            --     item.items = nil -- Оставляем пустым для Lazy Evaluation при клике ногами!a
+            --     item.is_looted = false
+            --     item.loot_table_id = message.loot_table_id
+            --     item.source_unit_id = message.unit_id
             --
             --     local unit_cfg = units_db.get_unit(message.unit_id)
             --     if unit_cfg then
-            --         world_item.name = unit_cfg.name_key .. "_dead"
+            --         item.name = unit_cfg.name_key .. "_dead"
             --     else
-            --         world_item.name = "ui_corpse_fallback_name" -- на всякий случай
+            --         item.name = "ui_corpse_fallback_name" -- на всякий случай
             --     end
             -- =====================================================================
             -- ВЕТКА В: Спавн из интерактивного объекта (Задел под взрыв бочки / сундука)
             -- =====================================================================
             elseif source_type == "object" then
                 -- Сюда завтра зайдет логика, если ты взорвешь бочку заклинанием
-                world_item.items = nil
-                world_item.is_looted = false
-                world_item.loot_table_id = message.loot_table_id
+                item.items = nil
+                item.is_looted = false
+                item.loot_table_id = message.loot_table_id
             end
         end
 
@@ -270,16 +272,16 @@ function on_message(self, message_id, message, sender)
         -- мы просто позволяем твоей бесшовной системе стриминга Meadows материализовать этот мешок.
         -- (Если ты стер ручной factory.create, здесь больше вообще нет Си-кода фабрик!)
 
-        print(string.format("🌍 БЭКЕНД МИРА [spawn_world_item]: Успешно рождена Душа. Источник: %s | ID: %s | UID: %s",
+        print(string.format("🌍 БЭКЕНД МИРА [spawn_item]: Успешно рождена Душа. Источник: %s | ID: %s | UID: %s",
             tostring(source_type), tostring(item_id), tostring(message.item_uid)))
 
     elseif message_id == hash("item_pickup") then
-        ---@type WorldItemInstance|nil
+        ---@type ItemInstance|nil
         local item = nil
         if message.uid then
             -- 🎯 BG3-КАНОН: Перед тем как стереть вещь из МИРА, забираем её Душу (с лутом, если он уже был) 
-            item = world_items_state.get_item_by_uid(message.uid)
-            world_items_state.remove(message.uid)
+            item = items_state.get_item_by_uid(message.uid)
+            items_state.remove(message.uid)
         end
 
         actions_dispatcher.REDUCERS["item_add"]({
@@ -359,7 +361,7 @@ function on_message(self, message_id, message, sender)
             -- и размер сетки из базы (columns * rows). 
             -- И намертво заливаем туда восстановленные шмотки!
             local inventory_model = require("main.modules.models.inventory_model")
-            local total_slots = (db_cfg and db_cfg.columns or 6) * (db_cfg and db_cfg.rows or 4)
+            local total_slots = (db_cfg and db_cfg.properties.columns or 6) * (db_cfg and db_cfg.properties.rows or 4)
 
             local container_instance = inventory_model.new(nil, total_slots)
             container_instance.items = item.items
@@ -373,10 +375,10 @@ function on_message(self, message_id, message, sender)
             msg.post("main:/container_window#gui", "open_container_window", {
                 container_uid = uid,
                 container_id = hash(item_id),
-                container_name = hash(db_cfg and db_cfg.name_key or "container_common_chest_name"),
+                container_name = hash(db_cfg and db_cfg.identity.name_key or "container_common_chest_name"),
                 container_items = item.items,
-                columns = db_cfg and db_cfg.columns or 6,
-                rows = db_cfg and db_cfg.rows or 4,
+                columns = db_cfg and db_cfg.properties.columns or 6,
+                rows = db_cfg and db_cfg.properties.rows or 4,
                 slot_index = slot_index,
                 from_inventory = true,
 

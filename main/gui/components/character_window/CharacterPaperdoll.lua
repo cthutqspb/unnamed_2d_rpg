@@ -127,7 +127,7 @@ function M:handle_right_click(slot_type, x, y)
     msg.post("main:/context_menu_layer#gui", "show_menu", {
         x = x, y = y,
         type = "gui_item",
-        sub_type = item_cfg.type,
+        sub_type = item_cfg.identity.type,
         flags = {
             can_split = can_split,
             is_equipped = true
@@ -186,8 +186,8 @@ function M:refresh()
             local item_cfg = items_db.get_item(data.item_id)
             if item_cfg then
                 gui.set_enabled(slot.icon, true)
-                gui.set_texture(slot.icon, item_cfg.texture)
-                gui.play_flipbook(slot.icon, hash(item_cfg.animation))
+                gui.set_texture(slot.icon, item_cfg.visuals.texture)
+                gui.play_flipbook(slot.icon, hash(item_cfg.visuals.animation))
             end
         else
             gui.set_enabled(slot.icon, false)

@@ -12,8 +12,16 @@ function M.drop_to_world(source, source_slot, item, position)
     local owner_unit = source and source.owner
     local dropper_uid = owner_unit and owner_unit.uid or "player"
 
-    msg.post("game_scene:/world", "spawn_world_item", {
+    local dropper_type = "object"
+    if dropper_uid == "player" then
+        dropper_type = "player"
+    elseif owner_unit and owner_unit.unit_id then
+        dropper_type = "unit"
+    end
+
+    msg.post("game_scene:/world", "spawn_item", {
         source = dropper_uid,
+        source_type = dropper_type,
         item_uid = item.uid,
         item_id = item.item_id,
         amount = item.amount,

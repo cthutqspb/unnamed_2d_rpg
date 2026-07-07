@@ -36,8 +36,8 @@ function M.get_total_stat(stat_name, unit)
             if item and item.item_id then
                 local item_cfg = items_db.get_item(item.item_id)
 
-                if item_cfg and item_cfg.stats and item_cfg.stats[stat_name] then
-                    total = total + item_cfg.stats[stat_name]
+                if item_cfg and item_cfg.combat_stats.attributes and item_cfg.combat_stats.attributes[stat_name] then
+                    total = total + item_cfg.combat_stats.attributes[stat_name]
                 end
             end
         end
@@ -284,7 +284,7 @@ end
 ---@field reason string|nil
 
 ---Универсальный ААА-Валидатор требований предметов для любых существ (Игрока и Мобoв)
----@param item_cfg table Конфиг предмета из items_db
+---@param item_cfg ItemInstance Конфиг предмета из items_db
 ---@param unit UnitInstance|nil RAM-паспорт существа (UnitInstance / карточка из реестра)
 ---@return RequirementResult
 function M.check_item_requirements(item_cfg, unit)
@@ -300,12 +300,12 @@ function M.check_item_requirements(item_cfg, unit)
     }
 
     -- Если у шмотки в базе вообще нет блока required = { level = X } — она доступна сразу!
-    if not item_cfg.required then
+    if not item_cfg.requirements then
         return results
     end
 
     --🦾 Всеядный цикл: Сверяем ТТХ шмотки с RAM-паспортом любого существа
-    for req_id, req_val in pairs(item_cfg.required) do
+    for req_id, req_val in pairs(item_cfg.requirements) do
         local unit_val = 0
         local stat_ok = true
         --print("REQ ID", req_id, req_val)
